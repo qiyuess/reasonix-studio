@@ -324,9 +324,12 @@ the picker and keyboard navigation.
   1 CSS px in both themes at 100% and 125% device scale.
 - The compact account button has no row divider; the footer owns the divider
   above all three controls.
-- Inside the workbench the file tree is the left column and the open file the right, in the dock as
-  well as full width. Choosing a file leaves the tree open; choosing any other surface takes the
-  whole column and folds it. Below 760px the same rule holds with the tree folded by default.
+- Inside the workbench the open file is the canvas and the file tree is a fixed
+  column beside it. At full width the two sit side by side, the canvas first and
+  the tree on the right; docked, they take turns in the one column, so a file
+  picked from the list steps the list aside and closing that file brings it
+  back. Below 760px the same one-column rule holds with the tree folded by
+  default.
 - The docked workbench uses the divider's remembered width. Pointer dragging and
   keyboard resizing share that width; there is no intermediate width preset.
 - Full-workbench view preserves the divider width and keeps the conversation and

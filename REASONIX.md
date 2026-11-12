@@ -482,32 +482,39 @@ host-authority endpoint set.
 ## Local fork: what this fork carries, and how to merge
 
 **A merge touches three things and nothing else: the boot screen, the icon, and
-the workbench's empty canvas.** Every other customisation this fork ever carried
-is **void** — not paused, not awaiting a decision, and not to be reintroduced
-later.
+the workbench's file tree.** Every other customisation this fork ever carried is
+**void** — not paused, not awaiting a decision, and not to be reintroduced later.
 
 | Kept | Where |
 | --- | --- |
 | The quiet boot screen | `desktop/frontend-next/src/boot/intro.ts`, `index.html` |
 | Black-tile / white-glyph icons | `desktop/electron/assets/icon.svg`, `public/icons/icon.svg` |
-| An empty workbench canvas stays empty | `desktop/frontend-next/src/ui/WorkbenchPanel.tsx` |
+| The 2.58 workbench layout, not 2.61's | `studio.css`, `app.css`, `WorkbenchPanel.tsx`, `useTabClose.ts` |
 
-The third is a regression repair. Upstream 2.61 turned the workbench body into
-two side-by-side columns (tree \| canvas), so opening the explorer shows a second,
-empty column on the right — 2.58 did not, because the list covered the panel
-instead of sitting beside it. Upstream filled that column with a "Pick a file on
-the left" prompt; dropping the prompt alone leaves the empty column standing.
+The third is a regression repair, and it is a **layout revert**, not a patch.
+Upstream 2.61 (`2ff95dbc5`, `376376843`) turned the workbench body into two
+side-by-side columns (canvas | tree) in the dock as well as at full width, so
+opening the explorer always leaves a second, empty column standing: with nothing
+picked it is a blank panel, and with a file picked the tree eats a fixed column
+of a docked workbench too narrow to afford one. Two later attempts to soften it
+— dropping the "Pick a file on the left" prompt (`81b212953`) and giving the
+list the whole body while nothing was open (`98386c87f`) — both left 2.61's
+structure in place, so the empty column kept coming back in some state.
 
-This fork instead gives the list the whole body while nothing is open
-(`data-list-only` on `.workbench-body`, styled in `studio.css`): one column, no
-prompt, no resize handle, and the canvas's column returns the moment a file,
-browser, terminal or the changes page is opened. The start menu still appears
-once the explorer is closed. `workbench-launcher-gone` pins both states.
+This fork therefore restores 2.58's shape: the canvas is the body and the tree
+is a `clamp(190px, 25%, 300px)` column **on the right**, and in the dock the two
+take turns in one column (`[data-files]` hides the canvas) so a file picked from
+the list steps the list aside and closing that file brings it back
+(`fromExplorer` in `useTabClose.ts`). The resizable tree column
+(`ExplorerResize.tsx`, `--wb-tree-w`) went with 2.61's structure and is not
+carried.
 
-Those are the only files allowed to differ from the release tag after a merge —
-the four above, plus `WorkbenchPanel.tsx`, the three `data-list-only` rules in
-`studio.css`, and the test that pins them. Anything else left behind is a
-mistake to fix, not a customisation to keep.
+Those are the only things allowed to differ from the release tag after a merge —
+the four files above, the workbench layout rules in `studio.css` and `app.css`,
+`useTabClose.ts`, and the tests that pin the behaviour. Anything else left
+behind is a mistake to fix, not a customisation to keep. Keep the 2.61
+features that are not layout: element picking still passes `editPage` to the
+browser panels, and display math keeps its symmetric padding.
 
 ### Void: every other customisation
 

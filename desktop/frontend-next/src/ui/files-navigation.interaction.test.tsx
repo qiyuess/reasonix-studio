@@ -68,8 +68,6 @@ it.each(["rail", "sidebar", "palette"])("opens only the focused pane's files fro
   expect(filesShown(background)).toBe(false);
   expect(focused().querySelectorAll(".workbench-tab")).toHaveLength(0);
   await userEvent.click(within(focused()).getByRole("button", { name: "README.md" }));
-  expect(filesShown()).toBe(true);
-  await openFiles();
   expect(filesShown()).toBe(false);
   await openFiles();
   expect(filesShown()).toBe(true);
@@ -113,15 +111,14 @@ it("does not replay a Files request into a newly focused session", async () => {
   await palette("文件");
   await userEvent.click(within(focused()).getByRole("button", { name: "README.md" }));
   const previous = focused();
-  const kept = filesShown(previous);
   fireEvent.click(document.querySelector('.ptab[data-pane="r1"]')!);
   expect(focused()).not.toBe(previous);
   expect(filesShown()).toBe(false);
   await palette("文件");
   expect(filesShown()).toBe(true);
-  expect(filesShown(previous)).toBe(kept);
+  expect(filesShown(previous)).toBe(false);
   fireEvent.click(document.querySelector('.ptab[data-pane="r2"]')!);
-  expect(filesShown()).toBe(kept);
+  expect(filesShown()).toBe(false);
 });
 
 const railFiles = () => within(document.querySelector<HTMLElement>(".nav")!).getByRole("button", { name: "文件" });
