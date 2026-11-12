@@ -336,11 +336,16 @@ func (h *Hub) openBound(ctx context.Context, req OpenRequest, inherited *agentco
 		return nil, err
 	}
 	binding := inherited
+	// The transcript is read once here to learn its composition. The same load
+	// is handed to the binding step below, so opening a session does not read a
+	// long log twice around an assembly that already takes seconds.
+	var opened *loadedSession
 	if req.SessionPath != "" {
-		binding, err = loadOpenComposition(root, req.SessionPath)
+		opened, err = loadOpenComposition(root, req.SessionPath)
 		if err != nil {
 			return nil, err
 		}
+		binding = opened.bindingOf()
 	}
 	preset := ""
 	savedModel := ""
@@ -416,7 +421,7 @@ func (h *Hub) openBound(ctx context.Context, req OpenRequest, inherited *agentco
 		return nil, err
 	}
 	if path := strings.TrimSpace(req.SessionPath); path != "" {
-		if status, err := srv.resumeInto(path); err != nil {
+		if status, err := srv.resumeIntoLoaded(path, opened); err != nil {
 			built.Controller.Close()
 			leases.Release()
 			return nil, keepRefusalStatus(status, err)

@@ -86,6 +86,14 @@ func (s *Server) sessionFileInDir(path string) (string, int, error) {
 // status a refusal deserves so both the HTTP handler and a hub opening a
 // session in a new pane refuse for the same reasons.
 func (s *Server) resumeInto(path string) (int, error) {
+	return s.resumeIntoLoaded(path, nil)
+}
+
+// resumeIntoLoaded is resumeInto for an opener that already read the transcript
+// to decide which runtime to assemble. When that read still matches the bytes on
+// disk, it is bound directly: on a long session the log is hundreds of megabytes
+// and reading it a second time costs as much as the assembly between the reads.
+func (s *Server) resumeIntoLoaded(path string, opened *loadedSession) (int, error) {
 	defer backgroundwork.Shared.Foreground()()
 	realPath, status, err := s.sessionFileInDir(path)
 	if err != nil {
@@ -115,7 +123,15 @@ func (s *Server) resumeInto(path string) (int, error) {
 			return http.StatusInternalServerError, fmt.Errorf("session lease: %w", err)
 		}
 	}
-	loaded, err := sessionstore.LoadSession(realPath)
+	var loaded *sessionstore.Session
+	if opened.reusableFor(realPath) {
+		// The opener already read exactly these bytes; binding that read is the
+		// same result the load below would produce, minus the whole-log decode.
+		loaded = opened.session
+	}
+	if loaded == nil {
+		loaded, err = sessionstore.LoadSession(realPath)
+	}
 	if err != nil {
 		// The lease already moved to the target; re-point it at the session the
 		// controller still owns (best-effort).

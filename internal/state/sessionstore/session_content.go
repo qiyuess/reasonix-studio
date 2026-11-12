@@ -140,3 +140,31 @@ func SessionContentModTime(path string) time.Time {
 	}
 	return mod
 }
+
+// SessionContentStamp is the cheap on-disk identity of a session: the size and
+// modification time of both files a load reads, taken without opening either.
+// Two equal stamps mean the bytes a caller already loaded are still the bytes on
+// disk, so a caller that loaded the transcript and then did unrelated work (a
+// runtime assembly, say) can reuse it instead of reading the whole log twice.
+// Any append, rewrite or compaction moves at least one of the four numbers.
+type SessionContentStamp struct {
+	CheckpointSize int64
+	CheckpointMod  int64
+	LogSize        int64
+	LogMod         int64
+}
+
+// SessionContentStampOf answers the stamp for path's transcript as it stands.
+// A missing file leaves its half zero, which no existing file can match.
+func SessionContentStampOf(path string) SessionContentStamp {
+	var st SessionContentStamp
+	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+		st.CheckpointSize, st.CheckpointMod = info.Size(), info.ModTime().UnixNano()
+	}
+	if logPath := store.SessionEventLog(path); logPath != "" {
+		if info, err := os.Stat(logPath); err == nil && !info.IsDir() {
+			st.LogSize, st.LogMod = info.Size(), info.ModTime().UnixNano()
+		}
+	}
+	return st
+}
