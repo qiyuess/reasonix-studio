@@ -604,17 +604,21 @@ export function WorkbenchPanel({
         )}
       </header>
       {closeFailure && <div className="workbench-error workbench-close-error" role="alert">{closeFailure}</div>}
-      <div className="workbench-body" data-files={showFiles && !launcher ? "" : undefined}>
+      {/* LOCAL FORK: with the explorer open and nothing picked yet, the list
+          owns the whole body. Upstream 2.61 keeps the canvas as a second
+          column beside it, so an empty right-hand panel appears the moment the
+          explorer opens — 2.58 had no such panel, because the list covered the
+          canvas instead of sitting beside it. Dropping only the "Pick a file on
+          the left" prompt left that column standing, which is why it read as
+          still broken. */}
+      <div className="workbench-body" data-files={showFiles && !launcher ? "" : undefined}
+        data-list-only={showFiles && !launcher && !active ? "" : undefined}>
         <main className="workbench-canvas">
           {failed && (launcher || active?.kind !== "file") && (
             <div className="workbench-error" role="alert">
               {failed}
             </div>
           )}
-          {/* LOCAL FORK: with the explorer open and nothing picked yet, the
-              canvas stays empty. Upstream 2.61 shows a "Pick a file on the
-              left" prompt here, but the tree beside it already says that, and
-              on a wide window the prompt reads as a second, empty panel. */}
           {(launcher || (!active && !showFiles)) && (
             <WorkbenchLauncher
               key={String(launcher)} focus={launcher}
