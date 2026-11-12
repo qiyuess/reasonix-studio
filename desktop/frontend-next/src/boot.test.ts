@@ -23,7 +23,7 @@ describe("the shipped entry", () => {
   });
 
   it("paints the boot screen itself opaque", () => {
-    expect(inline).toMatch(/\.boot\s*\{[^}]*background:\s*var\(--boot-bg\)/);
+    expect(inline).toMatch(/\.boot\s*\{[^}]*background:\s*var\(--land\)/);
   });
 
   it("marks each real startup step and names the one still pending", () => {
@@ -34,11 +34,12 @@ describe("the shipped entry", () => {
     }
   });
 
-  it("still shows the wordmark when the intro never runs", () => {
-    // The letters start hidden for the intro to take; a bundle that fails to
-    // load must not leave the window a blank night sky.
-    expect(inline).toMatch(/\.bmark \.bl\s*\{[^}]*animation:\s*bootfallback/);
-    expect(inline).toMatch(/\.boot\[data-intro\] \.bmark \.bl\s*\{\s*animation:\s*none/);
+  it("shows the wordmark without the intro script", () => {
+    // The letters are painted by the entry's own rules and never held back for
+    // an animation to take: a bundle that fails to load still leaves the
+    // wordmark on screen, and there is no fallback to arrive late.
+    expect(inline).toMatch(/\.bmark \.bl, \.bmark \.br\s*\{\s*fill:\s*currentColor/);
+    expect(inline).not.toMatch(/\.bmark \.bl\s*\{[^}]*opacity:\s*0/);
   });
 });
 
