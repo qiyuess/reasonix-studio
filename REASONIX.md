@@ -478,3 +478,117 @@ Mach-service lookup are not denied by the current allow-default profile. Prior
 `osascript` and `launchctl submit` probes were inconclusive; no delegation
 effect has been demonstrated. This surface is outside the currently governed
 host-authority endpoint set.
+
+## Local fork: what this fork carries, and how to merge
+
+**A merge touches two things and nothing else: the boot screen and the icon.**
+Every other customisation this fork ever carried is **void** — not paused, not
+awaiting a decision, and not to be reintroduced later.
+
+| Kept | Where |
+| --- | --- |
+| The quiet boot screen | `desktop/frontend-next/src/boot/intro.ts`, `index.html` |
+| Black-tile / white-glyph icons | `desktop/electron/assets/icon.svg`, `public/icons/icon.svg` |
+
+Those four files are the only ones allowed to differ from the release tag after
+a merge. Anything else left behind is a mistake to fix, not a customisation to
+keep.
+
+### Void: every other customisation
+
+Listed so nobody re-adds one believing it was lost. All of these are upstream's
+now, and stay upstream's:
+
+- **The icon column's default** — `navRailMode` returns `"off"` in this fork's
+  old build; upstream returns `"on"`. Upstream's stands.
+- **The session filters' inset** — the measured `0 3.95px 8px -8.5px` alignment
+  is gone; upstream's `margin: 0 0 8px` stands.
+- **Project rows** — the traced ZCode folder outline is gone; upstream's
+  `<StudioIcon name="folder" />` stands.
+- **The wordmark lockup** — the 2.40.0 stacked lockup (21px indent, `.21em`) is
+  gone; upstream's single-row flex with its outlined `studio` badge stands,
+  guarded by `styles/brand-badge.test.ts`.
+- **Sidebar head and foot** — no-new-session-button, no-search-entry, the three
+  centred footer icons and the hidden 连接与机器 row are all gone. Sidebar head
+  and foot are upstream's.
+- **The cancelled-job ordering repair** in `internal/tools/jobs/run.go` — dropped
+  at 2.58.0. A cancelled turn waits for the interrupted job's cleanup before the
+  queue dispatches, so "立即发送" waits for the running action, as upstream does.
+
+Nothing on that list returns without replacing this section outright.
+
+### The merge, in order
+
+1. `git fetch --tags upstream` — tags, not just the branch. Read the version
+   from `git tag --list 'studio-v*' --sort=-v:refname | head -1`.
+2. **Merge that release tag**, not `upstream/studio`. The branch moves on between
+   releases; a build is supposed to match a release.
+3. If `pnpm-lock.yaml` moved, `pnpm install` **before** running any gate —
+   otherwise a missing module reads as a code failure. Cost one round already.
+4. Resolve conflicts by the table above: kept items keep the fork's version,
+   **everything else takes upstream's side without further debate**.
+5. Gates: `pnpm typecheck`, `pnpm test`, `pnpm build`, `go build ./...`.
+6. Package **with the upstream version number itself** (`2.53.0`, not `2.53.0.1`)
+   and push.
+
+### What goes wrong when a customisation is dropped
+
+Deleting a customisation is not just deleting its markup. Three things have to
+move with it, or the tree ends up worse than either side:
+
+- **Fork-only stylesheets that override upstream by load order.** `railfoot.css`
+  did this: loaded after `studio.css`, its `.railfoot { justify-content: center }`
+  would have flattened upstream's labelled column even after the footer went
+  back to upstream's markup. It was deleted with the customisation.
+- **Fork-only tests that pin the dropped value.** `brand-lockup.test.ts` asserted
+  the 2.40.0 grid and the 21px indent; it was deleted, and upstream's
+  `brand-badge.test.ts` was taken back in its place.
+- **Upstream tests this fork had rewritten** to match the old shape —
+  `navrail`, `files-navigation`, `session-new`, `sidebar-machines`, `Account`.
+  Each was replaced with `git show <tag>:<path>`, not hand-edited.
+
+Also check for `LOCAL FORK:` comments that outlive their customisation; a comment
+pointing at a deleted stylesheet is worse than no comment. After the two kept
+customisations, `grep -rn "LOCAL FORK" desktop/frontend-next/src/` returns
+**nothing** — neither kept item needs a marker, because neither departs from
+upstream's markup.
+
+Done once, in `7f996b8b7`, when six customisations became two.
+
+## Local fork: the icon
+
+**Every icon this fork ships is black-on-white** — tile pure `#000000`, glyph
+pure `#ffffff`, built the way `zai-org/ZCode`'s mark is. The shape is the
+project's own R and whale; only the colours differ. Any new place that needs
+the mark derives from these sources rather than drawing its own.
+
+Two source SVGs. **No icon file is ever hand-edited** — the rasterised ones are
+outputs, and each script overwrites them on its next run:
+
+| What | Source | Regenerate with |
+| --- | --- | --- |
+| Desktop, taskbar, installer, tray | `desktop/electron/assets/icon.svg` | `cd desktop/electron && node packaging/icons.js` |
+| Web and PWA | `desktop/frontend-next/public/icons/icon.svg` | `cd desktop/frontend-next && node tools/icons.mjs` |
+
+The first script is upstream's: it writes `icon.png`, `icon.ico` (8 sizes),
+`icon.icns` (10 slots) and `tray*.png` (7 scales). The second is this fork's —
+upstream kept those four PNGs by hand, so `tools/icons.mjs` was added to give
+them the same one-source treatment.
+
+Changing the icon means editing the source SVG, running its script, and
+**repackaging**: an installer built before that still carries the old icon.
+
+**Version of a fork build: 直接沿用上游版本号，不加后缀。** 官方 tag
+`studio-v2.53.0` → 本 fork 也打 `2.53.0`。版本经 `REASONIX_VERSION` 与
+`-c.extraMetadata.version` 注入，因此没有任何受版本控制的文件带着它。
+（早先用过 `官方版本号.1`，从 `2.53.0` 起不再加。）
+
+**每次合并上游必须先拉 tag**：`git fetch --tags upstream`，再读
+`git tag --list 'studio-v*' --sort=-v:refname | head -1` 取官方版本号。
+版本号就是从那个 tag 来的；只拉分支会让本地 tags 停在旧值——踩过一次，
+把官方的 `2.41.0` 读成了 `2.39.0`，打出来的包版本号是错的。
+
+**参照 ZCode 时只看项目副本**：https://github.com/zai-org/ZCode 的克隆放在
+`tmp/zcode-repo`（`cd tmp && git clone --depth 1 https://github.com/zai-org/ZCode.git zcode-repo`）。
+不要翻本机安装目录里的 `app.asar`——那是打包产物，只有压缩后的代码，读不出源码意图，
+也查不到设计令牌与组件结构；需要「按 ZCode 的样式做」时，依据必须来自项目副本。

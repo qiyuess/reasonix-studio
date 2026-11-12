@@ -110,6 +110,17 @@ export function usePaint(hub: HubPort, runtimes: RuntimeView[], running: boolean
       // but let the selected pack supply its documented colour/background
       // tokens immediately.
       applyThemePack(pack, now as "light" | "dark", running, contrast);
+      // The boot screen paints before this effect can run, so all it can be
+      // told is what the last paint looked like: the resolved page and ink are
+      // kept for the next window to open on. A pack that names its own colours
+      // is therefore followed on the launch after the one that chose it.
+      {
+        const cs = getComputedStyle(document.documentElement);
+        const page = cs.getPropertyValue("--page").trim();
+        const ink = cs.getPropertyValue("--text").trim();
+        if (page) localStorage.setItem("rx-page", page);
+        if (ink) localStorage.setItem("rx-ink", ink);
+      }
       // After the pack, never before: size and type are the reader's, and a
       // palette someone else authored does not get to overrule them.
       applyLook(look, running);
