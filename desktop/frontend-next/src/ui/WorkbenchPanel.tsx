@@ -611,9 +611,10 @@ export function WorkbenchPanel({
               {failed}
             </div>
           )}
-          {!launcher && !active && showFiles && (
-            <WorkbenchState icon="file" title={t("workbench.pick_a_file")} detail={t("workbench.pick_a_file_detail")} />
-          )}
+          {/* LOCAL FORK: with the explorer open and nothing picked yet, the
+              canvas stays empty. Upstream 2.61 shows a "Pick a file on the
+              left" prompt here, but the tree beside it already says that, and
+              on a wide window the prompt reads as a second, empty panel. */}
           {(launcher || (!active && !showFiles)) && (
             <WorkbenchLauncher
               key={String(launcher)} focus={launcher}

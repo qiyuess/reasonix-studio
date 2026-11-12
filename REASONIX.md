@@ -481,18 +481,30 @@ host-authority endpoint set.
 
 ## Local fork: what this fork carries, and how to merge
 
-**A merge touches two things and nothing else: the boot screen and the icon.**
-Every other customisation this fork ever carried is **void** — not paused, not
-awaiting a decision, and not to be reintroduced later.
+**A merge touches three things and nothing else: the boot screen, the icon, and
+the workbench's empty canvas.** Every other customisation this fork ever carried
+is **void** — not paused, not awaiting a decision, and not to be reintroduced
+later.
 
 | Kept | Where |
 | --- | --- |
 | The quiet boot screen | `desktop/frontend-next/src/boot/intro.ts`, `index.html` |
 | Black-tile / white-glyph icons | `desktop/electron/assets/icon.svg`, `public/icons/icon.svg` |
+| An empty workbench canvas stays empty | `desktop/frontend-next/src/ui/WorkbenchPanel.tsx` |
 
-Those four files are the only ones allowed to differ from the release tag after
-a merge. Anything else left behind is a mistake to fix, not a customisation to
-keep.
+The third is a regression repair. Upstream 2.61 turned the workbench body into
+two side-by-side columns (tree \| canvas) and added a "Pick a file on the left"
+prompt that fills the canvas until a file is picked. The tree beside it already
+says that, and on a wide window the prompt reads as a second, empty panel
+appearing next to the explorer — 2.58 did not have it, because the list used to
+cover the canvas instead of sitting beside it. This fork drops that one prompt
+so the canvas stays empty until something is actually opened; the start menu
+still appears when the explorer is closed, and `workbench-launcher-gone`
+asserts the absence.
+
+Those are the only files allowed to differ from the release tag after a merge —
+the four above plus `WorkbenchPanel.tsx` and the test that pins it. Anything
+else left behind is a mistake to fix, not a customisation to keep.
 
 ### Void: every other customisation
 
