@@ -352,6 +352,16 @@ func (h *Hub) openBound(ctx context.Context, req OpenRequest, inherited *agentco
 	if settings != nil {
 		savedModel = strings.TrimSpace(settings.Model)
 		req.Model, preset = savedModel, settings.AgentPreset
+	} else if strings.TrimSpace(req.Model) == "" && req.SessionPath != "" {
+		// A reopened session runs on the model it was left on. Reading that here
+		// is what keeps a long session from being assembled twice: assembling the
+		// default model first and then switching (as resumeInto's adoption does)
+		// builds a whole runtime, and takes a whole-transcript snapshot, only to
+		// throw the first one away. A model the catalog no longer resolves yields
+		// the empty value, so the default applies exactly as before.
+		if cfg, cfgErr := config.LoadForRootReadOnly(root); cfgErr == nil {
+			req.Model = boot.ModelForResume("", req.SessionPath, cfg)
+		}
 	}
 	bc := NewBroadcaster()
 	paneSink := h.decorateSink(bc)
