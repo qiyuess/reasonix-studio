@@ -73,7 +73,6 @@ export const WORKBENCH: Messages = {
   "workbench.only_the_first_files_are": { zh: "只显示前面的文件", en: "Only the first files are shown" },
   "workbench.only_the_most_recent_commits": { zh: "只显示最近的提交", en: "Only the most recent commits are shown" },
   "workbench.open_in_external_browser": { zh: "在外部浏览器打开", en: "Open in external browser" },
-  "workbench.open_in_the_workbench": { zh: "在工作台打开", en: "Open in the workbench" },
   "workbench.open_page": { zh: "打开网页", en: "Open page" },
   "workbench.open_the_project_in_another": { zh: "用其他程序打开项目", en: "Open the project in another program" },
   "workbench.open_the_workspace_in_a": { zh: "在代码编辑器中打开工作区", en: "Open the workspace in a code editor" },

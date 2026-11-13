@@ -4,7 +4,6 @@ import { StudioIcon } from "./StudioIcon";
 export function WorkbenchLauncher({ changes, focus = false, onFiles, onBrowser, onTerminal, recent = [], onOpenFile }: { changes: number; focus?: boolean; onFiles: () => void; onBrowser: () => void; onTerminal?: () => void; recent?: string[]; onOpenFile?: (path: string) => void }) {
   return (
     <div className="workbench-launcher" role="group" aria-label={t("common.start")}>
-      <p className="workbench-launcher-title">{t("workbench.open_in_the_workbench")}</p>
       <button autoFocus={focus} aria-label={t("workbench.explorer")} data-action="workbench.launch-files" onClick={onFiles}>
         <StudioIcon name="folder" />
         <span><b>{t("workbench.explorer")}{changes > 0 && <small>{changes}</small>}</b><i>{t("workbench.changes_history_and_files")}</i></span>
