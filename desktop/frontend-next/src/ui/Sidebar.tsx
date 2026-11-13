@@ -17,7 +17,6 @@ import { remoteProjects } from "./remoteProjects";
 import { StudioIcon } from "./StudioIcon";
 import { UpdateNotice } from "./UpdateNotice";
 import { useHiddenHosts } from "../state/remotehide";
-import { useSidebarFolds } from "../state/sidebarFolds";
 import { chord } from "./keys";
 import { Palette, type Command } from "./Palette";
 import { Workspaces } from "./Workspaces";
@@ -142,7 +141,9 @@ export function Sidebar({
   const [recent, setRecent] = useState(false);
   const [located, setLocated] = useState<{ target: string } | null>(null);
   const locatedOnce = useRef<typeof located>(null);
-  const [folded, setFolded] = useSidebarFolds();
+  // Cold start folds every project: this set holds the ones opened during this
+  // session only, so nothing carries over to the next launch.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const hiddenHosts = useHiddenHosts();
   // Hidden hosts stay manageable in settings but do not contribute project rows.
@@ -232,10 +233,12 @@ export function Sidebar({
   );
 
   const onFold = (root: string, shut: boolean) => {
-    const next = new Set(folded);
-    if (shut) next.add(root);
-    else next.delete(root);
-    setFolded(next);
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (shut) next.delete(root);
+      else next.add(root);
+      return next;
+    });
   };
   const foldable = [
     ...tree.filter((ws) => ws.sessions.length || ws.remaining).map((ws) => ws.root),
@@ -243,9 +246,9 @@ export function Sidebar({
       .filter((ws) => ws.sessions.length || ws.total || !remoteTrees[host.name] || runtimes.some((rt) => rt.host === host.name && workspaceContains(ws, rt.root)))
       .map((ws) => remoteProjectKey(host.name, ws.root))),
   ];
+  const folded = new Set(foldable.filter((key) => !expanded.has(key)));
   const allFolded = foldable.length > 0 && foldable.every((key) => folded.has(key));
-  const toggleAll = () => setFolded(allFolded
-    ? new Set([...folded].filter((key) => !foldable.includes(key))) : new Set([...folded, ...foldable]));
+  const toggleAll = () => setExpanded(allFolded ? new Set(foldable) : new Set());
 
   const pickRecent = async (host: string, workspace: TreeWorkspace, session: TreeSession) => {
     const held = sessionRuntime(session, runtimes, host);

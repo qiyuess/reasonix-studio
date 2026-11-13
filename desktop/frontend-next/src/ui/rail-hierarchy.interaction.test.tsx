@@ -43,7 +43,7 @@ it("keeps scope filters quiet without showing local-only totals for a unified li
   for (const value of ["all", "live", "pinned", "archived"]) expect(scope(value).querySelector("b")).toBeNull();
 });
 
-it("starts directly with projects instead of a local machine parent", () => {
+it("starts directly with projects instead of a local machine parent", async () => {
   draw();
   expect(screen.queryByRole("treeitem", { name: /这台机器/ })).toBeNull();
   expect(screen.getByRole("button", { name: "打开项目" })).toBeTruthy();
@@ -51,18 +51,20 @@ it("starts directly with projects instead of a local machine parent", () => {
   expect(project.getAttribute("aria-level")).toBe("1");
   expect(project.querySelector(".studio-icon")).toBeTruthy();
   expect(project.querySelector(".rowcount")).toBeNull();
+  await userEvent.click(project);
   expect(document.querySelector('.sessrow')?.getAttribute("aria-level")).toBe("2");
 });
 
 it("draws no session count on a project row, folded or open", async () => {
   draw();
-  await userEvent.click(screen.getByRole("button", { name: "收起所有项目" }));
   expect(document.querySelector(".wsrow .rowcount")).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "展开所有项目" }));
+  expect(document.querySelector(".wsrow .rowcount")).toBeNull();
 });
 
 it("collapses and expands local and SSH projects together from one heading control", async () => {
   draw(true);
+  await userEvent.click(screen.getByRole("button", { name: "展开所有项目" }));
   expect(screen.getByText("first")).toBeTruthy();
   expect(screen.getByText("Remote task")).toBeTruthy();
   await userEvent.click(screen.getByRole("button", { name: "收起所有项目" }));
@@ -75,7 +77,6 @@ it("collapses and expands local and SSH projects together from one heading contr
 
 it("reveals search results after collapsing everything and disables a misleading fold action", async () => {
   draw(true);
-  await userEvent.click(screen.getByRole("button", { name: "收起所有项目" }));
   await userEvent.type(screen.getByRole("searchbox", { name: "搜索会话 / 项目" }), "Remote task");
   expect(screen.getByText("Remote task")).toBeTruthy();
   expect((screen.getByRole("button", { name: "收起所有项目" }) as HTMLButtonElement).disabled).toBe(true);
@@ -83,6 +84,7 @@ it("reveals search results after collapsing everything and disables a misleading
 
 it("includes remote runtime-only projects in collapse all", async () => {
   draw(true, [{ id: "new", base: "/r/new", host: "gpu", root: "/srv/new", name: "Fresh task" }]);
+  await userEvent.click(screen.getByRole("button", { name: "展开所有项目" }));
   expect(screen.getByRole("treeitem", { name: "Fresh task" })).toBeTruthy();
   await userEvent.click(screen.getByRole("button", { name: "收起所有项目" }));
   expect(screen.queryByRole("treeitem", { name: "Fresh task" })).toBeNull();
