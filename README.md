@@ -2,8 +2,10 @@
   <img src="docs/logo-ghost-wave-effect.svg" alt="Reasonix" width="360"/>
 </p>
 
-> [!WARNING]
-> **Reasonix is no longer maintained as of 2026-11-12.** The final release is v2.61.0; there will be no further releases, fixes or issue triage. The project is MIT-licensed and forks are welcome. See the [announcement](https://github.com/esengine/DeepSeek-Reasonix/issues/15109).
+> [!NOTE]
+> **Reasonix Studio, continued** — a personal, continued fork of [DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix) on the `studio` (2.x) line.
+>
+> Upstream stopped at v2.61.0 on 2026-11-11. This repository takes that release as its base — one commit, that tree, unmodified — and carries its own work from there.
 
 <p align="center">
   <strong>English</strong>
@@ -17,24 +19,26 @@
   <a href="./docs/EXTENSIONS.md">Extensions</a>
   &nbsp;·&nbsp;
   <a href="./docs/SPEC.md">Spec</a>
-  &nbsp;·&nbsp;
-  <a href="https://esengine.github.io/DeepSeek-Reasonix/">Website</a>
 </p>
 
-<p align="center">
-  <a href="https://github.com/esengine/DeepSeek-Reasonix/releases?q=studio-v&expanded=true"><img src="https://img.shields.io/github/v/release/esengine/DeepSeek-Reasonix.svg?filter=studio-v*&include_prereleases&style=flat-square&color=8250df&labelColor=161b22&label=studio%202.x" alt="Reasonix Studio 2.x"/></a>
-  <a href="https://www.npmjs.com/package/reasonix"><img src="https://img.shields.io/npm/v/reasonix.svg?style=flat-square&color=cb3837&labelColor=161b22&logo=npm&logoColor=white" alt="npm version"/></a>
-  <a href="https://github.com/esengine/DeepSeek-Reasonix/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/esengine/DeepSeek-Reasonix/ci.yml?style=flat-square&label=ci&labelColor=161b22&logo=githubactions&logoColor=white" alt="CI"/></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/reasonix.svg?style=flat-square&color=8b949e&labelColor=161b22" alt="license"/></a>
-  <a href="https://www.npmjs.com/package/reasonix"><img src="https://img.shields.io/npm/dm/reasonix.svg?style=flat-square&color=3fb950&labelColor=161b22&label=downloads" alt="downloads"/></a>
-  <a href="https://github.com/esengine/DeepSeek-Reasonix/stargazers"><img src="https://img.shields.io/github/stars/esengine/DeepSeek-Reasonix.svg?style=flat-square&color=dbab09&labelColor=161b22&logo=github&logoColor=white" alt="GitHub stars"/></a>
-  <a href="https://atomgit.com/esengine/DeepSeek-Reasonix"><img src="https://atomgit.com/esengine/DeepSeek-Reasonix/star/badge.svg" alt="AtomGit stars"/></a>
-  <a href="https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors"><img src="https://img.shields.io/github/contributors/esengine/DeepSeek-Reasonix.svg?style=flat-square&color=bc8cff&labelColor=161b22&logo=github&logoColor=white" alt="contributors"/></a>
-</p>
+<br/>
+
+## What this repository changes
+
+The engine is kept as upstream left it. The work is in Reasonix Studio — the desktop app — and it is small and scoped:
+
+- **The workbench.** Restored to 2.58's single-column shape after 2.61 split the body in two: the canvas is the body and the file tree is a column on the right, so a docked workbench is not left with an empty second panel. The tab strip then moved onto the window bar, sharing one hairline with the conversation below it.
+- **Reaching a tab.** A picker at the head of the strip lists every open tab, so a tab hidden past the scroll or closed behind another is one click away instead of a scroll and a guess.
+- **Tab titles follow the page.** A tab is named by the page's own title, re-read as the page renames itself — after load, on a script's rewrite, and on a route change that loads nothing. A page nobody handed to the agent used to stay named by its address.
+- **Launch and layout details.** The project list starts folded on a cold launch, the launcher sits centred without its title, and the boot screen is a quiet one that follows the theme.
+- **Small bug fixes.** Narrow defects in the desktop shell and the session store, fixed one at a time, each with the test that covers it.
+
+Changes stay small and reviewable. Nothing here is a rewrite.
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/27020?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-27020" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/27020/monthly?language=Go" alt="esengine/DeepSeek-Reasonix | Trendshift" width="250" height="55"/></a>
-  <a href="https://trendshift.io/repositories/27020?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-27020" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/27020" alt="esengine/DeepSeek-Reasonix | Trendshift" width="250" height="55"/></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/releases"><img src="https://img.shields.io/github/v/release/qiyuess/reasonix-studio.svg?style=flat-square&color=8250df&labelColor=161b22&label=studio" alt="Release"/></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-8b949e.svg?style=flat-square&labelColor=161b22" alt="license"/></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/stargazers"><img src="https://img.shields.io/github/stars/qiyuess/reasonix-studio.svg?style=flat-square&color=dbab09&labelColor=161b22&logo=github&logoColor=white" alt="GitHub stars"/></a>
 </p>
 
 <br/>
@@ -42,7 +46,6 @@
 <p align="center"><strong>Open source · MIT · runs on your computer, model of your choice</strong></p>
 <h3 align="center">An open-source coding agent for your terminal, desktop, browser and editor.</h3>
 <p align="center">It reads your project, edits files and runs commands and tests. Have it ask before each step, or work on its own within limits you set. Files its edit tools changed can be rewound. New here? Start with the Studio desktop app.</p>
-<p align="center">Maintained by <strong>Huahui Yu</strong>.</p>
 
 <br/>
 
@@ -62,7 +65,7 @@ You pick the model: a DeepSeek preset is built in, any OpenAI-compatible service
 
 Download, add a model key, open a project. New here? Start with the Studio desktop app.
 
-1. Download and install the desktop app, Reasonix Studio, from the [releases page](https://github.com/esengine/DeepSeek-Reasonix/releases?q=studio-v&expanded=true).
+1. Download and install the desktop app, Reasonix Studio, from the [releases page](https://github.com/qiyuess/reasonix-studio/releases).
 2. Open it and enter your model provider and key when asked.
 3. Open your project folder and write what you want, for example "add retry on failure to the http client".
 4. At the level you chose, it stops and asks before anything that needs your say-so. Allow it to continue, or refuse.
@@ -82,7 +85,7 @@ All four are the same program underneath. What follows is for advanced users and
 
 DeepSeek Harness (`dsh`) can hand a task to Reasonix as a subagent over ACP. This repository publishes a plugin index for it:
 
-1. Run `reasonix setup` on the machine that runs `dsh`. In the DSH Web UI turn on Custom plugin markets (Plugins, More) and add this index in the Discover tab: `https://raw.githubusercontent.com/esengine/DeepSeek-Reasonix/studio/integrations/dsh-plugin/market-index.json`
+1. Run `reasonix setup` on the machine that runs `dsh`. In the DSH Web UI turn on Custom plugin markets (Plugins, More) and add this index in the Discover tab: `https://raw.githubusercontent.com/qiyuess/reasonix-studio/main/integrations/dsh-plugin/market-index.json`
 2. Install "Reasonix subagent" from it.
 3. Open the plugin's page and turn its switch on. While it is off the model has no `reasonix` tool and may run `reasonix -p` in its own shell, which looks like a delegation and is not one.
 
@@ -90,26 +93,9 @@ Setup details, the permission policy and limits are in [Using Reasonix from Deep
 
 ## Versions
 
-Reasonix ships on two lines. See the [version roadmap announcement](https://github.com/esengine/DeepSeek-Reasonix/discussions/10748) for the reasoning behind the split.
+This repository continues from upstream's **v2.61.0** — the release at which upstream declared maintenance stopped. Releases move along this repository's own `studio` line, numbered from **2.70.0**; the jump is deliberate, so a build never sorts behind the official 2.61.0 the in-app updater still offers.
 
-| Line | Branch | Status | Get it |
-| --- | --- | --- | --- |
-| **Reasonix 2.x** | `studio` (this branch) | Active development | [Studio releases](https://github.com/esengine/DeepSeek-Reasonix/releases?q=studio-v&expanded=true) |
-| **Reasonix 1.x** | [`main-v2`](https://github.com/esengine/DeepSeek-Reasonix/tree/main-v2) | Maintenance / stable | `npm i -g reasonix` · [desktop download](https://reasonix.io/?download=desktop#start) |
-
-- **Want something stable?** Stay on 1.x. It keeps receiving bug fixes,
-  provider/API compatibility, updater and security fixes; its core architecture
-  is no longer being extended.
-- **Want the new architecture?** Use 2.x Reasonix Studio. It is still moving
-  quickly; reports are welcome.
-
-Valuable fixes, tests and behaviour from 1.x are reviewed one by one and ported
-or reimplemented on 2.x where they fit the new architecture.
-
-- [Moving from 1.x to 2.x](./docs/MIGRATING.md): what the two lines share, and
-  how to run both on one machine without losing sessions.
-- [2.x roadmap](./docs/ROADMAP.md): what 2.x still has to deliver, how it ships,
-  and the decisions still open.
+Releases are published from this repository's [releases page](https://github.com/qiyuess/reasonix-studio/releases). v2.61.0 remains the last upstream release, and `main-v2` — the 1.x line — is not part of this repository.
 
 ## Features
 
@@ -132,15 +118,14 @@ Technical highlights for advanced users.
 
 ## Install
 
-This branch is **Reasonix 2.x**. Its desktop app is Reasonix Studio; the CLI,
-Studio, and editor integrations all run the same local Reasonix engine.
+The desktop app is Reasonix Studio; the CLI, Studio, and editor integrations all
+run the same local Reasonix engine.
 
-### Reasonix Studio (2.x)
+### Reasonix Studio
 
 Download the package for your platform from the latest
-[Studio release](https://github.com/esengine/DeepSeek-Reasonix/releases?q=studio-v&expanded=true)
-(tagged `studio-v2.*`; candidates such as `-rc.N` are marked as
-pre-releases):
+[release](https://github.com/qiyuess/reasonix-studio/releases)
+(tagged `studio-v2.7x.*`):
 
 | Platform | Package | Architecture |
 | --- | --- | --- |
@@ -148,31 +133,14 @@ pre-releases):
 | Windows | Installer `-installer.exe` or portable `.zip` | x64 |
 | Linux | `.deb`, `.rpm`, or `.AppImage` (download only) | x64 (`amd64`) / ARM64 (`arm64`, aarch64) |
 
-Every package ships with a `.minisig` signature, and the release carries
-`SHA256SUMS`. Once installed, Studio updates itself in place.
-
-The same release also carries the 2.x `reasonix` CLI as archives for
+The same release also carries the `reasonix` CLI as archives for
 `darwin|linux|windows × amd64|arm64`.
-
-### Reasonix 1.x (stable)
-
-The 1.x CLI installs through npm on any supported platform, or Homebrew on
-macOS:
-
-```sh
-npm i -g reasonix                  # any OS; pulls the prebuilt native binary
-brew install esengine/reasonix/reasonix   # macOS
-```
-
-The 1.x desktop app is on the
-[official download page](https://reasonix.io/?download=desktop#start). Windows
-installers are code-signed with a Certum code-signing certificate.
 
 ### VS Code extension
 
 The extension does not bundle the CLI; it starts your local `reasonix acp`
 backend and adds native chat, editor context, tool-call approvals, model
-selection, and workspace sessions. Install the 1.x CLI first.
+selection, and workspace sessions. Install the CLI first.
 
 - **VS Code:** [install from Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=SivanLiu.reasonix-agent)
 - **VSCodium / Eclipse Theia:** [install from Open VSX Registry](https://open-vsx.org/extension/SivanLiu/reasonix-agent)
@@ -180,12 +148,9 @@ selection, and workspace sessions. Install the 1.x CLI first.
 
 ### Build from source
 
-Clone the repository; `studio` builds 2.x and `main-v2` builds 1.x:
-
 ```sh
-git clone https://github.com/esengine/DeepSeek-Reasonix.git
-cd DeepSeek-Reasonix
-git switch studio
+git clone https://github.com/qiyuess/reasonix-studio.git
+cd reasonix-studio
 ```
 
 #### CLI
@@ -252,48 +217,12 @@ For advanced CLI usage and configuration, see the **[CLI reference](./docs/CLI.m
   [Extension Protocol](./docs/EXTENSION_PROTOCOL.md) ·
   [Go SDK and starter](./sdk/go/README.md)
 
-## Star History
+## Credits
 
-<a href="https://www.star-history.com/?repos=esengine%2FDeepSeek-Reasonix&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/esengine/DeepSeek-Reasonix/star-history/assets/star-history/star-history-dark.svg" />
-   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/esengine/DeepSeek-Reasonix/star-history/assets/star-history/star-history-light.svg" />
-   <img alt="Star History Chart" src="https://raw.githubusercontent.com/esengine/DeepSeek-Reasonix/star-history/assets/star-history/star-history-light.svg" />
- </picture>
-</a>
-
-<br/>
-
-## Acknowledgments
-
-A small list of folks whose work has shaped Reasonix the most — the current top
-20 contributors by commit count. The full contributor graph is on
-[GitHub](https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors?all=1).
-
-<!-- reasonix-top-contributors:start -->
-| Contributor | Contributor | Contributor | Contributor |
-| --- | --- | --- | --- |
-| [**SivanCola**](https://github.com/SivanCola) | [**KHG420**](https://github.com/KHG420) | [**ttmouse**](https://github.com/ttmouse) | [**chuiwenwei**](https://github.com/chuiwenwei) |
-| [**lifu963**](https://github.com/lifu963) | [**XTLine**](https://github.com/XTLine) | [**HUQIANTAO**](https://github.com/HUQIANTAO) | [**xxoingr**](https://github.com/xxoingr) |
-| [**Harbor404**](https://github.com/Harbor404) | [**GTC2080**](https://github.com/GTC2080) | [**mchenziyi**](https://github.com/mchenziyi) | [**Li-Charles-One**](https://github.com/Li-Charles-One) |
-| [**light-front-theory**](https://github.com/light-front-theory) | [**imcreazy**](https://github.com/imcreazy) | [**eghrhegpe**](https://github.com/eghrhegpe) | [**noreply**](https://github.com/noreply) |
-| [**par73e**](https://github.com/par73e) | [**Bernardxu123**](https://github.com/Bernardxu123) | [**lancy69**](https://github.com/lancy69) | [**Guan0923**](https://github.com/Guan0923) |
-<!-- reasonix-top-contributors:end -->
-
-Special thanks to [**Bernardxu123**](https://github.com/Bernardxu123) for designing the project logo and intro video.
-
-<p align="center">
-  <a href="https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=esengine/DeepSeek-Reasonix&max=100&columns=12" alt="Contributors to esengine/DeepSeek-Reasonix" width="860"/>
-  </a>
-</p>
-
-<br/>
-
----
+Engine, desktop app and most of this documentation come from
+[esengine/DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix), under the MIT license.
+The logo and the intro video are by [**Bernardxu123**](https://github.com/Bernardxu123).
 
 <p align="center">
   <sub>MIT — see <a href="./LICENSE">LICENSE</a></sub>
-  <br/>
-  <sub>Built by the community at <a href="https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors">esengine/DeepSeek-Reasonix</a></sub>
 </p>
