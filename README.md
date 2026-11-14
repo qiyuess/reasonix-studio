@@ -3,7 +3,7 @@
 </p>
 
 > [!NOTE]
-> 本仓库是[DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix) 的个人 fork。
+> 本仓库是[DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix) 项目的个人 fork。
 >
 > 上游在 于2026-11-11 停在 v2.61.0。本仓库从这里继续，对 Reasonix Studio 做小范围的改动。
 > 部分功能引用以下仓库
