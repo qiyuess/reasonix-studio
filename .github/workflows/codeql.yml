@@ -4,19 +4,18 @@ on:
   # Docs/release-notes/root-Markdown changes carry no analyzable code; the
   # weekly cron keeps the full scan cadence regardless.
   push:
-    branches: ["main-v2", "studio"]
+    branches: ["studio"]
     paths-ignore:
       - 'docs/**'
       - 'release-notes/**'
       - '*.md'
   pull_request:
-    branches: ["main-v2", "studio"]
+    branches: ["studio"]
     paths-ignore:
       - 'docs/**'
       - 'release-notes/**'
       - '*.md'
-  # A schedule runs only from the default branch, so the weekly scan checks out
-  # both lines itself: 1.x is in maintenance, and security is part of it.
+  # A schedule runs only from the default branch, and this repository has one.
   schedule:
     - cron: "27 3 * * 1"
 
@@ -33,8 +32,8 @@ jobs:
       fail-fast: false
       matrix:
         language: [go, javascript-typescript, actions]
-        # Empty means "the ref this event is about"; a scheduled run names each line.
-        branch: ${{ fromJSON(github.event_name == 'schedule' && '["main-v2", "studio"]' || '[""]') }}
+        # Empty means "the ref this event is about", which is what every event here is.
+        branch: ${{ fromJSON(github.event_name == 'schedule' && '["studio"]' || '[""]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

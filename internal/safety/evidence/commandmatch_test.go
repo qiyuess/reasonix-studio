@@ -10,8 +10,8 @@ func TestCommandMatches(t *testing.T) {
 		want  bool
 	}{
 		{"exact", "go test ./...", "go test ./...", true},
-		{"cd prefix dropped", "git merge upstream/main-v2 --ff-only",
-			"cd /repo && git merge upstream/main-v2 --ff-only", true},
+		{"cd prefix dropped", "git merge upstream/studio --ff-only",
+			"cd /repo && git merge upstream/studio --ff-only", true},
 		{"flag drift inside compound", "rm -v scripts/test_lines.txt && ls scripts/test_lines.txt 2>&1",
 			"rm -v scripts/test_lines.txt && ls -la scripts/test_lines.txt 2>&1 || true", true},
 		{"quote style drift", `test -f test-tools.md && echo 'still exists' || echo 'deleted'`,

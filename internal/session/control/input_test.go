@@ -1319,7 +1319,7 @@ func TestSubmitRememberCommandQuickAddsMemory(t *testing.T) {
 // mean "may submit the next turn". A submit raced into that window is
 // dropped, and the next turn's TurnDone never arrives; under parallel test
 // load the window is wide enough to hit (observed in CI and on a clean
-// main-v2 worktree). Poll the same running||finishing gate the controller
+// worktree). Poll the same running||finishing gate the controller
 // admission checks.
 func waitIdle(t *testing.T, c *Controller) {
 	t.Helper()

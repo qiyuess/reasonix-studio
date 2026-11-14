@@ -454,7 +454,7 @@ for (const [name, env] of [
   ["the actor variable is malformed", { RELEASE_TAG_ACTOR: "a b" }],
   ["the run is on another repository", { GITHUB_REPOSITORY: "fork/DeepSeek-Reasonix" }],
   ["the run is on a feature branch", { GITHUB_REF: "refs/heads/feature" }],
-  ["the run is on main-v2", { GITHUB_REF: "refs/heads/main-v2" }],
+  ["the run is on an unrelated branch", { GITHUB_REF: "refs/heads/main" }],
   ["the studio tag moved off the approved commit", { STUB_TAG_SHA: "c".repeat(40) }],
   ["the commit is not on studio history", { STUB_COMPARE: "diverged" }],
   ["the approved sha is not a full sha", { APPROVED_SHA: "abc" }],

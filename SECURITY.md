@@ -2,14 +2,12 @@
 
 ## Supported Versions
 
-Reasonix security fixes are prioritized for the currently developed Go rewrite
-and the current 1.x release line.
+Security fixes are made on this repository's own line, `studio`.
 
 | Version or branch | Security support |
 | --- | --- |
-| `main-v2` / 1.x releases | Supported |
-| `v1` / 0.x legacy branch | Critical fixes only, where practical |
-| Older releases, forks, or modified builds | Not covered unless the issue is reproducible upstream |
+| `studio` and its releases | Supported |
+| Older releases, forks, or modified builds | Not covered |
 
 If you are unsure whether a version is affected, report against the newest
 released 1.x version and include the exact version or commit you tested.

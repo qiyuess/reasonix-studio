@@ -9,7 +9,7 @@ reviewed: 2026-10-29
 
 ## Purpose
 
-This table lists what the 1.x desktop app (`desktop/frontend` on `main-v2`) offers and where Studio (`desktop/frontend-next`) stands.
+This table lists what upstream's 1.x desktop app offered and where Studio (`desktop/frontend-next`) stands.
 
 1. The PR that closes a Missing row MUST move it to Have or Have differently in the same change.
 2. A UI PR that removes or moves a visible control MUST update its row, or add one, in the same change.

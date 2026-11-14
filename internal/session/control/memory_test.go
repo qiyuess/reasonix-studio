@@ -210,7 +210,7 @@ func TestRestoreMemoryQueuesAuditedRevisionForNextTurn(t *testing.T) {
 	dir := testenv.TempDir(t)
 	c := New(Options{Memory: memory.Load(memory.Options{CWD: dir, UserDir: testenv.TempDir(t)})})
 	store := c.Memory().Store
-	first, err := store.SaveWithOptions(memory.Memory{Name: "release-target", Description: "v1", Body: "main-v2"}, memory.SaveOptions{})
+	first, err := store.SaveWithOptions(memory.Memory{Name: "release-target", Description: "v1", Body: "studio"}, memory.SaveOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestRestoreMemoryQueuesAuditedRevisionForNextTurn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if restored.Revision != 3 || restored.Body != "main-v2" {
+	if restored.Revision != 3 || restored.Body != "studio" {
 		t.Fatalf("restored = %+v", restored)
 	}
 	revisions, err := c.MemoryRevisions(first.Memory.ID)

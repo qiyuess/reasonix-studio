@@ -34,7 +34,7 @@ database_name = "reasonix-crash"
 database_id = "54825184-366f-4877-80fc-924efab0239b"
 
 # Skill/MCP registry data plane, folded in from the standalone worker. Before
-# merging (the crash worker auto-deploys on push to main-v2):
+# merging (the crash worker auto-deploys on push to studio):
 #   wrangler d1 create reasonix-registry   # paste the id below
 #   wrangler d1 execute reasonix-registry --remote --file=registry-schema.sql
 [[d1_databases]]

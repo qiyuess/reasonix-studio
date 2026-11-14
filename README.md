@@ -89,7 +89,7 @@ DeepSeek Harness（`dsh`）可以通过 ACP 把任务交给 Reasonix 作为子�
 
 本仓库从上游的 **v2.61.0** 接着做 —— 那是上游声明停止维护的那个版本。版本号从 **2.70.0** 起，沿本仓库自己的 `studio` 线往上走；跳过 2.62–2.69 是刻意的：应用内更新器仍在提供官方 2.61.0，比它低的版本会排在它后面，一更新就把本仓库的改动覆盖掉。
 
-发布在本仓库自己的[发布页](https://github.com/qiyuess/reasonix-studio/releases)。v2.61.0 仍是上游最后一个版本；`main-v2`（1.x 线）不属于本仓库。
+发布在本仓库自己的[发布页](https://github.com/qiyuess/reasonix-studio/releases)。v2.61.0 仍是上游最后一个版本。
 
 ## 特性
 

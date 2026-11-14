@@ -178,17 +178,8 @@ ci: add golangci-lint and govulncheck
 
 ## Submitting changes
 
-Reasonix ships on two lines (see the
-[version roadmap](https://github.com/esengine/DeepSeek-Reasonix/discussions/10748)),
-and each takes different changes:
-
-| Line | Branch | Takes |
-| --- | --- | --- |
-| 2.x | `studio` | Features and fixes: active development |
-| 1.x | `main-v2` | Bug fixes, provider/API compatibility, release/updater, security, platform stability |
-
-A fix that matters on both lines lands on `main-v2` and is reviewed for
-porting to `studio`; do not open the same PR against both.
+This repository has one line, `studio`, and it takes both features and fixes.
+Upstream's 1.x line is not maintained here.
 
 1. Fork the repository
 2. Create a feature branch from the branch your change targets

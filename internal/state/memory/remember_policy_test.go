@@ -11,16 +11,16 @@ import (
 
 func TestAssessRememberWriteAutoAllowsOnlyLowRiskProjectCreates(t *testing.T) {
 	store := Store{Dir: testenv.TempDir(t)}
-	safe := json.RawMessage(`{"name":"release-target","description":"Release target for this project","type":"project","body":"Release artifacts are published from main-v2."}`)
+	safe := json.RawMessage(`{"name":"release-target","description":"Release target for this project","type":"project","body":"Release artifacts are published from studio."}`)
 	assessment := AssessRememberWrite(store, safe)
 	if !assessment.AutoAllow || assessment.Name != "release-target" || assessment.Reason == "" {
 		t.Fatalf("safe project create assessment = %+v", assessment)
 	}
 
 	cases := map[string]json.RawMessage{
-		"implicit type":    json.RawMessage(`{"name":"release-target","description":"Release target","body":"Use main-v2."}`),
-		"global":           json.RawMessage(`{"name":"release-target","description":"Release target","type":"project","scope":"global","body":"Use main-v2."}`),
-		"global reference": json.RawMessage(`{"name":"global/release-target.md","description":"Release target","type":"project","body":"Use main-v2."}`),
+		"implicit type":    json.RawMessage(`{"name":"release-target","description":"Release target","body":"Use studio."}`),
+		"global":           json.RawMessage(`{"name":"release-target","description":"Release target","type":"project","scope":"global","body":"Use studio."}`),
+		"global reference": json.RawMessage(`{"name":"global/release-target.md","description":"Release target","type":"project","body":"Use studio."}`),
 		"user preference":  json.RawMessage(`{"name":"prefers-go","description":"Preferred language","type":"user","body":"Prefer Go."}`),
 		"feedback":         json.RawMessage(`{"name":"concise","description":"Response style","type":"feedback","body":"Keep answers concise."}`),
 		"stable id update": json.RawMessage(`{"id":"mem-existing","expected_revision":1,"description":"Update","type":"project","body":"Updated body."}`),
@@ -39,7 +39,7 @@ func TestAssessRememberWriteAutoAllowsOnlyLowRiskProjectCreates(t *testing.T) {
 
 func TestAssessRememberWriteRejectsConflictingReferenceScope(t *testing.T) {
 	store := Store{Dir: testenv.TempDir(t), GlobalDir: testenv.TempDir(t)}
-	args := json.RawMessage(`{"name":"global/release-target.md","description":"Release target","type":"project","scope":"project","body":"Use main-v2."}`)
+	args := json.RawMessage(`{"name":"global/release-target.md","description":"Release target","type":"project","scope":"project","body":"Use studio."}`)
 	got := AssessRememberWrite(store, args)
 	if got.AutoAllow || !strings.Contains(got.Reason, "conflicts") {
 		t.Fatalf("conflicting reference assessment = %+v", got)
@@ -50,14 +50,14 @@ func TestAssessRememberWriteRequiresApprovalForExistingOrSemanticDuplicate(t *te
 	store := Store{Dir: testenv.TempDir(t)}
 	if _, err := store.Save(Memory{
 		Name: "release-target", Title: "Release target", Description: "Current release branch",
-		Type: TypeProject, Scope: FactScopeProject, Body: "Use main-v2.",
+		Type: TypeProject, Scope: FactScopeProject, Body: "Use studio.",
 	}); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, args := range []json.RawMessage{
 		json.RawMessage(`{"name":"release-target","description":"Changed release branch","type":"project","body":"Use release-v2."}`),
-		json.RawMessage(`{"name":"another-name","title":"Release target","description":"Current release branch","type":"project","body":"Use main-v2."}`),
+		json.RawMessage(`{"name":"another-name","title":"Release target","description":"Current release branch","type":"project","body":"Use studio."}`),
 	} {
 		if got := AssessRememberWrite(store, args); got.AutoAllow || !strings.Contains(got.Reason, "existing") {
 			t.Fatalf("duplicate assessment = %+v", got)
@@ -67,7 +67,7 @@ func TestAssessRememberWriteRequiresApprovalForExistingOrSemanticDuplicate(t *te
 
 func TestRememberAutoWriteClaimRemainsCreateOnlyAtExecution(t *testing.T) {
 	store := Store{Dir: testenv.TempDir(t)}
-	args := json.RawMessage(`{"name":"release-target","description":"Release target","type":"project","body":"Use main-v2."}`)
+	args := json.RawMessage(`{"name":"release-target","description":"Release target","type":"project","body":"Use studio."}`)
 	claim := &fakeAutoWriteQueue{claim: true}
 	ctx := WithQueue(context.Background(), claim)
 

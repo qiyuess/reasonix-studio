@@ -19,7 +19,7 @@ This page tracks what Reasonix 2.x still has to deliver, how it ships, and which
 | Line | Branch | Status | Ships |
 | --- | --- | --- | --- |
 | 2.x | `studio` | Active development | Reasonix Studio and the `reasonix` CLI, from `studio-v2.*` tags |
-| 1.x | `main-v2` | Maintenance / stable | The 1.x desktop app. The last 1.x CLI on npm and Homebrew is 1.39.0. |
+| 1.x | upstream only | Maintenance / stable | The 1.x desktop app. The last 1.x CLI on npm and Homebrew is 1.39.0. |
 
 ## How 2.x ships
 
@@ -71,7 +71,7 @@ The 2.x terminal UI (`reasonix tui`) replaces the 1.x chat screen for people who
 | W2 | 1.x stops listing the `.wire.jsonl`, `.adjudication.jsonl` and `.execution.jsonl` files 2.x writes as conversations | 1.x | In review: #10767 |
 | W3 | 1.x to 2.x porting list: 1.x fixes, tests and behavior, each marked ported, reimplemented or not carried over | Both | Not started |
 | W4 | 2.x contribution and architecture review rules in `CONTRIBUTING.md` | 2.x | Partly done: branch table, dependency direction and cache-first review gate exist |
-| W5 | Version note in the 1.x `README.md` on `main-v2` | 1.x | Not started |
+| W5 | Version note in the 1.x `README.md` upstream | 1.x | Not started |
 
 ## 1.x maintenance
 
@@ -80,7 +80,7 @@ The 2.x terminal UI (`reasonix tui`) replaces the 1.x chat screen for people who
 | M1 | 1.x takes bug fixes, security fixes and provider or API compatibility only. It gets no new features and no new session, config or storage formats. | Proposed, needs agreement with the 1.x maintainers |
 | M2 | 1.x maintenance ends 3 months after 2.x general availability, or on a fixed backstop date, whichever comes first. | Proposed |
 | M3 | The backstop date is set by @esengine and published in the version announcement. | Open |
-| M4 | A fix that matters on both lines lands on `main-v2` and is recorded in the porting list (W3). | Active |
+| M4 | A fix that matters on both lines lands on upstream's 1.x branch and is recorded in the porting list (W3). | Active |
 
 ## Open decisions
 

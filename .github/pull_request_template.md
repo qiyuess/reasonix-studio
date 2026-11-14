@@ -1,7 +1,5 @@
 <!--
-Target branch: 2.x features and fixes go to `studio`. 1.x takes bug fixes,
-provider/API compatibility, release/updater, security and platform stability
-only, on `main-v2`.
+Target branch: everything goes to `studio`. It is this repository's only line.
 
 Pull requests are limited to maintainers and invited contributors; one from
 anyone else is closed automatically. Open an issue instead.

@@ -1,14 +1,12 @@
 name: CI
 
-# studio is a parallel release line, not a feature branch: it carries the
-# kernel changes Studio is built on, so it needs the same kernel gates main-v2
-# has. Studio's own surface (desktop/next, desktop/frontend-next) exists only
-# there and is covered by studio.yml.
+# This repository has one line: studio. It carries the kernel and Studio's own
+# surface (desktop/, desktop/frontend-next); studio.yml covers the rest.
 on:
   push:
-    branches: [main-v2, studio]
+    branches: [studio]
   pull_request:
-    branches: [main-v2, studio]
+    branches: [studio]
 
 permissions:
   contents: read
@@ -26,7 +24,7 @@ jobs:
   # merges. Gated jobs skip only on an explicit `false` output: wrapped in
   # `always()`, a failed `changes` job (or a missing output) makes them run
   # the full matrix instead of silently passing required checks as skipped.
-  # Pushes to main-v2 always run everything. Pull requests run the macOS and
+  # Pushes to studio always run everything. Pull requests run the macOS and
   # Windows legs only when `platform` is not 'false'; the rule lives in
   # scripts/ci-platform-scope.sh and fails toward running them.
   changes:
@@ -200,7 +198,7 @@ jobs:
       # carry *_windows.go code, the startup/checkpoint packages with portable
       # filesystem contracts, plus cmd/. Isolation/worktree/mutation have a
       # complete JSON inventory below. The full ./... sweep stays on pushes
-      # to main-v2; the Unix legs always run the full suite. Keep the job-level
+      # to studio; the Unix legs always run the full suite. Keep the job-level
       # budget above normal 7-9 minute runner variance; each package test binary
       # remains independently bounded by Go's per-package timeout below.
       #
@@ -806,7 +804,7 @@ jobs:
       # (plugin fan-out, background phase B, jobs Kill/Wait) would otherwise
       # ship without race coverage. Pull requests sweep only the
       # concurrency-heavy packages so this required check stays fast; pushes
-      # to main-v2 keep the full ./... sweep as the safety net.
+      # to studio keep the full ./... sweep as the safety net.
       - name: test -race (concurrency packages)
         if: github.event_name == 'pull_request'
         env:

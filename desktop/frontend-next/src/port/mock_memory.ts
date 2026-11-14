@@ -29,11 +29,11 @@ export const MEMORIES: MemoryEntry[] = [
     },
     {
       name: "v2-rewrite", title: "v2 是从零重写的 Go 内核",
-      description: "没有 web，桌面端重做；main-v2 是默认分支", activation: "relevant",
+      description: "没有 web，桌面端重做；studio 是默认分支", activation: "relevant",
       scope: "project", type: "project", updatedAt: "2026-05-30",
       galaxy: "架构", importance: 2, state: "fuzzy", uses: 3, lastUsedAt: "2026-09-12",
-      body: "v2 = 从零重写的 Go 内核。不带 web；桌面端重做。main-v2 是默认分支。",
-      usedLastTurn: true, why: "问题里提到了 main-v2 和分支",
+      body: "v2 = 从零重写的 Go 内核。不带 web；桌面端重做。studio 是默认分支。",
+      usedLastTurn: true, why: "问题里提到了 studio 和分支",
     },
     {
       name: "old-build-flag", title: "构建用 -tags legacy",

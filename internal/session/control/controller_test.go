@@ -3759,7 +3759,7 @@ func TestLowRiskProjectMemoryCreateSkipsApprovalPrompt(t *testing.T) {
 			}
 		}),
 	})
-	args := json.RawMessage(`{"name":"release-target","description":"Project release target","type":"project","body":"Release from main-v2."}`)
+	args := json.RawMessage(`{"name":"release-target","description":"Project release target","type":"project","body":"Release from studio."}`)
 	allow, remember, reason, err := gateApprover{c}.ApproveWithReason(context.Background(), memoryRememberTool, "", args)
 	if err != nil || !allow || remember || reason != "" || approvals != 0 {
 		t.Fatalf("safe project create = (%v,%v,%q,%v), approvals=%d", allow, remember, reason, err, approvals)
@@ -3781,7 +3781,7 @@ func TestLowRiskProjectMemoryCreateSkipsApprovalPrompt(t *testing.T) {
 func TestExistingMemoryRevokesAbandonedAutomaticCreateClaim(t *testing.T) {
 	store := memory.Store{Dir: testenv.TempDir(t)}
 	c := New(Options{Memory: &memory.Set{Store: store}})
-	args := json.RawMessage(`{"name":"release-target","description":"Project release target","type":"project","body":"Release from main-v2."}`)
+	args := json.RawMessage(`{"name":"release-target","description":"Project release target","type":"project","body":"Release from studio."}`)
 
 	if assessment := memory.AssessRememberWrite(store, args); !assessment.AutoAllow {
 		t.Fatalf("initial assessment = %+v", assessment)

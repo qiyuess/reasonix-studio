@@ -91,7 +91,7 @@ The tag identity:
 - It also refuses unless the studio tag still resolves to the approved SHA and that SHA is on `studio` history.
 - An existing tag on the same commit (lightweight or annotated) counts as done; on another commit it fails.
 - The `studio-release` environment restricts where the job runs. It does not protect the secret: `RELEASE_TAG_TOKEN` is repository-level, so anyone who can push a workflow can read it. The owner is the only writer today.
-- The 1.x identity script is not reused: it pins `main-v2` and would need a checkout. The server enforces the rulesets at the tag write.
+- The 1.x identity script is not reused: it pins a branch this repository does not have. The server enforces the rulesets at the tag write.
 
 Once a GitHub release `vX.Y.Z` exists, the v1.39.5 client's GitHub-list fallback and the gateway's CLI fallback select it, so turning the switch on is the switch of the update channel itself.
 

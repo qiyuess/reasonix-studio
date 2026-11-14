@@ -408,7 +408,7 @@ go run ./cmd/e2ebench -profile delivery
 go run ./cmd/e2ebench -out report.md -json report.json
 
 # Grade a PR's diff (generates tests for the diff, grades with the repo's tests)
-go run ./cmd/e2ebench -mode diff -base origin/main-v2 -repo . -attempts 3 -timeout 1800
+go run ./cmd/e2ebench -mode diff -base origin/studio -repo . -attempts 3 -timeout 1800
 ```
 
 The markdown report contains the solved count, cost/tokens per solved task,
