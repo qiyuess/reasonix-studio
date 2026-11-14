@@ -28,7 +28,10 @@ describe("BrowserPanel", () => {
     await user.click(toolbar.querySelector('[data-action="browser.reload"]')!);
     expect(screen.getByTitle("Reasonix 内置 Browser")).not.toBe(frame);
     await user.click(toolbar.querySelector('[data-action="browser.back"]')!);
-    expect((address as HTMLInputElement).value).toBe("reasonix://start");
+    // Back to the panel's own opening screen: it has no address to type, so the
+    // field is empty rather than showing the internal `reasonix://start` token.
+    expect((address as HTMLInputElement).value).toBe("");
+    expect(screen.getByTitle("Reasonix 内置 Browser").getAttribute("src")).toBe(null);
     expect(outside.disabled).toBe(true);
   });
 
@@ -64,5 +67,28 @@ describe("BrowserPanel", () => {
     await user.clear(address);
     await user.type(address, "localhost:3000/x{Enter}");
     expect(screen.getByTitle("Reasonix 内置 Browser").getAttribute("src")).toBe("http://localhost:3000/x");
+  });
+
+  it("opens with an empty field that says what to do with it", () => {
+    // This panel's opening screen is `reasonix://start`, an internal token and
+    // not an address: the field starts empty, and the hint is what tells the
+    // person there is somewhere to type. Asserted here as well as on the agent's
+    // panel, because they are two different inputs with two different states.
+    render(<BrowserPanel id="b0" scheme="light" onAddress={vi.fn()} onExternal={vi.fn()} />);
+    const address = screen.getByRole("textbox", { name: "网页地址" }) as HTMLInputElement;
+    expect(address.value, "no internal token in the field").toBe("");
+    expect(address.placeholder).toBe("输入网址");
+  });
+
+  it("stays on the opening screen when Enter arrives with an empty field", async () => {
+    // The field being empty is now the normal state, so Enter on nothing is a
+    // press that happens. It must not hand the frame an empty address.
+    const user = userEvent.setup();
+    render(<BrowserPanel id="b0" scheme="light" onAddress={vi.fn()} onExternal={vi.fn()} />);
+    const frame = screen.getByTitle("Reasonix 内置 Browser");
+    const before = frame.getAttribute("src");
+    await user.type(screen.getByRole("textbox", { name: "网页地址" }), "{Enter}");
+    expect(screen.getByTitle("Reasonix 内置 Browser").getAttribute("src")).toBe(before);
+    expect(screen.queryByRole("alert"), "and says nothing failed").toBeNull();
   });
 });

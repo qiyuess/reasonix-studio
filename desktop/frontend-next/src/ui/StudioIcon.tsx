@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import { createLucideIcon } from "lucide-react";
 import {
   Activity, Archive, ArrowDown, ArrowRight, ArrowUp, Ban, BarChart3, BookOpen, Bookmark, Bot, Brain,
   Check, ChevronDown, ChevronRight, ChevronUp, Circle, CircleCheck, CircleDashed, CircleHelp,
@@ -41,9 +42,21 @@ const ICONS = {
   zoomIn: ZoomIn, zoomOut: ZoomOut, disabled: Ban,
 } as const;
 
-export type StudioIconName = keyof typeof ICONS;
+/** Four corner brackets opening outwards. Lucide's own `expand` adds a diagonal
+ *  in each corner, which reads as "enlarge diagonally"; the workbench's full
+ *  width control means "give this the whole window", so the corners alone. */
+const CornersOpen = createLucideIcon("CornersOpen", [
+  ["path", { d: "M9 3H3v6", key: "a" }],
+  ["path", { d: "M15 3h6v6", key: "b" }],
+  ["path", { d: "M9 21H3v-6", key: "c" }],
+  ["path", { d: "M15 21h6v-6", key: "d" }],
+]);
+
+const ALL = { ...ICONS, cornersOpen: CornersOpen } as const;
+
+export type StudioIconName = keyof typeof ALL;
 
 export function StudioIcon({ name, className, ...props }: SVGProps<SVGSVGElement> & { name: StudioIconName }) {
-  const Icon = ICONS[name];
+  const Icon = ALL[name];
   return <Icon className={["studio-icon", className].filter(Boolean).join(" ")} size={16} strokeWidth={1.8} aria-hidden="true" focusable="false" {...props} />;
 }

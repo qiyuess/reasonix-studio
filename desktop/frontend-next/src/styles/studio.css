@@ -1127,6 +1127,10 @@ body { background: var(--page) !important; }
 .studio-browser-address[data-invalid] { border-color: #8d554f; }
 .studio-browser-address svg { width: 13px; height: 13px; flex: none; color: var(--ghost); }
 .studio-browser-address input { width: 100%; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: var(--w-reg) var(--fs-micro)/1 var(--ui); }
+/* The field is empty whenever the page has no address to type (`about:blank`),
+   so the hint is part of its normal state, not decoration. Ghost ink is what
+   every other input in the shell uses for it. */
+.studio-browser-address input::placeholder { color: var(--ghost); }
 .studio-browser-toolbar .studio-browser-go { width: auto; padding: 0 8px; color: #adb9d8; font: var(--w-med) var(--fs-micro)/1 var(--ui); }
 .studio-browser-frame { width: 100%; min-height: 0; flex: 1; border: 0; background: var(--page); }
 .studio-browser-start { display: grid; place-items: center; padding: 32px; color: var(--text); text-align: center; }
@@ -1154,11 +1158,12 @@ body { background: var(--page) !important; }
 .belement-foot { display: flex; align-items: center; gap: 10px; }
 .belement-foot > p { padding: 0; border: 0; background: transparent; }
 .workbench { width: 100%; height: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); color: var(--text); }
-.pane:has(> .pbody[data-dock]) > .scroll[data-pane="browser"] { padding: 8px 8px 8px 2px; border-left: 0; background: transparent; }
-.pane:has(> .pbody[data-dock]) > .scroll[data-pane="browser"] .workbench-tabs { height: calc(var(--pane-bar-h) - 9px); }
+.pane:has(> .pbody[data-dock]) > .scroll[data-pane="browser"] { padding: 0; border-left: 1px solid var(--hair); background: transparent; }
+/* The dock no longer insets the workbench in a card, so there is no top inset
+   or border left for the strip's height to compensate for. The design layer
+   owns the strip's height and had already overridden the old sum. */
 .pane:has(> .pbody[data-dock]) > .scroll[data-pane="browser"] > .workbench {
-  border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 5%, transparent), 0 12px 30px -20px color-mix(in srgb, var(--text) 32%, transparent);
+  border: 0; border-radius: 0; overflow: hidden; box-shadow: none;
 }
 .studio-browser :is(.bview, .studio-browser-frame) { margin: 0 6px 6px; width: auto; border-radius: var(--r-sm); overflow: hidden; }
 .workbench-tabs { height: 39px; flex: none; display: flex; align-items: flex-end; gap: 2px; padding: 7px var(--pane-gutter) 0; border-bottom: 1px solid var(--hair); background: var(--page); }

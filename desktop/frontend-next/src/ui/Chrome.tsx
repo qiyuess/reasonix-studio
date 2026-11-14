@@ -15,6 +15,7 @@ import { workspaceDirectoryDescription } from "./workspaceDirectory";
 import { WindowControls, zoomOnTitleBar } from "./WindowControls";
 import type { PaneView } from "../state/paneview";
 import { useReachable, useViewer } from "../state/viewer";
+import { registerDockHead } from "../state/dockhead";
 
 const base = (p: string) => p.replace(/[/\\]+$/, "").split(/[/\\]/).pop() || p;
 // The filename is a timestamp and a model ref — true, and useless to read. The
@@ -160,9 +161,17 @@ export function Chrome({ port, status, workspace: ws, title, steer, account, hos
         </TooltipButton>
         {port && <ViewSwitch view={view} rows={rows} surfaces={surfaces} onView={onView} />}
         </div>
-        <span className="account-presence" title={account?.signedIn ? account.user?.label : t("common.not_signed_in")} />
-        <WindowControls />
+        {/* The docked workbench lands its tab strip here, so the window bar
+            and the workbench share one line instead of stacking two. Docked,
+            app.css parks this slot over the dock column and the icon group
+            before it at the seam; with the workbench closed, undocked or
+            stacked, the slot is empty and takes no room. The panel finds it
+            through the registry rather than by an id, so the two halves of
+            this contract are checked by the compiler. */}
+        <div className="wb-dock-head" ref={registerDockHead} />
       </div>
+      <span className="account-presence" title={account?.signedIn ? account.user?.label : t("common.not_signed_in")} />
+      <WindowControls />
     </div>
     </>
   );

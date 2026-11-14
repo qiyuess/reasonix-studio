@@ -31,6 +31,16 @@ function normalise(value: string): string | null {
   }
 }
 
+/** What the address field says. A blank page is blank: `about:blank` is the
+ *  shell's placeholder for "nothing loaded yet", and `reasonix://start` is this
+ *  panel's own opening screen — neither is an address a person typed, so both
+ *  read as an empty field rather than as a site named after an internal token.
+ *  The tab itself keeps its real url; this is only what the input shows. */
+function addressText(url: string | undefined): string {
+  const raw = (url ?? "").trim();
+  return /^(?:about:blank|reasonix:\/\/start)$/i.test(raw) ? "" : raw;
+}
+
 function BrowserStartPage({ scheme }: { scheme: "light" | "dark" }) {
   return <div className="studio-browser-frame studio-browser-start" title={t("workbench.reasonix_built_in_browser")} style={{ colorScheme: scheme }}>
     <div><Globe className="browser-start-mark" size={26} aria-hidden="true" />
@@ -54,7 +64,9 @@ interface ManualProps {
 export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }: ManualProps) {
   const [history, setHistory] = useState([START]);
   const [index, setIndex] = useState(0);
-  const [input, setInput] = useState(START);
+  // `START` is this panel's own opening screen, not an address: it reads as an
+  // empty field until something is really loaded.
+  const [input, setInput] = useState(addressText(START));
   const [reload, setReload] = useState(0);
   const [invalid, setInvalid] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -65,6 +77,14 @@ export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }
   }, [id, current, internal, onAddress]);
 
   const visit = (value: string) => {
+    // An empty field is a question, not a page: Enter on nothing to go to
+    // leaves the panel where it is instead of handing the kernel a blank target.
+    // The error goes with it — an empty field is not a refused address, and
+    // leaving the red border up would say it was.
+    if (!value.trim()) {
+      setInvalid(false);
+      return;
+    }
     const next = normalise(value);
     if (!next) {
       setInvalid(true);
@@ -72,7 +92,7 @@ export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }
     }
     setInvalid(false);
     setLoading(next !== START);
-    setInput(next);
+    setInput(addressText(next));
     if (next === current) {
       setReload((value) => value + 1);
       return;
@@ -86,7 +106,7 @@ export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }
     const value = history[next];
     if (!value) return;
     setIndex(next);
-    setInput(value);
+    setInput(addressText(value));
     setInvalid(false);
   };
 
@@ -116,7 +136,7 @@ export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }
         </button>
         <label className="studio-browser-address" data-invalid={invalid ? "" : undefined}>
           <Globe size={16} />
-          <input data-action-change="browser.address" data-action-keydown="browser.navigate" value={input} onKeyDown={commitAddress} onChange={(event) => { setInput(event.target.value); setInvalid(false); }} aria-label={t("workbench.web_address")} spellCheck={false} autoCapitalize="off" />
+          <input data-action-change="browser.address" data-action-keydown="browser.navigate" value={input} placeholder={t("workbench.enter_address")} onKeyDown={commitAddress} onChange={(event) => { setInput(event.target.value); setInvalid(false); }} aria-label={t("workbench.web_address")} spellCheck={false} autoCapitalize="off" />
         </label>
         <button type="submit" className="studio-browser-go" aria-label={t("workbench.open_page")}>{t("common.open")}</button>
         <button type="button" data-action="browser.external" onClick={() => !internal && onExternal(current)} disabled={internal} aria-label={t("workbench.open_in_external_browser")} title={t("workbench.open_in_external_browser")}>
@@ -200,7 +220,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
   const slot = useRef<HTMLDivElement>(null);
   const [picked, setPicked] = useState("");
   const current = tabs.find((tab) => tab.target === picked) ?? tabs.find((tab) => tab.active) ?? tabs[0];
-  const [address, setAddress] = useState(current?.url ?? "");
+  const [address, setAddress] = useState(addressText(current?.url));
   const [failures, setFailures] = useState<Record<string, BrowserLoadFailure>>({});
   const [refused, setRefused] = useState<BrowserRefusal>("");
   const [docFailed, setDocFailed] = useState("");
@@ -211,7 +231,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
   const target = current?.target ?? "";
   const failure = failures[target];
 
-  useEffect(() => setAddress(current?.url ?? ""), [current?.url]);
+  useEffect(() => setAddress(addressText(current?.url)), [current?.url, current?.target]);
   useEffect(
     () =>
       host().onBrowserLoadState(({ targetId, failure: next }) =>
@@ -339,6 +359,10 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
   };
   const go = (event: FormEvent) => {
     event.preventDefault();
+    // A blank field is a question, not a page. `about:blank` reads as empty in
+    // this field now, so Enter with nothing typed must not navigate the view to
+    // an empty target — it leaves the page where it is.
+    if (!address.trim()) return;
     open(address);
   };
   return (
@@ -360,7 +384,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
           )}
           <button className="bbtn" data-action="browser.external" disabled={!documentPath && !/^https?:\/\//i.test(current?.url ?? "")} aria-label={documentPath ? t("workbench.open_this_file_with_the") : t("workbench.open_this_page_in_the")} title={documentPath ? t("workbench.open_this_file_with_the") : t("workbench.open_this_page_in_the")} onClick={() => (documentPath ? openDocument() : current && void host().openExternal(current.url))}><ExternalLink size={16} /></button>
           <form className="baddr" data-action="browser.navigate" data-target={current?.id} onSubmit={go}>
-            <input data-action="browser.navigate" data-target={current?.id} value={address} spellCheck={false} aria-label={t("workbench.address")} onChange={(event) => { setAddress(event.target.value); setRefused(""); }} />
+            <input data-action="browser.navigate" data-target={current?.id} value={address} placeholder={t("workbench.enter_address")} spellCheck={false} aria-label={t("workbench.address")} onChange={(event) => { setAddress(event.target.value); setRefused(""); }} />
           </form>
         </div>
       </div>

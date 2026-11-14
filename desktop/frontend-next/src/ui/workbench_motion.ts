@@ -40,8 +40,11 @@ export function useSwitchFade(ref: RefObject<HTMLElement | null>, key: string) {
   }, [ref, key]);
 }
 
-/** The tab strip's ref, and the tabs it cannot show at its width, in strip order. */
-export function useOverflowTabs(keys: string[]): [RefObject<HTMLDivElement | null>, string[]] {
+/** The tab strip's ref, and the tabs it cannot show at its width, in strip order.
+ *  `epoch` re-runs the measurement when the strip's DOM is replaced without its
+ *  keys changing — moving it into the window bar does exactly that, and a
+ *  ResizeObserver left on the detached node would never report again. */
+export function useOverflowTabs(keys: string[], epoch?: unknown): [RefObject<HTMLDivElement | null>, string[]] {
   const strip = useRef<HTMLDivElement>(null);
   const [hidden, setHidden] = useState<string[]>([]);
   const joined = keys.join("\n");
@@ -60,7 +63,7 @@ export function useOverflowTabs(keys: string[]): [RefObject<HTMLDivElement | nul
     ro?.observe(stripEl);
     const stop = listenAction(stripEl, "scroll", { action: "workbench.tab-overflow", listener: measure }, { passive: true });
     return () => { ro?.disconnect(); stop(); };
-  }, [joined]);
+  }, [joined, epoch]);
   return [strip, hidden];
 }
 
@@ -76,10 +79,4 @@ export function useOpenSlide(ref: RefObject<HTMLElement | null>, shown: boolean)
       el.animate([{ transform: "translateX(24px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 200, easing: "cubic-bezier(.2,0,0,1)" });
     }
   }, [ref, shown]);
-}
-
-/** Slides the workbench back out before it is put away; at once when motion is reduced. */
-export function slideAway(el: HTMLElement | null, then: () => void) {
-  if (!el || typeof el.animate !== "function" || still()) return then();
-  el.animate([{ transform: "none", opacity: 1 }, { transform: "translateX(24px)", opacity: 0 }], { duration: 160, easing: "ease-in" }).finished.then(then, then);
 }

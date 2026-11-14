@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { t } from "../i18n";
 import { reason } from "../i18n/kernel";
 import { host } from "../port/host";
@@ -15,8 +16,9 @@ import { WorkbenchStatus } from "./WorkbenchStatus";
 import { WorkbenchFileTree } from "./WorkbenchFileTree";
 import { WorkbenchChangesPage } from "./WorkbenchChangesPage";
 import { UnifiedDiff } from "./UnifiedDiff";
-import { leave, slideAway, useEnteringTabs, useOpenSlide, useOverflowTabs, useSwitchFade } from "./workbench_motion";
+import { leave, useEnteringTabs, useOpenSlide, useOverflowTabs, useSwitchFade } from "./workbench_motion";
 import { WorkbenchTabOverflow } from "./WorkbenchTabOverflow";
+import { WorkbenchTabPicker } from "./WorkbenchTabPicker";
 import { WorkbenchCloseAsk } from "./WorkbenchCloseAsk";
 import { WorkbenchState } from "./WorkbenchState";
 import { AgentBrowserPanel, UNREAD_TABS } from "./BrowserPanel";
@@ -45,6 +47,7 @@ import { OpenWithMenu } from "./OpenWithMenu";
 import type { HubPort } from "../port/hub";
 import { useHtmlPreview } from "./useHtmlPreview";
 import { setShowsHiddenFiles, showsHiddenFiles } from "../state/prefs";
+import { useDockHead } from "../state/dockhead";
 import { BrowserFullToggle } from "./BrowserFullToggle";
 import { documentView, sourceView } from "./document/registry";
 import { TooltipButton } from "./TooltipButton";
@@ -77,7 +80,6 @@ export function WorkbenchPanel({
   revealFiles = 0,
   toggleFiles = 0,
   onCloseManual,
-  onDismiss,
   onSurfaces,
   onActiveFile,
   onExternal,
@@ -117,8 +119,6 @@ export function WorkbenchPanel({
   /** A press on the Files button: opens the explorer, or folds it when it is the open one. */
   toggleFiles?: number;
   onCloseManual: () => void;
-  // Closes the workbench itself, whichever way it was opened.
-  onDismiss?: () => void;
   // How many surfaces the strip holds, for the pane's own tab to count.
   onSurfaces: (n: number) => void;
   onActiveFile?: (path: string | undefined) => void;
@@ -385,12 +385,43 @@ export function WorkbenchPanel({
   const [asking, setAsking] = useState<{ path: string; anchor: HTMLElement } | null>(null);
   const tabKeys = surfaces.map(keyOf);
   const entering = useEnteringTabs(tabKeys);
-  const [strip, overflow] = useOverflowTabs(tabKeys);
+  const docked = !!fullMode && !fullMode.full;
+  // Docked and not full-screen, the strip belongs on the window bar — unless the
+  // dock has stacked into the pane's whole width, where there is no second
+  // column for that bar to mirror. Whether it stacked is decided in CSS (a
+  // container query and the scene fold both stack it), so the flag is read back
+  // from the column rather than guessed from the window width here: two
+  // thresholds in two places is how the bar and the column came apart at 820px.
+  const slot = useDockHead();
+  const [stacked, setStacked] = useState(false);
+  useLayoutEffect(() => {
+    const pane = frame.current?.closest(".pane");
+    const column = pane?.querySelector('[data-pane="browser"]');
+    if (!pane || !column) return;
+    const read = () => setStacked(getComputedStyle(column).getPropertyValue("--dock-stacked").trim() !== "");
+    read();
+    // Both signals matter and neither covers the other: the container query
+    // answers a narrower pane, while the scene fold is decided from the window
+    // and leaves the pane's own width unchanged. Re-read on either.
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(read) : null;
+    ro?.observe(pane);
+    const mo = new MutationObserver(read);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-fold"] });
+    return () => { ro?.disconnect(); mo.disconnect(); };
+  }, [docked]);
+  const dockHead = docked && !stacked ? slot : null;
+  // The strip's DOM is replaced whenever it changes home — docked or not,
+  // stacked or not — so the overflow measurement and the scroll-into-view both
+  // have to re-run on that, not merely on the dock's own state.
+  const [strip, overflow] = useOverflowTabs(tabKeys, !!dockHead);
   useSwitchFade(canvas, launcher ? "launcher" : active ? keyOf(active) : "");
   const activeKey = active ? keyOf(active) : "";
+  // The strip's DOM is replaced whenever it changes home — docked or not,
+  // stacked or not — and a fresh node starts scrolled to the left. Re-running
+  // on that move keeps the selected tab in view.
   useEffect(() => {
     strip.current?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-  }, [activeKey, surfaces.length]);
+  }, [activeKey, surfaces.length, !!dockHead]);
   // Picking a file is asking to read it. Docked, the list and the file share one
   // column, so the list steps aside; side by side it stays where it is.
   const [recentFiles, setRecentFiles] = useState(() => readRecentFiles(workspaceRoot ?? ""));
@@ -463,10 +494,17 @@ export function WorkbenchPanel({
   const close = (targets: Surface[]) => { supersede(); return terminals.guard(targets, closeTabs); };
   const dismissTabMenu = useCallback(() => setTabMenu(null), []);
   const [tabMenu, setTabMenu] = useState<{ surface: Surface; x: number; y: number; anchor: HTMLElement } | null>(null);
-  const pages = surfaces.filter((s) => s.kind !== "file");
   const tabAt = tabMenu ? surfaces.findIndex((s) => keyOf(s) === keyOf(tabMenu.surface)) : -1;
-  const tabOthers = tabMenu ? pages.filter((s) => keyOf(s) !== keyOf(tabMenu.surface)) : [];
-  const tabRight = tabAt < 0 ? [] : surfaces.slice(tabAt + 1).filter((s) => s.kind !== "file");
+  // The menu speaks about tabs, and a file is a tab: closing one from here is
+  // what its × does, and the strip is the only way to reach a tab the pointer is
+  // not over. A file whose text is unsaved is left out of every count, because
+  // `close` drops the targets it is given without asking — a menu may not offer
+  // a press that would throw an edit away, and what it says it will close has to
+  // be what it really closes.
+  const closable = (list: Surface[]) => list.filter((s) => !(s.kind === "file" && unsaved.includes(s.path)));
+  const tabOthers = tabMenu ? closable(surfaces.filter((s) => keyOf(s) !== keyOf(tabMenu.surface))) : [];
+  const tabRight = tabAt < 0 ? [] : closable(surfaces.slice(tabAt + 1));
+  const tabAll = closable(surfaces);
   const returning = useRef("");
   useEffect(() => {
     if (tabMenu && tabAt < 0) setTabMenu(null);
@@ -477,7 +515,7 @@ export function WorkbenchPanel({
     (back ?? newTab.current)?.focus();
   }, [tabMenu, tabAt, surfaces, closing]);
   const offerTabMenu = (e: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>, surface: Surface) => {
-    if (surface.kind === "file" || closing || document.getSelection()?.isCollapsed === false) return;
+    if (closing || document.getSelection()?.isCollapsed === false) return;
     e.preventDefault();
     e.stopPropagation();
     const anchor = e.currentTarget.matches("button") ? e.currentTarget : e.currentTarget.querySelector<HTMLElement>(".workbench-tab-pick")!;
@@ -485,22 +523,34 @@ export function WorkbenchPanel({
     const pointed = "clientX" in e && (e.clientX !== 0 || e.clientY !== 0);
     setTabMenu({ surface, x: pointed ? e.clientX : rect.left, y: pointed ? e.clientY : rect.bottom, anchor });
   };
-  return (
-    <section className="workbench" ref={frame} aria-label={t("common.workbench")} data-action-keydown="layer.dismiss" onKeyDown={(e) => {
-      if (launcher && e.key === "Escape") { e.stopPropagation(); toggleLauncher(); newTab.current?.focus(); }
-    }}>
-      <header className="workbench-tabs">
-        <TooltipButton
-          className="workbench-files"
-          data-action="workbench.files"
-          aria-pressed={showFiles && !launcher}
-          aria-label={t("common.files")}
-          title={showFiles && !launcher ? t("workbench.hide_file_tree") : t("workbench.show_file_tree")}
-          onClick={toggleExplorer}
-        >
-          <StudioIcon name="folder" />
-          {changes.length > 0 && <small className="workbench-files-count">{changes.length}</small>}
-        </TooltipButton>
+  // The docked workbench shares the window bar: its tab strip lives in the
+  // chrome's dock-head slot rather than stacking a second bar of its own.
+  // The slot is absent in tests and undocked shells, so the strip falls back
+  // to its own header in place — same markup, two homes.
+  const head = (
+    <header className="workbench-tabs">
+      {/* Every open tab in one list, to jump from, at the very head of the row —
+          before the file tree. The tree opens a new tab; this one reaches the
+          tabs already open, including the ones a narrow strip has scrolled out
+          of sight, which is what the row could not do on its own. Drawn whether
+          or not anything is hidden: a strip that fits today does not once two
+          files are opened beside it. */}
+      <WorkbenchTabPicker
+        tabs={surfaces.map((surface) => ({ key: keyOf(surface), label: labelFor(surface) }))}
+        active={launcher ? "" : activeKey}
+        onPick={(k) => { pick(k); strip.current?.querySelector(`[data-key="${CSS.escape(k)}"]`)?.scrollIntoView({ inline: "nearest" }); }}
+      />
+      <TooltipButton
+        className="workbench-files"
+        data-action="workbench.files"
+        aria-pressed={showFiles && !launcher}
+        aria-label={t("common.files")}
+        title={showFiles && !launcher ? t("workbench.hide_file_tree") : t("workbench.show_file_tree")}
+        onClick={toggleExplorer}
+      >
+        <StudioIcon name="folder" />
+        {changes.length > 0 && <small className="workbench-files-count">{changes.length}</small>}
+      </TooltipButton>
         <div
           className="workbench-tablist"
           role="tablist"
@@ -550,8 +600,8 @@ export function WorkbenchPanel({
 ` : ""}${surface.tab.url}`
                   : labelFor(surface)
               }
-              aria-haspopup={surface.kind === "file" ? undefined : "menu"}
-              aria-expanded={surface.kind === "file" ? undefined : tabMenu !== null && keyOf(tabMenu.surface) === keyOf(surface)}
+              aria-haspopup="menu"
+              aria-expanded={tabMenu !== null && keyOf(tabMenu.surface) === keyOf(surface)}
               onClick={() => pick(keyOf(surface))}
               onDoubleClick={surface.kind === "browser" ? () => setRenaming(keyOf(surface)) : undefined}
               data-action-dblclick="workbench.rename-tab"
@@ -603,12 +653,32 @@ export function WorkbenchPanel({
           <StudioIcon name="plus" />
         </TooltipButton>
         {fullMode && <BrowserFullToggle {...fullMode} />}
-        {onDismiss && (
-          <TooltipButton className="workbench-dismiss" data-action="workbench.dismiss" aria-label={t("app.close_workbench")} title={t("app.close_workbench")} onClick={() => slideAway(frame.current, onDismiss)}>
-            <StudioIcon name="close" />
-          </TooltipButton>
-        )}
       </header>
+  );
+  // The strip crossing between the two homes unmounts and remounts its DOM, so
+  // the pressed full-width control loses focus to the body. This panel outlives
+  // the move, which is why the hand-off lives here rather than in the button:
+  // the pressed copy is gone by the time focus can be given back. Restored only
+  // when the focus was actually lost there — anything the person did since
+  // outranks it.
+  const wasFull = useRef(fullMode?.full);
+  useLayoutEffect(() => {
+    if (wasFull.current === fullMode?.full) return;
+    wasFull.current = fullMode?.full;
+    // Judged after the frame, not now: at this point the pressed button is
+    // still the focused node, and the focus only falls to the body once React
+    // detaches it in the commit that follows.
+    requestAnimationFrame(() => {
+      const at = document.activeElement;
+      if (at && at !== document.body && at.isConnected) return;
+      frame.current?.querySelector<HTMLElement>('[data-action="browser.full"]')?.focus();
+    });
+  }, [fullMode?.full]);
+  return (
+    <section className="workbench" ref={frame} aria-label={t("common.workbench")} data-action-keydown="layer.dismiss" onKeyDown={(e) => {
+      if (launcher && e.key === "Escape") { e.stopPropagation(); toggleLauncher(); newTab.current?.focus(); }
+    }}>
+      {dockHead ? createPortal(head, dockHead) : head}
       {closeFailure && <div className="workbench-error workbench-close-error" role="alert">{closeFailure}</div>}
       <div className="workbench-body" data-files={showFiles && !launcher ? "" : undefined}>
         <main className="workbench-canvas">
@@ -786,11 +856,20 @@ export function WorkbenchPanel({
           onSave={async () => { const ok = await saveAt(asking.path); if (ok) { setAsking(null); void close([{ kind: "file", path: asking.path }]); } return ok; }}
           onDrop={() => { dropAt(asking.path); setAsking(null); void close([{ kind: "file", path: asking.path }]); }} />
       )}
-      {tabMenu && <BrowserTabMenu menu={tabMenu} others={tabOthers.length} right={tabRight.length} all={pages.length} label={labelFor(tabMenu.surface)} onDismiss={dismissTabMenu} onClose={(mode) => {
+      {tabMenu && <BrowserTabMenu menu={tabMenu} others={tabOthers.length} right={tabRight.length} all={tabAll.length} label={labelFor(tabMenu.surface)} onDismiss={dismissTabMenu} onClose={(mode) => {
         const target = tabMenu.surface;
-        returning.current = keyOf(target);
         setTabMenu(null);
-        void close(mode === "one" ? [target] : mode === "others" ? tabOthers : mode === "right" ? tabRight : pages);
+        if (mode === "one" && target.kind === "file" && unsaved.includes(target.path)) {
+          // This tab is the one the press was on, so it is not in the closable
+          // lists above: ask about its text the way its × does, anchored on the
+          // tab it belongs to rather than on a button that has gone. No
+          // `returning` here — that effect hands focus back to the strip, which
+          // would take it straight out of the question this opens.
+          setAsking({ path: target.path, anchor: tabMenu.anchor });
+          return;
+        }
+        returning.current = keyOf(target);
+        void close(mode === "one" ? [target] : mode === "others" ? tabOthers : mode === "right" ? tabRight : tabAll);
       }} />}
     </section>
   );
