@@ -5,7 +5,7 @@
 > [!NOTE]
 > **Reasonix Studio，继续维护版** —— [DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix) 在 `studio`（2.x）线上的个人续作。
 >
-> 上游在 2026-11-11 停在 v2.61.0。本仓库把那个版本原样作为起点（一个提交、一棵树、未作改动），此后的工作都是自己的。
+> 上游在 2026-11-11 停在 v2.61.0。本仓库自 2.70.0 开始维护。
 
 <p align="center">
   <a href="./docs/GUIDE.zh-CN.md">指南</a>
