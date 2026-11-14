@@ -3,9 +3,10 @@
 </p>
 
 > [!NOTE]
-> **Reasonix Studio，继续维护版** —— [DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix) 在 `studio`（2.x）线上的个人续作。
+> **Reasonix Studio —— [DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix) 。
 >
-> 上游在 2026-11-11 停在 v2.61.0。本仓库自 2.70.0 开始维护。
+> 上游在 于2026-11-11 停在 v2.61.0。本仓库自 2.70.0 开始维护。
+> QQ 交流群：1821170167
 
 <p align="center">
   <a href="./docs/GUIDE.zh-CN.md">指南</a>
