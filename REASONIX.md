@@ -479,11 +479,37 @@ Mach-service lookup are not denied by the current allow-default profile. Prior
 effect has been demonstrated. This surface is outside the currently governed
 host-authority endpoint set.
 
-## Local fork: what this fork carries, and how to merge
+## This repository: it picks up where upstream stopped
 
-**A merge touches three things and nothing else: the boot screen, the icon, and
-the workbench's file tree.** Every other customisation this fork ever carried is
-**void** — not paused, not awaiting a decision, and not to be reintroduced later.
+**Upstream stopped maintaining Studio at `studio-v2.61.0`** (commit `cd20bb50b`,
+tagged 2026-11-11). This repository continues from exactly there. There is no
+merge to follow, no release tag to track, and no upstream side to defer to: what
+is here is what this project maintains.
+
+### The shape of the history
+
+Eleven commits, and the first is the only one that is not this repository's work:
+
+| Commit | Is |
+| --- | --- |
+| `5377525` `chore: import upstream studio-v2.61.0` | That release's tree, entire. Its tree hash is `79fc400ec`, which is `cd20bb50b^{tree}`. |
+| `0d48157` the boot screen and the icons | The two customisations the previous fork carried; they predate 2.61.0 and are kept. |
+| the nine above it | Everything after 2.61.0, which is this project's own work. |
+
+The base is one tree rather than one commit's ancestry on purpose: the fork this
+replaced merged twenty upstream release tags across 13000 commits, and none of
+that says anything about what this project maintains. A base that is a single
+tree is a base anyone can diff against — `git diff 5377525 HEAD` is the whole of
+what this project has done.
+
+**Nothing is ever merged from `upstream` again.** If a future change is wanted
+from a later upstream commit, it is read, understood and written here on its own
+merit; it is not merged, and its authorship is not inherited.
+
+### What this repository carries on top of 2.61.0
+
+Three customisations predate the handover, and they stay. Everything else the
+old fork ever carried had already gone back to upstream's shape before 2.61.0.
 
 | Kept | Where |
 | --- | --- |
@@ -492,95 +518,85 @@ the workbench's file tree.** Every other customisation this fork ever carried is
 | The 2.58 workbench layout, not 2.61's | `studio.css`, `app.css`, `WorkbenchPanel.tsx`, `useTabClose.ts` |
 
 The third is a regression repair, and it is a **layout revert**, not a patch.
-Upstream 2.61 (`2ff95dbc5`, `376376843`) turned the workbench body into two
-side-by-side columns (canvas | tree) in the dock as well as at full width, so
-opening the explorer always leaves a second, empty column standing: with nothing
-picked it is a blank panel, and with a file picked the tree eats a fixed column
-of a docked workbench too narrow to afford one. Two later attempts to soften it
-— dropping the "Pick a file on the left" prompt (`81b212953`) and giving the
-list the whole body while nothing was open (`98386c87f`) — both left 2.61's
-structure in place, so the empty column kept coming back in some state.
+Upstream 2.61 turned the workbench body into two side-by-side columns
+(canvas | tree) in the dock as well as at full width, so opening the explorer
+always leaves a second, empty column standing: with nothing picked it is a blank
+panel, and with a file picked the tree eats a fixed column of a docked workbench
+too narrow to afford one. Two later attempts to soften it — dropping the "Pick a
+file on the left" prompt (`1223ca7`) and giving the list the whole body while
+nothing was open (`79835f3`) — both left 2.61's structure in place, so the
+empty column kept coming back in some state.
 
-This fork therefore restores 2.58's shape: the canvas is the body and the tree
-is a `clamp(190px, 25%, 300px)` column **on the right**, and in the dock the two
-take turns in one column (`[data-files]` hides the canvas) so a file picked from
-the list steps the list aside and closing that file brings it back
+This repository therefore restores 2.58's shape: the canvas is the body and the
+tree is a `clamp(190px, 25%, 300px)` column **on the right**, and in the dock the
+two take turns in one column (`[data-files]` hides the canvas) so a file picked
+from the list steps the list aside and closing that file brings it back
 (`fromExplorer` in `useTabClose.ts`). The resizable tree column
 (`ExplorerResize.tsx`, `--wb-tree-w`) went with 2.61's structure and is not
 carried.
 
-Those are the only things allowed to differ from the release tag after a merge —
-the four files above, the workbench layout rules in `studio.css` and `app.css`,
-`useTabClose.ts`, and the tests that pin the behaviour. Anything else left
-behind is a mistake to fix, not a customisation to keep. Keep the 2.61
-features that are not layout: element picking still passes `editPage` to the
-browser panels, and display math keeps its symmetric padding.
+The 2.61 features that are not layout are kept: element picking still passes
+`editPage` to the browser panels, and display math keeps its symmetric padding.
 
 ### Void: every other customisation
 
-Listed so nobody re-adds one believing it was lost. All of these are upstream's
-now, and stay upstream's:
+Listed so nobody re-adds one believing it was lost. All of these belong to the
+base now, and stay the base's:
 
-- **The icon column's default** — `navRailMode` returns `"off"` in this fork's
-  old build; upstream returns `"on"`. Upstream's stands.
+- **The icon column's default** — `navRailMode` returned `"off"` in the old
+  fork's build; the base returns `"on"`. The base's stands.
 - **The session filters' inset** — the measured `0 3.95px 8px -8.5px` alignment
-  is gone; upstream's `margin: 0 0 8px` stands.
-- **Project rows** — the traced ZCode folder outline is gone; upstream's
+  is gone; the base's `margin: 0 0 8px` stands.
+- **Project rows** — the traced ZCode folder outline is gone; the base's
   `<StudioIcon name="folder" />` stands.
 - **The wordmark lockup** — the 2.40.0 stacked lockup (21px indent, `.21em`) is
-  gone; upstream's single-row flex with its outlined `studio` badge stands,
+  gone; the base's single-row flex with its outlined `studio` badge stands,
   guarded by `styles/brand-badge.test.ts`.
 - **Sidebar head and foot** — no-new-session-button, no-search-entry, the three
   centred footer icons and the hidden 连接与机器 row are all gone. Sidebar head
-  and foot are upstream's.
+  and foot are the base's.
 - **The cancelled-job ordering repair** in `internal/tools/jobs/run.go` — dropped
   at 2.58.0. A cancelled turn waits for the interrupted job's cleanup before the
-  queue dispatches, so "立即发送" waits for the running action, as upstream does.
+  queue dispatches, so "立即发送" waits for the running action, as the base does.
 
 Nothing on that list returns without replacing this section outright.
 
-### The merge, in order
+### Gates before a push
 
-1. `git fetch --tags upstream` — tags, not just the branch. Read the version
-   from `git tag --list 'studio-v*' --sort=-v:refname | head -1`.
-2. **Merge that release tag**, not `upstream/studio`. The branch moves on between
-   releases; a build is supposed to match a release.
-3. If `pnpm-lock.yaml` moved, `pnpm install` **before** running any gate —
+1. If `pnpm-lock.yaml` moved, `pnpm install` **before** running any gate —
    otherwise a missing module reads as a code failure. Cost one round already.
-4. Resolve conflicts by the table above: kept items keep the fork's version,
-   **everything else takes upstream's side without further debate**.
-5. Gates: `pnpm typecheck`, `pnpm test`, `pnpm build`, `go build ./...`.
-6. Package **with the upstream version number itself** (`2.53.0`, not `2.53.0.1`)
-   and push.
+2. `pnpm typecheck`, `pnpm test`, `pnpm build`, `go build ./...`.
+3. Package with the version this repository's own tag states (see below), and
+   push both the commit and the tag.
 
 ### What goes wrong when a customisation is dropped
 
 Deleting a customisation is not just deleting its markup. Three things have to
-move with it, or the tree ends up worse than either side:
+move with it, or the tree ends up worse than before:
 
-- **Fork-only stylesheets that override upstream by load order.** `railfoot.css`
-  did this: loaded after `studio.css`, its `.railfoot { justify-content: center }`
-  would have flattened upstream's labelled column even after the footer went
-  back to upstream's markup. It was deleted with the customisation.
+- **Fork-only stylesheets that override by load order.** `railfoot.css` did
+  this: loaded after `studio.css`, its `.railfoot { justify-content: center }`
+  would have flattened the labelled column even after the footer went back to
+  the base markup. It was deleted with the customisation.
 - **Fork-only tests that pin the dropped value.** `brand-lockup.test.ts` asserted
-  the 2.40.0 grid and the 21px indent; it was deleted, and upstream's
-  `brand-badge.test.ts` was taken back in its place.
-- **Upstream tests this fork had rewritten** to match the old shape —
-  `navrail`, `files-navigation`, `session-new`, `sidebar-machines`, `Account`.
-  Each was replaced with `git show <tag>:<path>`, not hand-edited.
+  the 2.40.0 grid and the 21px indent; it was deleted, and `brand-badge.test.ts`
+  took its place.
+- **Tests rewritten** to match an old shape — `navrail`, `files-navigation`,
+  `session-new`, `sidebar-machines`, `Account`. Each was restored with
+  `git show <commit>:<path>`, not hand-edited.
 
 Also check for `LOCAL FORK:` comments that outlive their customisation; a comment
 pointing at a deleted stylesheet is worse than no comment. After the two kept
 customisations, `grep -rn "LOCAL FORK" desktop/frontend-next/src/` returns
-**nothing** — neither kept item needs a marker, because neither departs from
-upstream's markup.
+**nothing** — neither kept item needs a marker, because neither departs from the
+base markup.
 
-Done once, in `7f996b8b7`, when six customisations became two.
+Done once, before the handover, when six customisations became two.
 
-## Local fork: the icon
+## The icon
 
-**Every icon this fork ships is black-on-white** — tile pure `#000000`, glyph
-pure `#ffffff`, built the way `zai-org/ZCode`'s mark is. The shape is the
+**Every icon this repository ships is black-on-white** — tile pure `#000000`,
+glyph pure `#ffffff`, built the way `zai-org/ZCode`'s mark is. The shape is the
 project's own R and whale; only the colours differ. Any new place that needs
 the mark derives from these sources rather than drawing its own.
 
@@ -592,23 +608,35 @@ outputs, and each script overwrites them on its next run:
 | Desktop, taskbar, installer, tray | `desktop/electron/assets/icon.svg` | `cd desktop/electron && node packaging/icons.js` |
 | Web and PWA | `desktop/frontend-next/public/icons/icon.svg` | `cd desktop/frontend-next && node tools/icons.mjs` |
 
-The first script is upstream's: it writes `icon.png`, `icon.ico` (8 sizes),
-`icon.icns` (10 slots) and `tray*.png` (7 scales). The second is this fork's —
-upstream kept those four PNGs by hand, so `tools/icons.mjs` was added to give
-them the same one-source treatment.
+The first script is the base's: it writes `icon.png`, `icon.ico` (8 sizes),
+`icon.icns` (10 slots) and `tray*.png` (7 scales). The second is this
+repository's own — the base kept those four PNGs by hand, so `tools/icons.mjs`
+was added to give them the same one-source treatment.
 
 Changing the icon means editing the source SVG, running its script, and
 **repackaging**: an installer built before that still carries the old icon.
 
-**Version of a fork build: 直接沿用上游版本号，不加后缀。** 官方 tag
-`studio-v2.53.0` → 本 fork 也打 `2.53.0`。版本经 `REASONIX_VERSION` 与
-`-c.extraMetadata.version` 注入，因此没有任何受版本控制的文件带着它。
-（早先用过 `官方版本号.1`，从 `2.53.0` 起不再加。）
+## Version numbers: this repository's own, from 2.70.0
 
-**每次合并上游必须先拉 tag**：`git fetch --tags upstream`，再读
-`git tag --list 'studio-v*' --sort=-v:refname | head -1` 取官方版本号。
-版本号就是从那个 tag 来的；只拉分支会让本地 tags 停在旧值——踩过一次，
-把官方的 `2.41.0` 读成了 `2.39.0`，打出来的包版本号是错的。
+**A build's version is this repository's, not upstream's, and it starts above
+2.61.0.** The first tag here is `studio-v2.70.0`. The jump is deliberate: a
+version at or below `2.61.0` sorts behind the release the in-app updater still
+offers, so the app would invite a person to "update" into the official 2.61.0
+build and throw away everything above the base.
+
+The version is injected, never committed: `REASONIX_VERSION` for the kernel and
+`-c.extraMetadata.version` for the bundle, so no tracked file carries it and
+`package.json` stays at `0.0.0`. Package with the tag's own number —
+`studio-v2.70.0` → `2.70.0`.
+
+Releases go up in `2.70.x` for fixes and `2.7x.0` for features. There is no
+`-fork` suffix, no `+build` metadata and no `.1` tail: one number, one tag, one
+build, so `git describe --tags` names exactly what a person is running.
+
+**参照 ZCode 时只看项目副本**：https://github.com/zai-org/ZCode 的克隆放在
+`tmp/zcode-repo`（`cd tmp && git clone --depth 1 https://github.com/zai-org/ZCode.git zcode-repo`）。
+不要翻本机安装目录里的 `app.asar`——那是打包产物，只有压缩后的代码，读不出源码意图，
+也查不到设计令牌与组件结构；需要「按 ZCode 的样式做」时，依据必须来自项目副本。
 
 **参照 ZCode 时只看项目副本**：https://github.com/zai-org/ZCode 的克隆放在
 `tmp/zcode-repo`（`cd tmp && git clone --depth 1 https://github.com/zai-org/ZCode.git zcode-repo`）。
