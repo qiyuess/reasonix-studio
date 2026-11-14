@@ -2879,11 +2879,13 @@ function sleepingViews({ sleepAfterMs = 5, sweepMs = 5, maxAwake = 6, capturePag
   const views = new BrowserViews({ win, kernelOrigin: "http://127.0.0.1:1", sleepAfterMs, sweepMs, maxAwake });
   views.keepKeyboard = () => {};
   const page = () => {
-    const events = { closed: 0, popups: [], downloads: [] };
+    const events = { closed: 0, popups: [], downloads: [], titles: [] };
     const handle = views.create({
       partition: "p" + created.length,
       url: "https://page.test/",
-      onEvent: () => {},
+      onEvent: (method, params) => {
+        if (method === "Page.frameTitleUpdated") events.titles.push(params.title);
+      },
       onClosed: () => events.closed++,
       onPopup: (to) => events.popups.push(to),
       onDownload: (download) => events.downloads.push(download),
@@ -3154,6 +3156,18 @@ test("a page with a dialog open does not sleep", async (t) => {
   contents.emit("debugger:message", {}, "Page.javascriptDialogClosed", { result: false }, undefined);
   await later(40);
   assert.ok(views.asleep(handle.targetId), "the answered dialog sleeps again");
+});
+
+test("a page that renames itself is relayed to the kernel as a title event", async (t) => {
+  const { views, created, page } = sleepingViews();
+  t.after(() => views.closeAll());
+  const { events } = page();
+  // The view's own event fires on every change — after load, on a script's
+  // rewrite, and on a route change that never loads a document — which is why
+  // the title comes from here rather than from a reading of the page.
+  created[0].webContents.emit("page-title-updated", {}, "First route");
+  created[0].webContents.emit("page-title-updated", {}, "Second route");
+  assert.deepEqual(events.titles, ["First route", "Second route"], "the kernel hears each name as the page takes it");
 });
 
 test("a page awaiting a certificate decision does not sleep", async (t) => {

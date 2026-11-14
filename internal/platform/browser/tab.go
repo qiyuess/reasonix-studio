@@ -186,25 +186,45 @@ func (t *tab) location() (url, title string) {
 	return t.url, t.title
 }
 
+// refreshTitle reads the title from the page itself. A page sets it while its
+// document is parsed and may set it again later, so the cached value is only
+// as good as the last read: the tab strip names a tab by its title and falls
+// back to the address when there is none, which for a page nobody has handed
+// to the agent means every tab would be named by its URL.
+//
+// It reports whether the title changed, so a caller already about to notify
+// can fold the two into one.
+func (t *tab) refreshTitle() bool {
+	t.mu.Lock()
+	before := t.navigated
+	t.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
+	defer cancel()
+	var r struct {
+		Result struct {
+			Value string `json:"value"`
+		} `json:"result"`
+	}
+	if t.call(ctx, "Runtime.evaluate", map[string]any{"expression": "document.title", "returnByValue": true}, &r) != nil {
+		return false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	// The read names the document it ran against, and a navigation between the
+	// ask and the answer makes that document the last one: writing its title
+	// here would put the page we left over the page we are on.
+	if t.navigated != before {
+		return false
+	}
+	retitled := t.title != r.Result.Value
+	t.title = r.Result.Value
+	return retitled
+}
+
 // info reads the title fresh when asked to, since pages set it after load.
 func (t *tab) info(refreshTitle bool) TabInfo {
-	if refreshTitle {
-		ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
-		var r struct {
-			Result struct {
-				Value string `json:"value"`
-			} `json:"result"`
-		}
-		if t.call(ctx, "Runtime.evaluate", map[string]any{"expression": "document.title", "returnByValue": true}, &r) == nil {
-			t.mu.Lock()
-			retitled := t.title != r.Result.Value
-			t.title = r.Result.Value
-			t.mu.Unlock()
-			if retitled {
-				t.s.tabsChanged()
-			}
-		}
-		cancel()
+	if refreshTitle && t.refreshTitle() {
+		t.s.tabsChanged()
 	}
 	url, title := t.location()
 	return TabInfo{ID: t.id, Target: t.targetID, URL: url, Title: title, Active: t.s.activeTab() == t}
@@ -235,6 +255,11 @@ func (t *tab) onEvent(ev event) {
 		t.mu.Lock()
 		delete(t.runtime.contexts, t.mainFrame)
 		t.mainFrame, t.url = p.Frame.ID, p.Frame.URL+p.Frame.URLFragment
+		// The document that had a title is gone, so the old one must not name
+		// the tab until the new document sets its own: the strip would carry
+		// the page we left over the page we are on. Until then it shows the
+		// address, which is what the new tab is on.
+		t.title = ""
 		t.navigated++
 		t.pointer = pointerState{}
 		t.signalLocked()
@@ -255,6 +280,29 @@ func (t *tab) onEvent(ev event) {
 			t.signalLocked()
 		}
 		t.mu.Unlock()
+	case "Page.frameTitleUpdated":
+		// A page names itself, and renames itself: a script sets the title after
+		// load, and a route change sets it again with no load at all. The tab
+		// strip shows this rather than the address, so it is taken as it comes.
+		var p struct {
+			FrameID string `json:"frameId"`
+			Title   string `json:"title"`
+		}
+		if json.Unmarshal(ev.Params, &p) != nil {
+			return
+		}
+		t.mu.Lock()
+		// A subframe's name is not the tab's. The host relays the view's own
+		// event, which carries no frame id, so "" is the page itself.
+		main := p.FrameID == "" || p.FrameID == t.mainFrame
+		retitled := main && t.title != p.Title
+		if main {
+			t.title = p.Title
+		}
+		t.mu.Unlock()
+		if retitled {
+			t.s.tabsChanged()
+		}
 	case "Page.lifecycleEvent":
 		var p struct {
 			FrameID  string `json:"frameId"`
@@ -273,6 +321,17 @@ func (t *tab) onEvent(ev event) {
 		t.mu.Unlock()
 		if main {
 			t.s.tabsChanged()
+			// A page names itself as it loads, so the title is read once the
+			// load event says the document is done — the cached one is empty
+			// for a page the agent never handed to itself, and a tab named by
+			// its address is what a person sees instead of the page's name.
+			// Read off the queue: this handler would otherwise wait on the
+			// round trip and hold back every event behind it.
+			go func() {
+				if t.refreshTitle() {
+					t.s.tabsChanged()
+				}
+			}()
 		}
 	case "Page.javascriptDialogOpening":
 		var d Dialog

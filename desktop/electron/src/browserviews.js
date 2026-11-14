@@ -229,6 +229,18 @@ class BrowserViews {
       return { action: "deny" };
     });
     installPaneReload(contents);
+    // A page names itself, and renames itself as it goes: a script sets the
+    // title after load, and a route change sets it again without a load. The
+    // protocol's own title event is unreliable for this — Chrome fires it
+    // rarely and sometimes with the address in it — so the view's own event,
+    // which fires on every change, is relayed as the protocol event the kernel
+    // already reads.
+    // A title is what the page says about itself, not a sign that someone is
+    // looking at it, so it does not touch `lastTouch`: a page that counts down
+    // or shows unread mail in its title must still be allowed to sleep.
+    contents.on("page-title-updated", (_event, title) => {
+      entry.onEvent("Page.frameTitleUpdated", { title: String(title ?? "") });
+    });
     contents.debugger.attach("1.3");
     contents.debugger.on("message", (_event, method, params, sessionId) => {
       entry.lastTouch = Date.now();
