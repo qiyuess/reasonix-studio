@@ -1,6 +1,16 @@
+/* Stacked, the workbench takes the pane's whole width and there is no second
+   column for the window bar to mirror. This flag is what the panel reads to
+   keep its strip at home instead of moving it onto a bar with nothing under it:
+   the condition lives here once, and JavaScript consumes it rather than
+   spelling the same width out again.
+   The flag sits on the column rather than on the pane because a container query
+   never matches its own container — only its descendants — so a declaration on
+   `.pane` inside this query would never apply. */
 @container conversation (max-width: 555px) {
   .app[data-browser="on"] .pane:has(> .pbody[data-dock]) > .findhost { grid-area: 1 / 1 / 2 / 3 }
-  .app[data-browser="on"] .pane:has(> .pbody[data-dock]) > .scroll[data-pane="browser"] { grid-area: 2 / 1 / 4 / 3; border-left: 0 }
+  .app[data-browser="on"] .pane:has(> .pbody[data-dock]) > .scroll[data-pane="browser"] {
+    grid-area: 2 / 1 / 4 / 3; border-left: 0; --dock-stacked: 1;
+  }
   .app[data-browser="on"] .pane:has(> .pbody[data-dock]) > :is(.pbody, .compose, .gutter-r) { display: none }
 }
 .pane:has(> .pbody[data-dock]) { --dock-w: var(--dock-open); transition: --dock-w var(--t-panel) cubic-bezier(.32, .72, 0, 1) }

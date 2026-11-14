@@ -361,14 +361,33 @@ the picker and keyboard navigation.
   and the browser's toolbar all start at `--pane-gutter`. The switcher took the
   reading column's inset, right under a conversation and wrong under a
   full-bleed canvas — it floated 278px in from the strip below it.
+- The window bar has one seam. Docked, the icon group before the strip ends and
+  the strip begins at the same x the panes below split on, so the hairline runs
+  the window's whole height. Both edges are read off one `--dock-col`, and the
+  icon group's margin subtracts `--winctl-w`: what the shell's own window
+  controls already take off the bar's right end — three 44px targets and the
+  row's gap, 146px on frameless Windows, the bare 12px padding where the shell
+  draws none. Charging them twice, or not at all, is what parked the icons a
+  whole control group short of the seam and left the strip's tail underneath
+  the close button.
+- A percentage inside the bar means two lengths: a margin resolves against its
+  *content* box, an absolutely positioned child against its *padding* box. Two
+  rules that must agree — the icons' margin and the strip's width — read
+  `--dock-col` from both sides, so `--chrome-pad-sum` is added onto the one that
+  reads the content box. Without it the two edges drift apart by the bar's own
+  insets.
+- A list opened from the window bar is portalled to the body and positioned
+  fixed. The bar *is* the title bar, so anything painted inside it is title bar
+  too: a menu there takes drag-the-window presses instead of clicks on its rows
+  and is clipped to one bar's height. `pinToViewport` writes its coordinates.
 - A row nobody bounded is why the file tree had no scrollbar. `overflow: auto`
   was already on the list; the workbench body's implicit row is `auto`, sized to
   its content, so the column grew past the panel and was clipped instead.
   `grid-template-rows: minmax(0, 1fr)` is the half that makes the overflow real.
-- The docked workbench is a card inset from the pane, and its tab strip ends on
-  the pane's tab-row line so the two rows read as one: the strip is
-  `--pane-bar-h` less the card's top inset and border. `perf/dock.mjs` holds
-  the two lines together.
+- The docked workbench is a column, not a card: it runs to the window bar with
+  no border, radius or shadow of its own, its tab strip is portalled onto the
+  window bar, and one hairline on the column is what separates it from the
+  conversation. `perf/dock.mjs` holds the two lines together.
 - The file toolbar gives spare width to the truncated path; optional controls
   and Save keep their intrinsic widths. Enabled Save uses accent foreground ink;
   disabled Save uses opaque muted ink on a neutral surface.

@@ -22,7 +22,14 @@ export function BrowserTabMenu({ menu, others, right, all, label, onDismiss, onC
     return () => {
       off();
       window.removeEventListener("blur", blur);
-      if (menu.anchor.isConnected) menu.anchor.focus();
+      // Another layer can open in the same commit this menu closes — the
+      // question about unsaved text does, and its Save button focuses itself.
+      // This cleanup runs after that, so handing focus back unconditionally
+      // took it straight out of the question. It goes back to the tab only
+      // when the menu is still where the person is.
+      const at = document.activeElement;
+      const held = !at || at === document.body || at === menu.anchor || !!box.current?.contains(at);
+      if (held && menu.anchor.isConnected) menu.anchor.focus();
     };
   }, [menu, onDismiss]);
   return createPortal(
@@ -43,7 +50,7 @@ export function BrowserTabMenu({ menu, others, right, all, label, onDismiss, onC
       <button role="menuitem" data-action="workbench.browser-close" data-target={keyOf(menu.surface)} data-value="right" aria-label={t("workbench.close_browser_tabs_to_the")} disabled={!right} onClick={() => onClose("right")}>
         <span>{t("workbench.close_browser_tabs_to_the")}</span>{right > 0 && <kbd>{right}</kbd>}
       </button>
-      <button role="menuitem" data-action="workbench.browser-close" data-target={keyOf(menu.surface)} data-value="all" aria-label={t("workbench.close_all_browser_tabs")} onClick={() => onClose("all")}>
+      <button role="menuitem" data-action="workbench.browser-close" data-target={keyOf(menu.surface)} data-value="all" aria-label={t("workbench.close_all_browser_tabs")} disabled={!all} onClick={() => onClose("all")}>
         <span>{t("workbench.close_all_browser_tabs")}</span>{all > 0 && <kbd>{all}</kbd>}
       </button>
     </div>, document.body,

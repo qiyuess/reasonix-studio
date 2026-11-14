@@ -32,7 +32,7 @@ export function ViewSwitch({ view, rows, surfaces, onView }: {
         aria-pressed={view === "browser"} aria-label={t("common.workbench")} aria-keyshortcuts={ariaChord("3")}
         title={view === "browser" ? t("app.close_workbench") : t("app.open_workbench")} shortcut={chord("3")} onClick={() => press("browser")}
       >
-        <StudioIcon name="panel" />
+        <StudioIcon name="monitor" />
         {surfaces > 0 && <span className="view-count">{surfaces}</span>}
       </TooltipButton>
     </>

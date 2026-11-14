@@ -186,6 +186,26 @@ describe("which page the shell draws, and where", () => {
     expect(bridge.navigateBrowserView).toHaveBeenCalledWith("view-a", "localhost:3000");
   });
 
+  it("reads a blank page as an empty field, not as about:blank", async () => {
+    // `about:blank` is the shell's placeholder for "nothing loaded yet", not an
+    // address anybody typed: shown in the field it reads as a site by that name.
+    await panel({ tabs: [{ id: "t9", target: "view-z", url: "about:blank", title: "", active: true }], shown: true });
+    const field = screen.getByRole("textbox", { name: "网址" }) as HTMLInputElement;
+    expect(field.value).toBe("");
+    expect(field.placeholder, "an empty field still says what to do with it").toBe("输入网址");
+  });
+
+  it("stays where it is when Enter arrives with an empty field", async () => {
+    // With the blank page reading as empty, Enter has a new way to be pressed on
+    // nothing. An empty target is a question, not a page: the view must not be
+    // asked to navigate to one.
+    await panel({ tabs: [{ id: "t9", target: "view-z", url: "about:blank", title: "", active: true }], shown: true });
+    bridge.navigateBrowserView.mockClear();
+    const field = screen.getByRole("textbox", { name: "网址" });
+    await userEvent.type(field, "{Enter}");
+    expect(bridge.navigateBrowserView).not.toHaveBeenCalled();
+  });
+
   it("never tells the person the page is paused", async () => {
     await panel({ tabs, shown: true });
     expect(document.querySelector(".bview")?.textContent).toBe("");

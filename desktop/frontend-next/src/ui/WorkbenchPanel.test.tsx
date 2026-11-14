@@ -447,10 +447,11 @@ describe("WorkbenchPanel", () => {
     expect(screen.getByRole("tab", { name: "My page" }).getAttribute("aria-selected")).toBe("true");
   });
 
-  // Closing every browser tab at once while a file from the explorer is still
-  // open leaves that file behind, so the column stays and the list stays away.
-  // The batch goes through the same rule as a single close, which is the point.
-  it("keeps the column when every browser tab is closed at once beside an explorer file", async () => {
+  // Closing every tab at once — the explorer file among them, now that the
+  // strip's menu covers file tabs too — leaves nothing open, so the batch goes
+  // through the same rule a single close does: the file tree comes back rather
+  // than the column folding away.
+  it("brings the file tree back when the batch closes the explorer's file too", async () => {
     const user = userEvent.setup();
     const onCloseManual = vi.fn();
     const pages = [
@@ -464,13 +465,13 @@ describe("WorkbenchPanel", () => {
     expect(screen.getByRole("tab", { name: "README.md" })).toBeTruthy();
 
     await user.pointer({ keys: "[MouseRight]", target: screen.getByRole("tab", { name: "My page" }) });
-    await user.click(await screen.findByRole("menuitem", { name: "关闭全部浏览器标签" }));
+    await user.click(await screen.findByRole("menuitem", { name: "关闭全部标签" }));
 
     expect(screen.queryByRole("tab", { name: "My page" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Agent page" })).toBeNull();
-    expect(screen.getByRole("tab", { name: "README.md" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "README.md" })).toBeNull();
     expect(onCloseManual).not.toHaveBeenCalled();
-    expect(container.querySelector(".workbench-body")?.hasAttribute("data-files")).toBe(false);
+    expect(container.querySelector(".workbench-body")?.hasAttribute("data-files"), "the list comes back").toBe(true);
   });
 
   it("shows a page the person opened beside the agent's, while the agent's tab stays active", () => {

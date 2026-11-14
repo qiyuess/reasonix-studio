@@ -4,8 +4,9 @@ import { act, cleanup, render, renderHook, screen } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import "./testkit";
 import { langOf } from "./fileKind";
-import { leave, slideAway, useEnteringTabs, useOpenSlide } from "./workbench_motion";
+import { leave, useEnteringTabs, useOpenSlide } from "./workbench_motion";
 import { WorkbenchTabOverflow } from "./WorkbenchTabOverflow";
+import { WorkbenchTabPicker } from "./WorkbenchTabPicker";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
@@ -44,6 +45,51 @@ describe("tabs that move, as the WB-Frame board draws them", () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it("lists every open tab to jump from, and marks the one showing", async () => {
+    // Drawn even when the strip fits: the tail of a strip is out of reach the
+    // moment two more files are opened, and closing tabs to get at one is not
+    // a way to reach it.
+    const onPick = vi.fn();
+    render(<WorkbenchTabPicker
+      tabs={[{ key: "file:a", label: "a.go" }, { key: "file:b", label: "b.go" }, { key: "browser:t1", label: "Browser" }]}
+      active="file:b" onPick={onPick} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "切换到某个标签" }));
+    const rows = screen.getAllByRole("menuitem");
+    expect(rows.map((row) => row.textContent)).toEqual(["a.go", "b.go", "Browser"]);
+    expect(rows[1].getAttribute("aria-current"), "the showing tab is the one marked").toBe("true");
+    expect(rows[0].getAttribute("aria-current")).toBeNull();
+
+    await userEvent.click(rows[2]);
+    expect(onPick).toHaveBeenCalledWith("browser:t1");
+    expect(screen.queryByRole("menu"), "picking closes the list").toBeNull();
+  });
+
+  it("has nothing to list before a tab is open", () => {
+    const { container } = render(<WorkbenchTabPicker tabs={[]} active="" onPick={vi.fn()} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("ticks only the row that is showing", async () => {
+    // Six tabs called "about:blank" carry no wording to compare, so the row
+    // that is open has to be said without reading the names. This asserts what
+    // the DOM can answer — one row carries `aria-current`, and every row has
+    // the tick element for the stylesheet to reveal or hide. Whether the tick
+    // ends up visible, and the wash behind the row, are CSS: jsdom computes no
+    // stylesheet, so design/workbench.css holds them and a look confirms them.
+    const tabs = Array.from({ length: 6 }, (_, i) => ({ key: `browser:t${i}`, label: "about:blank" }));
+    render(<WorkbenchTabPicker tabs={tabs} active="browser:t3" onPick={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "切换到某个标签" }));
+
+    const rows = screen.getAllByRole("menuitem");
+    expect(rows).toHaveLength(6);
+    const marked = rows.filter((row) => row.querySelector(".workbench-picker-mark"));
+    expect(marked, "every row carries the icon").toHaveLength(6);
+    const shown = rows.filter((row) => row.getAttribute("aria-current") === "true");
+    expect(shown, "one row is the current one").toHaveLength(1);
+    expect(shown[0], "and it is the fourth").toBe(rows[3]);
+  });
+
   it("slides the workbench in when it is brought out, and not when it is drawn already out", () => {
     const el = document.createElement("section");
     const animate = vi.fn(() => ({ finished: Promise.resolve() }));
@@ -54,16 +100,5 @@ describe("tabs that move, as the WB-Frame board draws them", () => {
     rerender({ shown: false });
     rerender({ shown: true });
     expect(animate).toHaveBeenCalledTimes(1);
-  });
-
-  it("puts the workbench away once it has slid out", async () => {
-    const el = document.createElement("section");
-    let finish!: () => void;
-    Object.assign(el, { animate: () => ({ finished: new Promise<void>((done) => { finish = done; }) }) });
-    const then = vi.fn();
-    slideAway(el, then);
-    expect(then).not.toHaveBeenCalled();
-    await act(async () => finish());
-    expect(then).toHaveBeenCalled();
   });
 });
