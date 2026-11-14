@@ -42,7 +42,6 @@ var docClassByPrefix = []struct {
 }{
 	{"release-notes/", classReleaseNote},
 	{"README.md", classLanding},
-	{"README.zh-CN.md", classLanding},
 	{"REASONIX.md", classMachine},
 	{"AGENTS.md", classMachine},
 	{"CLAUDE.md", classMachine},
@@ -58,9 +57,9 @@ var docClassByPrefix = []struct {
 var docSkippedPrefixes = []string{"benchmarks/"}
 
 // translatedDocs are the onboarding pages kept in Chinese beside the English
-// original. Every other document has one language, English.
+// original. Every other document has one language, English — except README.md,
+// which is the landing page and is written in Chinese alone.
 var translatedDocs = []string{
-	"README.zh-CN.md",
 	"docs/GUIDE.zh-CN.md",
 	"docs/CLI.zh-CN.md",
 }

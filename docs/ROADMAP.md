@@ -60,7 +60,7 @@ The 2.x terminal UI (`reasonix tui`) replaces the 1.x chat screen for people who
 | T6 | Bare `reasonix`, `reasonix -c` and `reasonix -r` start the terminal UI, as they do in 1.x, with 1.x's session options and permission-mode names | Done |
 | T7 | Windows checks by hand: IME candidate window position, Alt+V image paste | Not started |
 | T8 | Local install test of the npm package and the Homebrew cask before the switch release | Not started |
-| T9 | `README.md` and `README.zh-CN.md` name npm and Homebrew as the 2.x CLI channels in the switch release | Not started |
+| T9 | `README.md` names npm and Homebrew as the 2.x CLI channels in the switch release | Not started |
 
 ## Other workstreams
 

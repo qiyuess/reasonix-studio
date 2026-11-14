@@ -21,7 +21,8 @@
 
 Language: **English is the primary language for all code** — comments,
 user-facing strings, tool descriptions, system prompts, and this spec. The
-README is bilingual (`README.md` English + `README.zh-CN.md`).
+README is the exception and is written in Chinese: it is the page a person lands
+on first, and the people this repository is for read Chinese.
 
 ## 2. Layout
 
@@ -29,7 +30,7 @@ README is bilingual (`README.md` English + `README.zh-CN.md`).
 reasonix/
 ├── go.mod / go.sum          # module reasonix; require BurntSushi/toml
 ├── Makefile                 # build / cross / vet / fmt / test
-├── README.md / README.zh-CN.md
+├── README.md                # Chinese; the landing page
 ├── reasonix.example.toml         # sample config
 ├── docs/SPEC.md             # this file
 ├── cmd/reasonix/main.go          # entry; blank-imports built-in providers/tools
