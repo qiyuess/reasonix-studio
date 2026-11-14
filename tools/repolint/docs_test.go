@@ -166,8 +166,15 @@ func TestOnlyOnboardingPagesKeepAChineseCopy(t *testing.T) {
 		"benchmarks/x.zh-CN.md": "corpus",
 	})
 	got := ruleFindings(checkDocs(root), ruleDocLanguage)
-	if len(got) != 1 || got[0].File != "docs/SPEC.zh-CN.md" {
-		t.Fatalf("findings = %+v, want only the non-onboarding translation", got)
+	// Two refusals: README is written in Chinese alone, so a .zh-CN.md copy of it
+	// is a second page to maintain rather than a translation; and SPEC is not an
+	// onboarding page, so no Chinese copy of it belongs here at all.
+	refused := map[string]bool{}
+	for _, f := range got {
+		refused[f.File] = true
+	}
+	if len(got) != 2 || !refused["README.zh-CN.md"] || !refused["docs/SPEC.zh-CN.md"] {
+		t.Fatalf("findings = %+v, want README.zh-CN.md and docs/SPEC.zh-CN.md refused", got)
 	}
 }
 

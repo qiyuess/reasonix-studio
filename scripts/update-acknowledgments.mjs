@@ -29,7 +29,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 
   const top = selectTop(contributors, thanksExclusions(repo));
   await updateReadme('README.md', renderTable(top));
-  await updateReadme('README.zh-CN.md', renderTable(top));
 }
 
 export function selectTop(contributors, excluded, limit = 20) {

@@ -35,7 +35,7 @@ Current areas:
 | Class | Paths | Header | Prose width |
 | --- | --- | --- | --- |
 | Document | everything not listed below | required | 320 |
-| Landing | `README.md`, `README.zh-CN.md` | none (CODEOWNERS) | 320 |
+| Landing | `README.md` | none (CODEOWNERS) | 320 |
 | Machine-read | `REASONIX.md`, `AGENTS.md`, `CLAUDE.md`, `.github/`, `.reasonix/`, skill and guardian prompts, `docs/EXTENSION_PROTOCOL.generated.md` | none (CODEOWNERS) | 320 |
 | Release note | `release-notes/` | none (published verbatim) | 200 per item |
 
@@ -84,8 +84,8 @@ Sections are reviewed by the owner. The gate checks header, width and language o
 
 | ID | Rule |
 | --- | --- |
-| L1 | English is the maintained language of every document. |
-| L2 | Only `README.zh-CN.md`, `docs/GUIDE.zh-CN.md` and `docs/CLI.zh-CN.md` MAY keep a Chinese copy. |
+| L1 | English is the maintained language of every document, except `README.md`. |
+| L2 | `README.md` is written in Chinese: it is the landing page, and the people this repository is for read Chinese. Only `docs/GUIDE.zh-CN.md` and `docs/CLI.zh-CN.md` MAY keep a Chinese copy beside an English original. |
 | L3 | Release notes are written in Chinese, the language Studio users read. |
 
 ## 7. Lifecycle
