@@ -40,4 +40,23 @@ describe("status rail figures hold their width", () => {
     const speed = rail.find((r) => r.selector === ".studio-meterrail .studio-meter-speed b");
     expect(speed?.decls.get("min-width")).toBe("5ch");
   });
+
+  // The turn count grows on its own — 9 to 10, 99 to 100 — with the cost chips
+  // right behind it, so it owes the same reservation the speed figure pays.
+  it("reserves the width of the turn count, which grows on its own beside the cost", () => {
+    const turns = rail.find((r) => r.selector === ".studio-meterrail .studio-meter-turns b");
+    expect(turns?.decls.get("min-width")).toBe("3ch");
+    expect(turns?.decls.get("text-align")).toBe("right");
+  });
+
+  // Its label is set faint like every other session figure's, so the number is
+  // what the eye lands on. Scanned over the whole sheet on purpose: this rule
+  // is grouped with the cache/cost/context labels, which are written without
+  // the .studio-meterrail prefix, so the rail subset above cannot see it.
+  it("sets the turn count's label to the same faint as the figures around it", () => {
+    const faint = rules(SHEET)
+      .filter((r) => r.selector.split(",").some((s) => s.trim() === ".studio-meter-turns > span"))
+      .map((r) => r.decls.get("color"));
+    expect(faint).toContain("var(--faint)");
+  });
 });

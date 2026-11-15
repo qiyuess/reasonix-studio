@@ -74,7 +74,10 @@ func (idx *historyReadIndex) extend(messages []provider.Message, version uint64)
 				state.started = m.CreatedAt
 			}
 			class := ClassifyTurn(m, 0)
-			if !class.Steer {
+			// A steer and a local-only receipt both close no run: neither is
+			// something the person said between two pieces of work. Closing on
+			// one would cut its turn and report the pieces summed.
+			if !class.Steer && !class.LocalOnly {
 				state.turn, state.run = state.turn+state.run, 0
 				if class.StartsTurn {
 					if state.closing >= 0 {
