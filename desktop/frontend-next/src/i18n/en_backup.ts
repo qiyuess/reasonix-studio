@@ -1,9 +1,7 @@
-// English for the cloud backup section under Settings > Account.
+// English for the local backup: the file a person exports and imports under
+// Settings > Data. The cloud copy that used to share this wording is gone.
 export const EN_BACKUP: Record<string, string> = {
-  "云备份": "Cloud backup",
   "导出与导入配置": "Export and import config",
-  "不用账号：把本机的模型、扩展、记忆等配置加密导出成一个文件，换机器时再导入。":
-    "No account needed: export this machine's models, extensions, memory and other setup as one encrypted file, and import it on another machine.",
   "配置文件的导出与导入只在本机窗口可用。": "Exporting and importing a config file is only available in this machine's own window.",
   "已导出。": "Exported.",
   "已导出。{n} 个文件过大或无法读取，未包含在内。": "Exported. {n} files were too large or unreadable and are not included.",
@@ -15,8 +13,6 @@ export const EN_BACKUP: Record<string, string> = {
   "正在加密…": "Encrypting…",
   "导出到文件…": "Export to file…",
   "从文件导入…": "Import from file…",
-  "把本机的模型、扩展、记忆等配置加密保存到账号，换机器或重装后按项恢复。":
-    "Encrypt this machine's models, extensions, memory and other setup into your account, and restore it item by item on a new machine or after a reinstall.",
   "模型与界面设置": "Models and interface",
   "技能、插件与 MCP": "Skills, plugins and MCP",
   "长期记忆": "Long-term memory",
@@ -28,28 +24,14 @@ export const EN_BACKUP: Record<string, string> = {
     "Plugins are recorded by source and version only, and restoring one goes through the usual install confirmation",
   "用户级指令文件与全局记忆": "User-level instruction files and global memory",
   "会在本机运行的命令，恢复时逐项确认": "Commands that run on this machine; each one is confirmed on restore",
-  "默认不备份。勾选后密钥会随备份一起加密上传": "Off by default. When ticked, keys are encrypted and uploaded with the backup",
-  "备份在本机用你设置的口令加密后才上传，服务端看不到其中内容。忘记口令就无法恢复。":
-    "A backup is encrypted here with your passphrase before it is uploaded, so the service cannot read it. A forgotten passphrase cannot be recovered.",
-  "备份内容": "What to back up",
-  "备注（可选）": "Label (optional)",
-  "例如：公司笔记本": "e.g. work laptop",
   "加密口令（至少 {n} 个字符）": "Passphrase (at least {n} characters)",
   "至少选择一项备份内容": "Tick at least one thing to back up",
   "口令还差 {n} 个字符": "Passphrase too short: {n} more needed",
   "请再输一次口令": "Repeat the passphrase to confirm it",
   "再输一次": "Repeat it",
   "两次输入的口令不一致": "The two passphrases differ",
-  "正在加密上传…": "Encrypting and uploading…",
-  "备份到账号": "Back up to account",
-  "已用 {n}/{max} 份": "{n} of {max} used",
-  "已备份。": "Backed up.",
-  "已备份。{n} 个文件过大或无法读取，未包含在内。": "Backed up. {n} files were too large or unreadable and were left out.",
-  "账号里还没有备份。": "No backups in this account yet.",
   "未命名备份": "Untitled backup",
-  "恢复…": "Restore…",
   "确认删除": "Confirm delete",
-  "正在读取备份…": "Loading backups…",
   "本机没有": "Not on this machine",
   "与本机不同": "Differs from this machine",
   "与本机相同": "Same as this machine",

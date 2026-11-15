@@ -23,8 +23,6 @@ import { EN_USAGE } from "./en_usage";
 import { EN_COMPOSER } from "./en_composer";
 import { EN_BACKUP } from "./en_backup";
 import { EN_FEEDBACK } from "./en_feedback";
-import { EN_COMMUNITY } from "./en_community";
-import { EN_SPONSOR } from "./en_sponsor";
 import { EN_MEMORY } from "./en_memory";
 
 export const EN: Record<string, string> = {
@@ -89,8 +87,6 @@ export const EN: Record<string, string> = {
   ...EN_SETTINGS,
   ...EN_TOOL_BLURBS,
   ...EN_PERSONA,
-  ...EN_COMMUNITY,
-  ...EN_SPONSOR,
   ...EN_MEMORY,
   ...EN_METRICS,
   ...EN_FIND,
@@ -902,11 +898,9 @@ export const EN: Record<string, string> = {
   "明暗、配色、字体、壁纸": "Light or dark, colours, fonts, wallpaper",
   "记忆、用量、存储、备份": "Memory, usage, storage, backup",
   "网络、远程机器、手机": "Network, remote machines, phone",
-  "账号、版本、日志、社区": "Account, version, logs, community",
   "常用": "Common",
   "最常改的": "Most changed",
   "最近打开": "Recently opened",
-  "账号与关于": "Account and About",
   "Agent 行为": "Agent behaviour",
   "已启用 {on}/{all}": "{on} of {all} enabled",
   "搜索或输入完整模型 ID…": "Search or enter an exact model ID…",
@@ -1089,7 +1083,6 @@ export const EN: Record<string, string> = {
   "部分文字": "Some text",
   "部分文字过长或含不可见字符，预览没有显示全部。": "Some text is too long or holds invisible characters, so the preview does not show all of it.",
   "另有 {n} 项未显示；高风险项都已列出。": "{n} more steps are not shown; every high-risk step is listed.",
-  "还有 {n} 个技能未显示": "{n} more skills are not shown",
   "需填写": "Needs filling in",
   "不可用": "Unusable",
   "更新": "Update",
@@ -1260,17 +1253,6 @@ export const EN: Record<string, string> = {
   "正在读取更新内容…": "Loading what's new…",
   "更新内容读取失败": "What's new could not be read",
   "在 GitHub 查看": "View on GitHub",
-
-  // ── 账号 ─────────────────────────────────────────────────────────
-  "正在检查登录状态…": "Checking sign-in status…",
-  "无法读取登录状态": "Sign-in status could not be read",
-  "登录状态不可用": "Sign-in status unavailable",
-  "上次的登录已过期。": "The previous sign-in has expired.",
-  "这次登录请求已过期，再试一次。": "This sign-in request expired. Try again.",
-  "只清除本地登录凭证，不影响会话、记忆和配置":
-    "Clears the local credential only; sessions, memory and config are untouched",
-  "用于社区发帖与崩溃问题跟进。与模型 API key 无关 —— 登录不会上传你的对话、代码或密钥。":
-    "Used for posting to the community and following up crashes. Unrelated to your model API keys — signing in uploads none of your conversations, code or secrets.",
 
   // ── 分工与模型 ───────────────────────────────────────────────────
   "跟随主模型": "Follow the main model",

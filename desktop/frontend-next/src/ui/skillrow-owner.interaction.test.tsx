@@ -32,7 +32,6 @@ function settings(port: AgentPort, onChanged = vi.fn()) {
     theme="light" onTheme={() => {}} contrast="" onContrast={() => {}} weight="" onWeight={() => {}}
     look={{} as never} onLook={() => {}} reloadThemes={() => {}}
     onClose={() => {}} onChanged={onChanged} onError={() => {}} at="ext:installed"
-    account={null} accountUnread="" reloadAccount={() => {}}
   />;
 }
 
@@ -270,7 +269,7 @@ it.each(["success", "failure"])("notifies Settings without an old error after le
   const onChanged = vi.fn();
   render(settings(port, onChanged));
   await userEvent.click(await screen.findByRole("switch", { name: "关闭 explore" }));
-  await userEvent.click(screen.getByRole("tab", { name: "发现" }));
+  await userEvent.click(document.querySelector<HTMLButtonElement>('[data-action="settings.section"][data-value="storage"]')!);
   expect(screen.queryByRole("switch", { name: "关闭 explore" })).toBeNull();
   const reads = skills.mock.calls.length;
   await act(async () => pending.settle(outcome));

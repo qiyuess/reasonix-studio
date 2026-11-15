@@ -14,7 +14,7 @@ beforeEach(async () => { await import("./Settings"); localStorage.setItem(STORAG
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); });
 
-it("keeps machine reads separate from active-pane account operations", async () => {
+it("keeps machine reads separate from the active pane", async () => {
   const hub = new MockHub(), local = new MockPort(), remote = new MockPort();
   hub.runtimes = async () => [{ id: "remote", base: "/rt/remote", host: "gpu", root: "/remote", name: "Remote" }];
   hub.portFor = () => remote;
@@ -26,21 +26,17 @@ it("keeps machine reads separate from active-pane account operations", async () 
   const remoteMemories = vi.spyOn(remote, "memories");
   const localAccount = vi.spyOn(local, "account");
   const remoteAccount = vi.spyOn(remote, "account").mockResolvedValue({ signedIn: true, user: { handle: "remote-user", label: "Remote account", email: "remote@example.test" } });
-  const remoteLogout = vi.spyOn(remote, "accountLogout").mockResolvedValue();
-  const localLogout = vi.spyOn(local, "accountLogout");
   render(<App hub={hub} />);
   await userEvent.click(await screen.findByRole("button", { name: "设置" }));
   await userEvent.click(await screen.findByRole("tab", { name: /^数据/ }, { timeout: 10000 }));
   await screen.findAllByText("This machine fact");
   expect(remoteMemories).not.toHaveBeenCalled();
+  // Nothing reads an account any more: the presence dot that spent it left with
+  // the sign-in surface, so neither the machine port nor the active pane is
+  // asked who is signed in. Held as a negative so the read cannot creep back in
+  // without a consumer.
   expect(localAccount).not.toHaveBeenCalled();
-  expect(remoteAccount).toHaveBeenCalled();
-  await userEvent.click(screen.getByRole("tab", { name: /账号/ }));
-  await screen.findAllByText("Remote account");
-  await userEvent.click(screen.getByRole("button", { name: "退出登录" }));
-  await userEvent.click(screen.getByRole("button", { name: /确认退出/ }));
-  expect(remoteLogout).toHaveBeenCalled();
-  expect(localLogout).not.toHaveBeenCalled();
+  expect(remoteAccount).not.toHaveBeenCalled();
 });
 
 

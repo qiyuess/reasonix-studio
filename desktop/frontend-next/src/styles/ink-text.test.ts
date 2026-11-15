@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-const SHEETS = import.meta.glob("./{app,studio,feedback,community,chart}.css", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const SHEETS = import.meta.glob("./{app,studio,feedback,chart}.css", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
 const GLYPHS = [
   /\.sym\b/, /\.rmark\b/, /\.mk\b/, /\.rc-tick\b/, /\.ic$/,

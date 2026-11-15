@@ -103,7 +103,6 @@ export const EN_WINDOW: Record<string, string> = {
   "搜索会话 / 项目": "Search sessions or projects",
   "没有匹配的会话": "Nothing matches",
   "清空": "Clear",
-  "无法连接身份服务": "Cannot reach the identity service",
   "任务": "Task",
   "助手": "Assistant",
   "当前任务": "Current task",

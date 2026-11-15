@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
 import { host as hostBridge } from "../port/host";
 import type { HubPort } from "../port/hub";
-import type { AccountState, AgentPort, SessionStatus, WorkspaceInfo } from "../port/port";
+import type { AgentPort, SessionStatus, WorkspaceInfo } from "../port/port";
 import { DeviceBar } from "./DeviceBar";
 import { useDismiss } from "./dismiss";
 import { useFolded } from "./usefold";
@@ -34,7 +34,6 @@ interface Props {
   workspace: WorkspaceInfo | null;
   title?: string;
   steer: number;
-  account: AccountState | null;
   theme: string;
   onTheme: () => void;
   onFind: () => void;
@@ -48,7 +47,7 @@ interface Props {
   onError?: (e: unknown) => void;
 }
 
-export function Chrome({ port, status, workspace: ws, title, steer, account, host, theme, onTheme, onFind, view, rows, surfaces, onView, hub, onError }: Props) {
+export function Chrome({ port, status, workspace: ws, title, steer, host, theme, onTheme, onFind, view, rows, surfaces, onView, hub, onError }: Props) {
   const root = status?.workspaceRoot || status?.cwd || "";
   const project = root ? base(root) : "—";
   // The folder mark opens the project itself. Only a shell that can enter a
@@ -170,7 +169,6 @@ export function Chrome({ port, status, workspace: ws, title, steer, account, hos
             this contract are checked by the compiler. */}
         <div className="wb-dock-head" ref={registerDockHead} />
       </div>
-      <span className="account-presence" title={account?.signedIn ? account.user?.label : t("common.not_signed_in")} />
       <WindowControls />
     </div>
     </>

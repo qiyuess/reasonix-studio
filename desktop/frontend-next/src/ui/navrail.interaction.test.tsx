@@ -88,7 +88,7 @@ it("draws the rail when it is chosen, with every entry in it", async () => {
   expect(nav()).not.toBeNull();
   expect(app().dataset.nav).toBe("on");
   expect(document.querySelector(".railfoot")).toBeNull();
-  for (const name of ["会话", "用量", "文件", "工具与权限", "扩展", "记忆", "远程", "发送反馈", "账号", "设置"]) {
+  for (const name of ["会话", "用量", "文件", "工具与权限", "扩展", "记忆", "远程", "发送反馈", "设置"]) {
     expect(within(navEl()!).getByRole("button", { name: new RegExp(`^${name}`) }), name).toBeTruthy();
   }
 });
@@ -169,13 +169,14 @@ it("still reaches settings with the rail off", async () => {
   expect(pressed("不显示")).toBe("true");
 });
 
-it.each(["on", "off"])("reaches usage, account, and settings with the rail %s", async (mode) => {
+it.each(["on", "off"])("reaches usage and settings with the rail %s", async (mode) => {
   localStorage.setItem(KEY, mode);
   await open();
   const entries = mode === "on" ? navEl()! : document.querySelector<HTMLElement>(".railfoot")!;
-  const account = mode === "on" ? [["账号", "account", "chrome.account"]] : [];
-  if (mode === "off") expect(entries.querySelector('[data-action="chrome.account"]')).toBeNull();
-  for (const [label, section, action] of [["用量", "storage"], ...account, ["设置", "session", "chrome.settings"]]) {
+  // The account entry is gone from this rail: with the sign-in surface deleted
+  // it opened a page that no longer asks who you are, so settings carries it.
+  expect(entries.querySelector('[data-action="chrome.account"]')).toBeNull();
+  for (const [label, section, action] of [["用量", "storage"], ["设置", "session", "chrome.settings"]] as const) {
     const menuEntry = mode === "off" && label === "用量";
     if (menuEntry) await userEvent.click(screen.getByRole("button", { name: "侧栏入口" }));
     const button = within(menuEntry ? screen.getByRole("menu") : entries).getByRole(menuEntry ? "menuitem" : "button", { name: new RegExp(`^${label}`) });

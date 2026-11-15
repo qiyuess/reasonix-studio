@@ -32,7 +32,6 @@ export const STEPS = [
   ["turn-mid", `(()=>true)()`],
   ["turn-late", `(()=>true)()`],
   ["turn-end", `(()=>true)()`],
-  ["account", click(act("chrome.account"))],
 ];
 // Settings is walked by index rather than by name: the nav labels carry counts
 // and translate, and only their order is stable.

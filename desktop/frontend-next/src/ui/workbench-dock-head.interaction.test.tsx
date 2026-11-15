@@ -25,7 +25,7 @@ async function mount() {
     const [browser, setBrowser] = useState(true);
     return <>
       <Chrome port={port} status={report?.status ?? null} workspace={report?.workspace ?? null}
-        title="active" steer={0} account={null} theme="light" onTheme={() => {}} onFind={() => {}}
+        title="active" steer={0} theme="light" onTheme={() => {}} onFind={() => {}}
         view={browser ? "browser" : "flow"} rows={0} surfaces={0} onView={() => {}} />
       <Pane port={port} rt={{ id: "r1", base: "/rt/r1", root: snapshot.workspaceRoot!, name: "workspace" }}
         title="active" active visible sideHost={null} side={false} onFocus={() => {}} onReport={onReport}

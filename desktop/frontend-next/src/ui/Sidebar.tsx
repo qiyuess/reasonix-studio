@@ -224,8 +224,6 @@ export function Sidebar({
         { id: "feedback-mine", label: t("session.my_feedback"), icon: "feedback" as const, keywords: "feedback receipt status my reply 反馈 回执 进展 我的 回复",
           status: feedbackUnread > 0 ? t("common.n_to_review", { n: feedbackUnread }) : undefined, run: () => onFeedback("mine") },
       ]),
-      { id: "community", label: t("common.community_and_contributors"), icon: "globe", keywords: "community discord qq group contributors 社区 交流群 加群 贡献者",
-        run: () => onSettings("versions:community") },
       { id: "settings", label: t("common.settings"), icon: "settings", keywords: "settings preferences 设置 偏好",
         run: () => onSettings() },
     ],

@@ -10,8 +10,10 @@ import { UpdateDot } from "./UpdateDot";
 // the cheapest thing to draw and the most expensive thing to keep.
 const HOME: [Mark, string, string | null] = ["chat", "common.session", null];
 
+// Account used to sit at the foot of this rail; with the sign-in surface gone
+// it opened a page that no longer asks who you are, so it is reached from
+// settings instead — the same page, under its own name.
 const FOOT: [Mark, string, string, string?][] = [
-  ["account", "settings.account", "account"],
   ["advanced", "common.settings", "", "chrome.settings"],
 ];
 
@@ -34,12 +36,11 @@ interface Props {
 export function Nav({ at, onGo, onFiles, onHome, onRail, onFeedback, onNew, feedbackUnread, shown }: Props) {
   const destinations = useDestinations();
   const btn = ([key, label, sec, action]: [Mark, string, string | null, string?]) => {
-    const account = key === "account";
     return (
     <button
       key={key}
       className="navbtn"
-      data-action={account ? "chrome.account" : action}
+      data-action={action}
       aria-label={t(label)}
       aria-current={(sec ?? null) === at ? "page" : undefined}
       onClick={() => (key === "files" ? onFiles() : sec === null ? (at === null ? onRail() : onHome()) : onGo(key === "ext" ? "extensions" : key === "usage" ? "spend" : sec || undefined))}

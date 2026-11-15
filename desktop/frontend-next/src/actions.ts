@@ -1,4 +1,3 @@
-import { MARKET_ACTIONS } from "./actions_market";
 import { SCHEDULE_ACTIONS } from "./actions_schedule";
 import { DOCUMENT_ACTIONS } from "./actions_document";
 import { FEEDBACK_ACTIONS } from "./actions_feedback";
@@ -160,7 +159,6 @@ export const ACTIONS: UIAction[] = [
   { id: "transcript.fold-preset", kind: "view", target: "none", proof: "interaction" },
   { id: "transcript.fold-preview", kind: "view", target: "none", proof: "interaction" },
   { id: "transcript.thinking-preview", kind: "view", target: "none", proof: "interaction" },
-  { id: "chrome.account", kind: "navigation", target: "none", proof: "interaction" },
   { id: "metrics.details", kind: "view", target: "optional", proof: "interaction" },
   { id: "metrics.hide-amounts", kind: "view", target: "none", proof: "interaction" },
   { id: "session.menu", kind: "view", target: "entity", proof: "interaction" },
@@ -295,19 +293,6 @@ export const ACTIONS: UIAction[] = [
   //    return type says which.
   // Asking again for a read that was refused. Nothing changes on either side,
   // and the refusal that put the button on screen is what makes it worth one.
-  { id: "account.reload", kind: "repeatable", target: "none", proof: "interaction" },
-  { id: "account.sign-in", kind: "kernel-mutation", target: "none", proof: "interaction" },
-  { id: "account.sign-out", kind: "kernel-mutation", target: "none", proof: "interaction" },
-  { id: "community.join", kind: "shell-native", target: "none", proof: "interaction" },
-  { id: "community.discord", kind: "shell-native", target: "none", proof: "interaction" },
-  { id: "community.issues", kind: "shell-native", target: "none", proof: "interaction" },
-  { id: "community.contributors", kind: "shell-native", target: "none", proof: "interaction" },
-  { id: "community.profile", kind: "shell-native", target: "entity", proof: "interaction" },
-  { id: "community.douyin-qr", kind: "view", target: "none", proof: "interaction" },
-  { id: "community.author", kind: "shell-native", target: "none", proof: "interaction" },
-  { id: "community.more", kind: "view", target: "none", proof: "interaction" },
-  { id: "sponsor.paypal", kind: "shell-native", target: "none", proof: "interaction" },
-  { id: "sponsor.qr", kind: "view", target: "none", proof: "interaction" },
   ...FEEDBACK_ACTIONS,
   ...WORKBENCH_ACTIONS,
   { id: "side.collapse", kind: "view", target: "none", proof: "interaction" },
@@ -326,14 +311,11 @@ export const ACTIONS: UIAction[] = [
   { id: "model.group-clear", kind: "view", target: "none", proof: "interaction" },
   { id: "paste.save", kind: "kernel-mutation", target: "none", proof: "interaction" },
   { id: "backup.category", kind: "view", target: "entity", proof: "interaction" },
-  { id: "backup.label", kind: "view", target: "none", proof: "interaction" },
   { id: "backup.passphrase", kind: "view", target: "optional", proof: "interaction" },
-  { id: "backup.create", kind: "kernel-mutation", target: "none", proof: "interaction" },
   { id: "backup.file-export", kind: "kernel-mutation", target: "none", proof: "interaction" },
   { id: "backup.file-import", kind: "view", target: "none", proof: "interaction" },
   { id: "backup.file-choose", kind: "view", target: "none", proof: "interaction" },
   { id: "backup.restore", kind: "view", target: "entity", proof: "interaction" },
-  { id: "backup.delete", kind: "destructive", target: "entity", proof: "interaction" },
   { id: "backup.preview", kind: "repeatable", target: "none", proof: "interaction" },
   { id: "backup.cancel", kind: "view", target: "none", proof: "interaction" },
   { id: "backup.pick", kind: "view", target: "entity", proof: "interaction" },
@@ -391,10 +373,8 @@ export const ACTIONS: UIAction[] = [
   { id: "extensions.export", kind: "repeatable", target: "none", proof: "interaction" },
   { id: "extensions.enabled", kind: "kernel-mutation", target: "entity", proof: "authority-effect" },
   { id: "extensions.remove", kind: "destructive", target: "entity", proof: "authority-effect" },
-  { id: "extensions.tab", kind: "view", target: "none", proof: "interaction" },
   { id: "extensions.search", kind: "view", target: "none", proof: "interaction" },
   { id: "extensions.clear-search", kind: "view", target: "none", proof: "interaction" },
-  ...MARKET_ACTIONS,
   // Taking back the innermost open thing: a popover, an inline form. One
   // intent, reached by pressing away and by Escape.
   { id: "layer.dismiss", kind: "navigation", target: "none", proof: "interaction" },

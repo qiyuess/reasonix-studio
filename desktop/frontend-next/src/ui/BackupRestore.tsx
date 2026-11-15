@@ -6,6 +6,21 @@ import type { AgentPort, BackupApplyResult, BackupCategory, BackupEntry, BackupP
 import { AddPlugin } from "./AddPlugin";
 import { StudioIcon } from "./StudioIcon";
 
+// What each group of a backup holds, in one line. Read by the local file
+// backup's chips; the account copy that used to share it is gone.
+//
+// `secrets` is the one category whose chip the file view words itself: the key
+// beside it says "off by default", which is a fact about the cloud copy that no
+// longer exists — the export here writes keys into the encrypted file instead.
+// The entry stays because the record is total, but nothing reads it.
+export const CATEGORY_NOTE: Record<BackupCategory, string> = {
+  settings: "data.providers_default_model_presets_and",
+  extensions: "data.plugins_are_recorded_by_source",
+  memory: "data.user_level_instruction_files_and",
+  automation: "data.commands_that_run_on_this",
+  secrets: "data.off_by_default_if_ticked",
+};
+
 export const CATEGORY_LABEL: Record<BackupCategory, string> = {
   settings: "data.models_and_interface",
   extensions: "data.skills_plugins_and_mcp",

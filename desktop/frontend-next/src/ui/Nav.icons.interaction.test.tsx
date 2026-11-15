@@ -17,7 +17,6 @@ describe("the icon rail draws the mark of the section it opens", () => {
     ["扩展", "ext"],
     ["记忆", "memory"],
     ["远程", "remote"],
-    ["账号", "account"],
     ["设置", "common"],
   ] as const)("%s shows the %s section mark", (label, section) => {
     const { container } = render(<Nav {...props} />);

@@ -2973,102 +2973,12 @@
   .outcome .nm { font: var(--w-med) var(--fs-ui) var(--ui); color: var(--text) }
   .outcome .dt { font: var(--w-reg) var(--fs-ui) var(--ui); color: var(--muted) }
 
-  .mkt-tabs { margin-bottom: 14px }
-  .mkt-tabs button[aria-selected="true"] {
-    background: var(--raised); color: var(--text); font-weight: var(--w-med);
-    box-shadow: var(--lit), 0 1px 2px rgb(0 0 0 / .07);
-  }
   .mkt { display: flex; flex-direction: column; gap: 10px; min-width: 0 }
   .mkt[tabindex="-1"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px }
   .mkt.addpkg { border-top: 0; padding: 0 }
-  .mkt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px }
-  .mkt-q {
-    flex: 1 1 220px; min-width: 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
-    background: var(--raised); color: var(--text); font: var(--w-reg) var(--fs-ui) var(--ui);
-  }
-  .mkt-q::placeholder { color: var(--ghost) }
-  .mkt-q:focus { outline: 2px solid var(--focus); outline-offset: 1px }
-  .mkt-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none }
-  .mkt-installed { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0 0; padding: 0; list-style: none; font: var(--w-reg) var(--fs-meta) var(--ui); color: var(--muted) }
-  .mkt-row {
-    display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; padding: 7px 8px; text-align: left;
-    border: 0; border-bottom: 1px solid var(--hair); background: transparent; color: inherit; cursor: pointer;
-  }
-  .mkt-row:hover { background: var(--overlay) }
-  .mkt-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px }
-  .mkt-hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px }
-  .mkt-hd .nm { font: var(--w-med) var(--fs-ui) var(--ui); color: var(--text) }
-  .mkt-kind, .mkt-badge {
-    padding: 1px 7px; border: 1px solid var(--hair); border-radius: var(--r-pill);
-    font: var(--w-reg) var(--fs-micro) var(--ui); color: var(--faint);
-  }
-  .mkt-badge { color: var(--muted) }
-  .mkt-badge[data-tone="ok"] { border-color: color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok-ink) }
-  .mkt-sum { margin: 0; font: var(--w-reg) var(--fs-ui)/1.55 var(--ui); color: var(--muted) }
-  .mkt-meta { font: var(--w-reg) var(--fs-meta) var(--ui); color: var(--faint) }
-  .mkt-id { font-family: var(--mono) }
-  .mkt-row .mkt-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap }
-  .mkt-row .nm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--w-med) var(--fs-ui) var(--ui); color: var(--text) }
-  .mkt-row .mkt-kind, .mkt-row .mkt-badge { flex: none }
-  .mkt-n { flex: none; margin-left: auto; padding-left: 8px; font: var(--w-reg) var(--fs-meta) var(--ui); color: var(--faint); font-variant-numeric: tabular-nums }
-  .mkt-row .mkt-sum { flex: 1 1 60%; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-meta); line-height: 1.5 }
-  .mkt-row .mkt-meta { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ghost) }
-  .mkt-pinned { flex: none; margin-left: -2px; font: var(--w-reg) var(--fs-meta) var(--ui); color: var(--ghost) }
-  .mkt-pinned::before { content: "· "; }
-  .mkt-pinned[data-on] { color: var(--faint) }
-  .mkt-pin { display: inline-flex; align-items: center; gap: 6px; font: var(--w-reg) var(--fs-ui) var(--ui); color: var(--muted); cursor: pointer; white-space: nowrap }
-  .mkt-desc { margin: 0; max-width: 70ch; font: var(--w-reg) var(--fs-ui)/1.65 var(--ui); color: var(--text); white-space: pre-wrap }
-  .mkt-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 4px 0 0 }
-  .mkt-facts dt { font: var(--w-reg) var(--fs-meta) var(--ui); color: var(--faint) }
-  .mkt-facts dd { margin: 0; font: var(--w-reg) var(--fs-ui) var(--ui); color: var(--text); overflow-wrap: anywhere }
-  .mkt-facts dd.mono { font: var(--w-reg) var(--fs-meta) var(--mono) }
-  .mkt-facts dd[data-missing] { color: var(--warn-ink) }
   .mkt .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0 }
   .mkt .acts .note { flex: 1; min-width: 180px; margin: 0; font: var(--w-reg) var(--fs-meta) var(--ui); color: var(--ghost) }
-  .mkt-names { margin: 6px 0 0; padding-left: 18px; font: var(--w-reg) var(--fs-ui)/1.6 var(--mono); color: var(--text) }
   .mkt-seen { display: flex; align-items: center; gap: 7px; margin-top: 8px; font: var(--w-reg) var(--fs-ui) var(--ui); color: var(--text); cursor: pointer }
-  .mkt-views { align-self: flex-start; margin-bottom: 12px }
-  .mkt-signin {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; padding: 8px 10px;
-    border: 1px solid var(--hair); border-radius: var(--r-sm); font: var(--w-reg) var(--fs-ui)/1.5 var(--ui); color: var(--muted);
-  }
-  .mkt-signin span { flex: 1; min-width: 200px }
-  .mkt-row[data-static] { cursor: default }
-  .mkt-row[data-static]:hover { background: transparent }
-  .mkt-badge[data-tone="err"] { border-color: color-mix(in srgb, var(--err) 45%, transparent); color: var(--err-ink) }
-  .mkt-tip { margin: 0; font: var(--w-reg) var(--fs-micro)/1.45 var(--ui); font-style: normal; color: var(--ghost) }
-  .mkt-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px }
-  @media (max-width: 720px) { .mkt-fields { grid-template-columns: minmax(0, 1fr) } }
-  .mkt-fields label { display: flex; flex-direction: column; gap: 4px; min-width: 0 }
-  .mkt-fields label.full { grid-column: 1 / -1 }
-  .mkt-fields span { font: var(--w-reg) var(--fs-meta) var(--ui); color: var(--faint) }
-  .mkt-fields input, .mkt-fields textarea {
-    min-width: 0; padding: 6px 9px; border: 1px solid var(--border); border-radius: var(--r-xs);
-    background: var(--raised); color: var(--text); font: var(--w-reg) var(--fs-ui)/1.5 var(--ui);
-  }
-  .mkt-fields .mono { font: var(--w-reg) var(--fs-meta)/1.5 var(--mono) }
-  .mkt-fields textarea { resize: vertical }
-  .mkt-pub .mkt-fields :is(input, textarea):disabled,
-  .mkt-pub .mkt-seen:has(:disabled) { opacity: .5; cursor: default }
-  .mkt-fields input:focus, .mkt-fields textarea:focus { outline: 2px solid var(--focus); outline-offset: 1px }
-  .mkt-fields input::placeholder { color: var(--ghost) }
-  .mkt-vote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 0 }
-  .mkt-vote-rate { font: var(--w-reg) var(--fs-ui) var(--ui); color: var(--muted); font-variant-numeric: tabular-nums }
-  .mkt-vote-btns { display: inline-flex; gap: 6px }
-  .mkt-vote .act .n { margin-left: 2px; color: var(--faint); font-variant-numeric: tabular-nums }
-  .mkt-vote .act[aria-pressed="true"] {
-    border-color: var(--muted); background: var(--raised); color: var(--text); font-weight: var(--w-med);
-    box-shadow: var(--lit);
-  }
-  .mkt-vote .act[aria-pressed="true"] .n { color: var(--text) }
-  .mkt-vote .note, .mkt-vote .why { font: var(--w-reg) var(--fs-meta) var(--ui); color: var(--ghost) }
-  .mkt-vote .why { color: var(--muted) }
-  .mkt-n.mkt-rate { margin-left: 0 }
-  @media (max-width: 520px) {
-    .mkt-row .mkt-line:first-child { flex-wrap: wrap; row-gap: 2px }
-    .mkt-row .nm { flex: none; max-width: 100% }
-    .mkt-row .mkt-n.mkt-rate { flex-basis: 100%; padding-left: 0 }
-  }
 
   .hooks .scope { max-width: 460px; margin-top: 0 }
   .hooks .path { margin: 8px 0 0; font: var(--w-reg) var(--fs-meta) var(--mono); color: var(--ghost); word-break: break-all }
