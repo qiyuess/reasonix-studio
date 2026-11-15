@@ -686,12 +686,8 @@ Releases go up in `2.70.x` for fixes and `2.7x.0` for features. There is no
 `-fork` suffix, no `+build` metadata and no `.1` tail: one number, one tag, one
 build, so `git describe --tags` names exactly what a person is running.
 
-**参照 ZCode 时只看项目副本**：https://github.com/zai-org/ZCode 的克隆放在
-`tmp/zcode-repo`（`cd tmp && git clone --depth 1 https://github.com/zai-org/ZCode.git zcode-repo`）。
+**参照 ZCode 时只看项目副本**：需要读它的样式或组件结构时，先克隆一份到
+`tmp/zcode-repo`（`cd tmp && git clone --depth 1 https://github.com/zai-org/ZCode.git zcode-repo`），
+用完可以整目录删掉。这个副本不随仓库保留：它只是参考资料，不是本仓库的一部分。
 不要翻本机安装目录里的 `app.asar`——那是打包产物，只有压缩后的代码，读不出源码意图，
-也查不到设计令牌与组件结构；需要「按 ZCode 的样式做」时，依据必须来自项目副本。
-
-**参照 ZCode 时只看项目副本**：https://github.com/zai-org/ZCode 的克隆放在
-`tmp/zcode-repo`（`cd tmp && git clone --depth 1 https://github.com/zai-org/ZCode.git zcode-repo`）。
-不要翻本机安装目录里的 `app.asar`——那是打包产物，只有压缩后的代码，读不出源码意图，
-也查不到设计令牌与组件结构；需要「按 ZCode 的样式做」时，依据必须来自项目副本。
+也查不到设计令牌与组件结构；需要「按 ZCode 的样式做」时，依据必须来自这份克隆。
