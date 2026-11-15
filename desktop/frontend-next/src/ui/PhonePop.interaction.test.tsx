@@ -8,7 +8,10 @@ import { HttpError } from "../port/http_error";
 import type { HubPort } from "../port/hub";
 import type { ShareStatus } from "../port/share";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  Reflect.deleteProperty(navigator, "clipboard");
+});
 
 const status = (open: boolean): ShareStatus => ({
   open, addresses: [{ ip: "10.0.0.2", interface: "en0", kind: "lan" }], devices: [], cloudDevices: [],
@@ -74,48 +77,34 @@ it("disconnects an Internet controller after the same two-step confirmation", as
   await waitFor(() => expect(revokeDevice).toHaveBeenCalledWith("cloud-a"));
 });
 
-it("shows the account-gated Internet QR before the optional LAN pairing code", async () => {
-  const remote = {
-    ...status(false),
-    cloudRemote: { deviceId: "device-a", name: "Home Mac", online: true },
-  };
-  const offerCloudShare = vi.fn(async () => ({
-    url: "https://reasonix.io/remote/?device=device-a",
+it("puts the LAN pairing code above its expiry, with one way to get a new one", async () => {
+  // The status has to carry the expiry the code was minted with: `useShare`
+  // drops an offer the status has not heard of, as one the kernel withdrew.
+  const expires = new Date(Date.now() + 60_000).toISOString();
+  const remote = { ...status(true), origin: "http://10.0.0.2:41234", offerExpires: expires };
+  const offerShare = vi.fn(async () => ({
+    url: "http://10.0.0.2:41234/?code=abc",
     qr: '<svg xmlns="http://www.w3.org/2000/svg"/>',
+    expires,
   }));
-  const offerShare = vi.fn();
   const hub = {
     shareStatus: vi.fn(async () => remote),
-    offerCloudShare,
     offerShare,
     shareRemember: vi.fn(async () => ({ remember: false })),
   } as unknown as HubPort;
   render(<PhonePop hub={hub} />);
   await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
-  expect(await screen.findByRole("img", { name: "互联网连接二维码" })).toBeTruthy();
-  expect(screen.getByText("手机扫码 · 不在同一网络也能连接")).toBeTruthy();
+  expect(await screen.findByRole("img", { name: "配对二维码" })).toBeTruthy();
   const code = document.querySelector(".pc-code")!;
-  expect(code.querySelector(":scope > img")).not.toBeNull();
-  expect(code.querySelector(":scope > .pc-side .pc-when")).not.toBeNull();
-  expect(code.querySelector(":scope > .pc-side .pc-acts")).not.toBeNull();
-  expect(offerCloudShare).toHaveBeenCalledTimes(1);
-  expect(offerShare).not.toHaveBeenCalled();
-});
-
-it.each([
-  [undefined, "登录 Reasonix 账号后，可生成在外网也能使用的连接二维码。"],
-  ["signed_out", "登录 Reasonix 账号后，可生成在外网也能使用的连接二维码。"],
-  ["relay_unreachable", "中转服务暂时无法连接，请检查网络或代理设置后重试。"],
-  ["relay_refused", "中转服务拒绝了这台设备的连接，请稍后重试。"],
-] as const)("explains why Internet access is unavailable: %s", async (reason, note) => {
-  const remote = { ...status(false), cloudRemote: { online: false, reason, error: "account: not signed in" } };
-  const hub = { shareStatus: vi.fn(async () => remote), offerShare: vi.fn(), shareRemember: vi.fn(async () => ({ remember: false })) } as unknown as HubPort;
-  render(<PhonePop hub={hub} />);
-  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
-  expect(await screen.findByText(note)).toBeTruthy();
-  if (reason === "relay_unreachable" || reason === "relay_refused") {
-    expect(screen.queryByText("登录 Reasonix 账号后，可生成在外网也能使用的连接二维码。")).toBeNull();
-  }
+  // The picture, then the line saying how long it lasts, then the one button:
+  // no side column, and nothing that copies the link.
+  expect(code.querySelector("img")).not.toBeNull();
+  expect(code.querySelector(".pc-when")?.textContent).toContain("局域网配对 · ");
+  expect(code.querySelector(".pc-when")?.textContent).toContain("前有效");
+  const acts = code.querySelectorAll(".pc-acts button");
+  expect([...acts].map((b) => b.textContent)).toEqual(["换一个"]);
+  expect(code.querySelector('[data-action="share.copy"]')).toBeNull();
+  expect(offerShare).toHaveBeenCalledTimes(1);
 });
 
 it("labels Internet controllers by their ordinal, not their list position", async () => {
@@ -128,4 +117,49 @@ it("labels Internet controllers by their ordinal, not their list position", asyn
   await screen.findByText("设备 2");
   expect(screen.getByText("设备 3")).toBeTruthy();
   expect(screen.queryByText("设备 1")).toBeNull();
+});
+
+// The card's own address is what the QR code encodes, so a phone whose camera
+// is busy can be typed to by hand — and copied in one press rather than by
+// dragging a selection out of a code line.
+it("shows the address a phone types in, and copies it in one press", async () => {
+  const origin = "http://10.0.0.2:41234";
+  const remote = { ...status(true), origin };
+  const hub = {
+    shareStatus: vi.fn(async () => remote),
+    offerShare: vi.fn(async () => ({ url: origin, qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
+    shareRemember: vi.fn(async () => ({ remember: false })),
+  } as unknown as HubPort;
+  const writeText = vi.fn(() => Promise.resolve());
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  render(<PhonePop hub={hub} />);
+  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
+
+  const row = await waitFor(() => {
+    const found = document.querySelector<HTMLElement>(".pc-origin");
+    expect(found).not.toBeNull();
+    return found!;
+  });
+  expect(row.querySelector("code")?.textContent).toBe(origin);
+  // The whole value stays reachable when the column clips it.
+  expect(row.querySelector("code")?.getAttribute("title")).toBe(origin);
+
+  await userEvent.click(row.querySelector("button")!);
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith(origin));
+  expect(row.querySelector("button")?.textContent).toBe("已复制");
+});
+
+// A shut door has no address to give: the row is not drawn at all, rather than
+// drawn empty or with the last one it used.
+it("draws no address row while the local door is shut", async () => {
+  const remote = { ...status(false), origin: "http://10.0.0.2:41234" };
+  const hub = {
+    shareStatus: vi.fn(async () => remote),
+    offerShare: vi.fn(),
+    shareRemember: vi.fn(async () => ({ remember: false })),
+  } as unknown as HubPort;
+  render(<PhonePop hub={hub} />);
+  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
+  await screen.findByRole("dialog");
+  expect(document.querySelector(".pc-origin")).toBeNull();
 });

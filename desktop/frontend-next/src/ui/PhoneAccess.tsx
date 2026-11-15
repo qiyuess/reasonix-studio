@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { t } from "../i18n";
 import type { HubPort } from "../port/hub";
-import type { CloudShareOffer, ShareOffer, ShareStatus } from "../port/share";
+import type { ShareOffer, ShareStatus } from "../port/share";
 import { copyText } from "./CopyButton";
 import { Switch } from "./Switch";
 
@@ -32,7 +32,6 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   const [st, setSt] = useState<ShareStatus | null>(null);
   const [ip, setIp] = useState("");
   const [offer, setOffer] = useState<ShareOffer | null>(null);
-  const [cloudOffer, setCloudOffer] = useState<CloudShareOffer | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [remember, setRemember] = useState<boolean | null>(null);
@@ -62,10 +61,6 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   useEffect(() => {
     if (offer && st && !st.offerExpires) setOffer(null);
   }, [st, offer]);
-
-  useEffect(() => {
-    if (cloudOffer && st && !st.cloudRemote?.online) setCloudOffer(null);
-  }, [st, cloudOffer]);
 
   const run = useCallback(
     async (step: () => Promise<void>) => {
@@ -101,10 +96,6 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   }, [hub]);
 
   const newCode = useCallback(() => run(mint), [run, mint]);
-  const newCloudCode = useCallback(
-    () => run(async () => setCloudOffer(await hub.offerCloudShare())),
-    [hub, run],
-  );
 
   const toggle = () => run(async () => {
     if (st?.open) {
@@ -144,7 +135,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
       await mint();
     });
 
-  return { st, ip, pick, savePort, offer, cloudOffer, busy, confirm, setConfirm, newCode, newCloudCode, toggle, revoke, remember, saveRemember, refresh: read };
+  return { st, ip, pick, savePort, offer, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember, refresh: read };
 }
 
 /** The switch, the network, the code and the paired phones. */

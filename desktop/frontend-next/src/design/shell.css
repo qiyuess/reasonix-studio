@@ -95,7 +95,6 @@
 .chrome :is(.thbtn, .top-action):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .chrome .top-action .view-label { display: none; }
 .chrome .view-count { position: absolute; top: 1px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-fg); font: var(--w-med) var(--fs-micro) var(--ui); line-height: 14px; text-align: center; }
-.chrome .account-presence { display: none; }
 
 .railfoot { flex: none; display: flex; flex-direction: column; gap: 0; padding: 0 10px 10px; border: 0; background: transparent; }
 .railfoot::before { content: ""; display: block; height: 1px; margin: 6px 4px; background: var(--hair); }
@@ -153,11 +152,16 @@
 .phonecard .pc-route { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
 .phonecard .pc-route[data-on] { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 .phonecard .pc-route + .pc-route { margin-top: 6px; }
-.phonecard .pc-route .pc-note, .phonecard .pc-route .pc-none { margin: 6px 0 0; color: var(--faint); font: var(--w-med) var(--fs-micro)/1.6 var(--ui); }
-.phonecard .pc-code { display: flex; align-items: center; justify-items: initial; gap: 14px; }
-.phonecard .pc-code > img { flex: none; width: 112px; height: 112px; }
+.phonecard .pc-route .pc-none { margin: 6px 0 0; color: var(--faint); font: var(--w-med) var(--fs-micro)/1.6 var(--ui); }
+/* The pairing code, drawn once. It used to be written twice — a grid here and
+   a grid in app.css — and the design layer won both times, so the other copy's
+   numbers were dead on arrival. One place, so changing it changes something. */
+.phonecard .pc-code { display: grid; justify-items: center; gap: 6px; padding-top: 2px; }
+.phonecard .pc-code > img {
+  width: 112px; height: 112px; padding: 8px; box-sizing: content-box;
+  border: 1px solid var(--hair); border-radius: var(--r-sm); background: #fff; image-rendering: pixelated;
+}
 .phonecard .pc-code > .pc-mint { margin: 0 auto; }
-.phonecard .pc-side { display: grid; min-width: 0; gap: 6px; }
 .chrome-context-card header b { font: var(--w-semi) var(--fs-ui)/1.3 var(--ui); }
 .chrome-context-card header small { color: var(--faint); font: var(--w-reg) var(--fs-meta)/1.3 var(--ui); }
 .chrome-context-parts { grid-template-columns: 1fr; gap: 6px; }

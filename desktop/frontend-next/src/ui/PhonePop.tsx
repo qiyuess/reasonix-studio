@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
 import { reason } from "../i18n/kernel";
 import type { HubPort } from "../port/hub";
-import type { CloudDevice, CloudRemoteStatus, PairedDevice } from "../port/share";
+import type { CloudDevice, PairedDevice } from "../port/share";
 import { copyText } from "./CopyButton";
 import { useDismiss } from "./dismiss";
 import { clock, deviceLabel, type Share, useShare } from "./PhoneAccess";
@@ -23,12 +23,10 @@ export function PhonePop({ hub }: { hub: HubPort }) {
   // A failure in the card is said in the card, next to what failed.
   const [failure, setFailure] = useState("");
   const share = useShare(hub, useCallback((e: unknown) => setFailure(reason(e)), []));
-  const { refresh, newCode, newCloudCode } = share;
+  const { refresh, newCode } = share;
   const shareOpen = share.st?.open ?? false;
   const offerHeld = useRef(false);
   offerHeld.current = share.offer !== null;
-  const cloudOfferHeld = useRef(false);
-  cloudOfferHeld.current = share.cloudOffer !== null;
 
   // Opening the card is asking for a code, once per opening: after a phone
   // spends it, the next one is asked for by hand. Another surface may have shut
@@ -45,9 +43,7 @@ export function PhonePop({ hub }: { hub: HubPort }) {
       .then((now) => {
         if (!live || minted.current) return;
         minted.current = true;
-        if (now?.cloudRemote?.online && !cloudOfferHeld.current) {
-          void newCloudCode();
-        } else if (now?.open && !(offerHeld.current && now.offerExpires)) {
+        if (now?.open && !(offerHeld.current && now.offerExpires)) {
           void newCode();
         }
       })
@@ -55,7 +51,7 @@ export function PhonePop({ hub }: { hub: HubPort }) {
     return () => {
       live = false;
     };
-  }, [open, refresh, newCode, newCloudCode]);
+  }, [open, refresh, newCode]);
 
   const localNote = usePresenceNote(share.st?.devices, open);
   const cloudNote = useCloudPresenceNote(share.st?.cloudDevices, open);
@@ -106,20 +102,6 @@ export function cloudPresenceNote(prev: CloudDevice[], next: CloudDevice[]): str
   return disconnected ? t("remote.web_studio_disconnected") : "";
 }
 
-function cloudRemoteNote(status: CloudRemoteStatus | undefined): string {
-  if (status?.online) {
-    return t("remote.internet_access_requires_the_same");
-  }
-  switch (status?.reason) {
-    case "relay_unreachable":
-      return t("remote.the_relay_cannot_be_reached");
-    case "relay_refused":
-      return t("remote.the_relay_refused_this_devices");
-    default:
-      return t("remote.sign_in_to_reasonix_to");
-  }
-}
-
 /** A line under the button when a phone comes or goes, for as long as it takes
  *  to read. Not while the card is open: the list there already shows it. */
 function usePresenceNote(devices: PairedDevice[] | undefined, open: boolean): string {
@@ -160,23 +142,33 @@ function useCloudPresenceNote(devices: CloudDevice[] | undefined, open: boolean)
   return open ? "" : note;
 }
 
-/** The phones already connected, then the two ways a phone gets here: the
- *  same network, which has to be switched on, and the account-gated relay. */
+/** The phones already connected, then the one way a phone gets here: the same
+ *  network, which has to be switched on. */
 function PhoneCard({ share, failure }: { share: Share; failure: string }) {
-  const { st, ip, pick, offer, cloudOffer, busy, newCode, newCloudCode, toggle, revoke } = share;
-  const [copied, setCopied] = useState(false);
+  const { st, ip, pick, offer, busy, newCode, toggle, revoke } = share;
+  const [copied, setCopied] = useState("");
   const [arming, setArming] = useState("");
   const arm = useRef<number | null>(null);
   useEffect(() => () => { if (arm.current !== null) window.clearTimeout(arm.current); }, []);
+  // One button copies, so one flag names it. The timer is held and cleared on
+  // each press, or the previous press's would blank this one's confirmation
+  // early — and again after the card is gone. Declared above the `!st` return:
+  // a hook below it would run on some renders and not others.
+  const confirm = useRef<number | null>(null);
+  useEffect(() => () => { if (confirm.current !== null) window.clearTimeout(confirm.current); }, []);
   if (!st) return null;
   const noNetwork = st.addresses.length === 0;
   const chosen = ip || (st.open ? st.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") : "") || st.addresses[0]?.ip || "";
+  // The one address a phone can type in right now. Held as a local so the
+  // onClick below reads a value that cannot change under it.
+  const origin = st.open ? st.origin ?? "" : "";
 
-  const copy = (url: string) =>
+  const copy = (what: string, url: string) =>
     copyText(url)
       .then(() => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1600);
+        setCopied(what);
+        if (confirm.current !== null) window.clearTimeout(confirm.current);
+        confirm.current = window.setTimeout(() => setCopied(""), 1600);
       })
       .catch(() => {});
 
@@ -254,18 +246,29 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
           <Switch data-action="share.toggle" on={st.open} busy={busy || noNetwork} label={t("remote.allow_local_network_access")} onClick={() => void toggle()} />
         </div>
 
+        {/* The address a phone can reach this window at, once the door is open.
+            It is the origin the pairing link is built on, not the link itself —
+            that one carries a one-shot code — so this is the part worth reading
+            out when a phone's camera cannot be used, and worth copying when the
+            reader would rather send it to themselves. */}
+        {origin && (
+          <div className="pc-row pc-origin">
+            <span>{t("remote.address")}</span>
+            <code dir="ltr" title={origin}>{origin}</code>
+            <button data-action="share.copy-address" onClick={() => void copy("address", origin)}>
+              {copied === "address" ? t("common.copied") : t("common.copy")}
+            </button>
+          </div>
+        )}
+
         {st.open && (
           <div className="pc-code">
             {offer ? (
               <>
                 <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(offer.qr)}`} alt={t("remote.pairing_qr_code")} width={148} height={148} />
-                <span className="pc-side">
-                  <span className="pc-when">{t("remote.local_pairing_valid_until_time", { time: clock(offer.expires) })}</span>
-                  <span className="pc-acts">
-                    <button data-action="share.copy" onClick={() => void copy(offer.url)}>{copied ? t("common.copied") : t("remote.copy_link")}</button>
-                    <i aria-hidden="true" />
-                    <button data-action="share.offer" disabled={busy} onClick={() => void newCode()}>{t("common.new_code")}</button>
-                  </span>
+                <span className="pc-when">{t("remote.local_pairing_valid_until_time", { time: clock(offer.expires) })}</span>
+                <span className="pc-acts">
+                  <button data-action="share.offer" disabled={busy} onClick={() => void newCode()}>{t("common.new_code")}</button>
                 </span>
               </>
             ) : (
@@ -289,38 +292,6 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
           </label>
         )}
         {st.open && st.devices.length === 0 && <p className="pc-none">{t("remote.no_phone_connected_yet")}</p>}
-      </section>
-
-      <section className="pc-route" data-on={st.cloudRemote?.online ? "" : undefined}>
-        <div className="pc-hd">
-          <span>
-            <b>{t("remote.from_anywhere")}</b>
-            <small>{t("remote.needs_signing_in")}</small>
-          </span>
-        </div>
-        {st.cloudRemote?.online ? (
-          <div className="pc-code" data-cloud="">
-            {cloudOffer ? (
-              <>
-                <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(cloudOffer.qr)}`} alt={t("remote.internet_connection_qr_code")} width={148} height={148} />
-                <span className="pc-side">
-                  <span className="pc-when">{t("remote.scan_with_your_phone_works")}</span>
-                  <span className="pc-acts">
-                    <button data-action="share.cloud-copy" onClick={() => void copy(cloudOffer.url)}>{copied ? t("common.copied") : t("remote.copy_link")}</button>
-                    <i aria-hidden="true" />
-                    <button data-action="share.cloud-offer" disabled={busy} onClick={() => void newCloudCode()}>{t("remote.refresh_qr_code")}</button>
-                  </span>
-                </span>
-              </>
-            ) : (
-              <button className="pc-mint" data-action="share.cloud-offer" disabled={busy} onClick={() => void newCloudCode()}>
-                {busy ? t("remote.creating_qr_code") : t("remote.show_internet_connection_qr_code")}
-              </button>
-            )}
-          </div>
-        ) : (
-          <p className="pc-note">{cloudRemoteNote(st.cloudRemote)}</p>
-        )}
       </section>
     </div>
   );
