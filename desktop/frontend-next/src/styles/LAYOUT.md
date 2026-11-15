@@ -309,21 +309,14 @@ the picker and keyboard navigation.
 
 ## Columns and the seam
 
-- The sidebar footer supplies usage, feedback, account and settings only when
-  the global icon navigation is not visible. It follows the window's existing
-  navigation visibility state, including collapsed-only mode and narrow-window
-  folds, so both columns never offer the same footer actions together.
-- The footer avatar box sits 1px above the row center. The signed-in initial
-  compensates for that box offset to keep its cap/alphabetic-trimmed position
-  unchanged. Latin and CJK initials retain their original size and weight.
-- The guard `perf/account-alignment.mjs` holds the `top: -1px` and inner
-  `translateY(1px)` pair together: those offsets cancel for the initial, while
-  `text-box: trim-both cap alphabetic` trims its surrounding font leading.
-- Text-box trimming requires Chromium 133+; the shipped Electron is newer.
-  The guard compares Latin and Han ink against the workspace label within
-  1 CSS px in both themes at 100% and 125% device scale.
-- The compact account button has no row divider; the footer owns the divider
-  above all three controls.
+- The sidebar footer carries the settings control and the quick-nav menu beside
+  it (usage, files, tools, extensions, memory, remote) only when the global icon
+  navigation is not visible. It follows the window's existing navigation
+  visibility state, including collapsed-only mode and narrow-window folds, so
+  both columns never offer the same footer actions together.
+- The footer carries no account control and no avatar: with the sign-in surface
+  gone there is nobody for an initial to name, and its alignment rule and the
+  `perf/account-alignment.mjs` guard that held it went with it.
 - Inside the workbench the open file is the canvas and the file tree is a fixed
   column beside it. At full width the two sit side by side, the canvas first and
   the tree on the right; docked, they take turns in the one column, so a file
@@ -1252,8 +1245,8 @@ A sub-agent row, by the list's own width:
 
 ## Account, versions, extensions
 
-- Signed out, the account button is an outline at the icon cluster's weight;
-  signed in it carries the initial, so the bar states a fact.
+- There is no account button and no signed-in initial anywhere in the bar: the
+  sign-in surface is gone, so nothing left names who you are.
 - The device code is the one thing a user must copy by eye, so it gets the room a
   one-shot secret needs.
 - A version label rides one beat behind the number it explains: the version is

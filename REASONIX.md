@@ -347,6 +347,31 @@ framework idioms; do not add a new pattern where one exists.
 **PR evidence.** Every PR description carries: Cause, Blast radius,
 Neighbouring behaviours tested, and Why this layer.
 
+## UI changes: see them in a browser, not through the kernel
+
+A change that only touches `desktop/frontend-next` is verified by starting the
+frontend and looking at it:
+
+```
+cd desktop/frontend-next && pnpm dev
+```
+
+That needs **no Go rebuild, no rebuilt kernel, and no packaged app**. With
+`REASONIX_SERVE` unset, `vite.config.ts` boots the app on `MockPort`, so every
+screen — workbench, settings, sidebar, panes — is reachable with no process
+behind it. Rebuilding the kernel only to *look* at a stylesheet, a layout or a
+component is the loop this rule removes.
+
+Rebuild the backend only when the change actually crosses the wire: a new or
+changed route, an SSE event, a `port.ts` method, or a Go type the frontend
+reads. To click through against real data, point `REASONIX_SERVE` at a
+`reasonix serve` that is **already running** — do not stand one up for the
+occasion.
+
+The gates do not move. `pnpm typecheck` and the affected interaction tests
+still run before a change is called done; the browser is where the result is
+seen, not what replaces them.
+
 ## Reasonix host checks
 
 The paths below decide what the agent is allowed to do — a wrong change here
@@ -568,6 +593,34 @@ Nothing on that list returns without replacing this section outright.
 2. `pnpm typecheck`, `pnpm test`, `pnpm build`, `go build ./...`.
 3. Package with the version this repository's own tag states (see below), and
    push both the commit and the tag.
+4. The bundle must carry the CUA driver — see below. A bundle without it is not
+   a release.
+
+### The packaged bundle ships the CUA driver
+
+`cua-driver` is what lets the agent see the screen and move the pointer on this
+machine. It is a pinned third-party binary, not something this tree compiles:
+`desktop/electron/packaging/install-cua-driver.js` fetches the artifact named in
+`internal/platform/computer/cua-driver.lock.json`, checks its SHA-256, and
+unpacks it to `desktop/electron/bin/`. `build:host` runs that step before the
+kernel build, and `desktop/electron/electron-builder.yml` lists `cua-driver` /
+`cua-driver.exe` in `extraResources`.
+
+**Nothing fails loudly when it is missing.** `desktop/electron/src/main.js`
+guards the launch with `existsSync`, `electron-builder` quietly skips a filtered
+name that is not on disk, and the installer still builds and still runs — the
+app simply cannot see the screen, and the capability disappears with no error
+anywhere. The download is the step that times out (a GitHub release, 120s);
+skipping it and building the kernel by hand produces exactly that silent
+bundle. So do not skip it: re-run
+`node desktop/electron/packaging/install-cua-driver.js` until it lands, then let
+`build:host` finish normally.
+
+Check the packed output, not the configuration. `desktop/electron/electron-builder.yml`
+writes to `../../dist` relative to itself, so a packaged Windows bundle lands in
+`studio/dist/win-unpacked` — run this from `studio/`:
+
+    ls dist/*/resources/bin/   # cua-driver(.exe) beside reasonix-studio-host(.exe)
 
 ### What goes wrong when a customisation is dropped
 
