@@ -8,10 +8,10 @@ import { pinToViewport } from "./place";
 interface Props {
   menu: { surface: Surface; x: number; y: number; anchor: HTMLElement };
   // How many tabs each choice closes, said beside it; label names the tab the menu is for.
-  others: number; right: number; all: number; label: string; onDismiss: () => void; onClose: (mode: "one" | "others" | "right" | "all") => void;
+  others: number; left: number; right: number; all: number; label: string; onDismiss: () => void; onClose: (mode: "one" | "others" | "left" | "right" | "all") => void;
 }
 
-export function BrowserTabMenu({ menu, others, right, all, label, onDismiss, onClose }: Props) {
+export function BrowserTabMenu({ menu, others, left, right, all, label, onDismiss, onClose }: Props) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const dismiss = (event: Event) => { if (!box.current?.contains(event.target as Node)) onDismiss(); };
@@ -43,9 +43,12 @@ export function BrowserTabMenu({ menu, others, right, all, label, onDismiss, onC
       items[next]?.focus();
     }}>
       <div className="tabmenu-head"><span>{t("workbench.browser_tab_named", { name: label })}</span></div>
-      <button role="menuitem" data-action="workbench.close" data-target={keyOf(menu.surface)} onClick={() => onClose("one")}><span>{t("common.close")}</span></button>
+      <button role="menuitem" data-action="workbench.close" data-target={keyOf(menu.surface)} onClick={() => onClose("one")}><span>{t("workbench.close_current_browser_tab")}</span></button>
       <button role="menuitem" data-action="workbench.browser-close" data-target={keyOf(menu.surface)} data-value="others" aria-label={t("workbench.close_other_browser_tabs")} disabled={!others} onClick={() => onClose("others")}>
         <span>{t("workbench.close_other_browser_tabs")}</span>{others > 0 && <kbd>{others}</kbd>}
+      </button>
+      <button role="menuitem" data-action="workbench.browser-close" data-target={keyOf(menu.surface)} data-value="left" aria-label={t("workbench.close_browser_tabs_to_the_left")} disabled={!left} onClick={() => onClose("left")}>
+        <span>{t("workbench.close_browser_tabs_to_the_left")}</span>{left > 0 && <kbd>{left}</kbd>}
       </button>
       <button role="menuitem" data-action="workbench.browser-close" data-target={keyOf(menu.surface)} data-value="right" aria-label={t("workbench.close_browser_tabs_to_the")} disabled={!right} onClick={() => onClose("right")}>
         <span>{t("workbench.close_browser_tabs_to_the")}</span>{right > 0 && <kbd>{right}</kbd>}

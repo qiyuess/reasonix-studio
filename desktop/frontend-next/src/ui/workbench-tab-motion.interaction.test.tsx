@@ -31,17 +31,21 @@ describe("tabs that move, as the WB-Frame board draws them", () => {
     expect(["a/b.go", "x.py", "q3.xlsx", "data.csv", "README.md"].map(langOf)).toEqual(["go", "python", "sheet", "sheet", undefined]);
   });
 
-  it("lists the tabs the strip cannot show as +n, and picks one", async () => {
-    const onPick = vi.fn();
-    render(<WorkbenchTabOverflow tabs={[{ key: "file:a", label: "a.go" }, { key: "file:b", label: "b.go" }, { key: "file:c", label: "c.go" }]} onPick={onPick} />);
-    await userEvent.click(screen.getByRole("button", { name: /\+3/ }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "b.go" }));
-    expect(onPick).toHaveBeenCalledWith("file:b");
+  it("says how many tabs are off-screen as +n, with nothing to press", async () => {
+    // The picker at the front of the strip is the way to reach a hidden tab;
+    // this is only the count, so it must not be a second control beside it.
+    const { container } = render(<WorkbenchTabOverflow count={3} />);
+    const mark = container.querySelector(".workbench-overflow")!;
+    expect(mark.textContent).toBe("+3");
+    expect(mark.getAttribute("title")).toBe("还有 3 项没有显示");
+    expect(mark.querySelector("button")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+    await userEvent.click(mark);
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("draws nothing while every tab fits", () => {
-    const { container } = render(<WorkbenchTabOverflow tabs={[]} onPick={vi.fn()} />);
+    const { container } = render(<WorkbenchTabOverflow count={0} />);
     expect(container.firstChild).toBeNull();
   });
 

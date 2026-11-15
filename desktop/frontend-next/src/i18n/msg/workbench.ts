@@ -13,6 +13,8 @@ export const WORKBENCH: Messages = {
   "workbench.built_in_browser": { zh: "内置 Browser", en: "Built-in Browser" },
   "workbench.close_all_browser_tabs": { zh: "关闭全部标签", en: "Close all tabs" },
   "workbench.close_browser_tabs_to_the": { zh: "关闭右侧标签", en: "Close tabs to the right" },
+  "workbench.close_browser_tabs_to_the_left": { zh: "关闭左侧标签", en: "Close tabs to the left" },
+  "workbench.close_current_browser_tab": { zh: "关闭当前标签", en: "Close current tab" },
   "workbench.close_other_browser_tabs": { zh: "关闭其他标签", en: "Close other tabs" },
   "workbench.commit": { zh: "提交…", en: "Commit…" },
   "workbench.commit_history": { zh: "提交历史", en: "Commit history" },

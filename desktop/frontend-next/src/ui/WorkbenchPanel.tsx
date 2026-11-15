@@ -503,6 +503,7 @@ export function WorkbenchPanel({
   // be what it really closes.
   const closable = (list: Surface[]) => list.filter((s) => !(s.kind === "file" && unsaved.includes(s.path)));
   const tabOthers = tabMenu ? closable(surfaces.filter((s) => keyOf(s) !== keyOf(tabMenu.surface))) : [];
+  const tabLeft = tabAt < 0 ? [] : closable(surfaces.slice(0, tabAt));
   const tabRight = tabAt < 0 ? [] : closable(surfaces.slice(tabAt + 1));
   const tabAll = closable(surfaces);
   const returning = useRef("");
@@ -639,8 +640,7 @@ export function WorkbenchPanel({
           </div>
         )}
         </div>
-        <WorkbenchTabOverflow tabs={overflow.flatMap((k) => { const s = surfaces.find((x) => keyOf(x) === k); return s ? [{ key: k, label: labelFor(s) }] : []; })}
-          onPick={(k) => { pick(k); strip.current?.querySelector(`[data-key="${CSS.escape(k)}"]`)?.scrollIntoView({ inline: "nearest" }); }} />
+        <WorkbenchTabOverflow count={overflow.length} />
         <TooltipButton
           className="workbench-new"
           data-action="workbench.new"
@@ -856,7 +856,7 @@ export function WorkbenchPanel({
           onSave={async () => { const ok = await saveAt(asking.path); if (ok) { setAsking(null); void close([{ kind: "file", path: asking.path }]); } return ok; }}
           onDrop={() => { dropAt(asking.path); setAsking(null); void close([{ kind: "file", path: asking.path }]); }} />
       )}
-      {tabMenu && <BrowserTabMenu menu={tabMenu} others={tabOthers.length} right={tabRight.length} all={tabAll.length} label={labelFor(tabMenu.surface)} onDismiss={dismissTabMenu} onClose={(mode) => {
+      {tabMenu && <BrowserTabMenu menu={tabMenu} others={tabOthers.length} left={tabLeft.length} right={tabRight.length} all={tabAll.length} label={labelFor(tabMenu.surface)} onDismiss={dismissTabMenu} onClose={(mode) => {
         const target = tabMenu.surface;
         setTabMenu(null);
         if (mode === "one" && target.kind === "file" && unsaved.includes(target.path)) {
@@ -869,7 +869,7 @@ export function WorkbenchPanel({
           return;
         }
         returning.current = keyOf(target);
-        void close(mode === "one" ? [target] : mode === "others" ? tabOthers : mode === "right" ? tabRight : tabAll);
+        void close(mode === "one" ? [target] : mode === "others" ? tabOthers : mode === "left" ? tabLeft : mode === "right" ? tabRight : tabAll);
       }} />}
     </section>
   );
