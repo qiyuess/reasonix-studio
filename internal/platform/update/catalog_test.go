@@ -18,6 +18,30 @@ func TestStudioCatalogNamesTheStudioLine(t *testing.T) {
 	}
 }
 
+// A GitHub release is a flat namespace: /releases/download/<tag>/<file>. The
+// catalog, the chunk store and a release's notes are all nested paths, so
+// building any of them from a release prefix silently rewrites the first nested
+// segment as a tag — "/releases/download/studio/versions.json" asks for tag
+// "studio", and "notes/2.31.0.md" can never be one asset name at all.
+//
+// The assertions above derive their expectation from the same constant they
+// check, so a constant pointed at the flat prefix would move both sides and
+// stay green. This one reads the shape instead of the value: a nested path must
+// not be addressed through a release prefix at all, whichever host serves it.
+func TestNestedPathsDoNotGoThroughAReleasePrefix(t *testing.T) {
+	const flatPrefix = "/releases/download/"
+	nested := map[string]string{
+		"StudioCatalog": StudioCatalog,
+		"StudioChunks":  StudioChunks,
+		"notesURL":      notesURL("2.31.0"),
+	}
+	for name, url := range nested {
+		if strings.Contains(url, flatPrefix) {
+			t.Errorf("%s = %q goes through %q; its first nested segment would be read as a release tag, and a name carrying a slash can never be one asset", name, url, flatPrefix)
+		}
+	}
+}
+
 // A release listed by one catalog cannot be installed from another, and an
 // Options that omits IndexURL fails only once a user asks for an update. The
 // guard reads this package's own source because the failure mode is a new call

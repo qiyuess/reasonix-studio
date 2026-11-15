@@ -170,7 +170,7 @@ func TestMirroredManifestPutsTheMirrorFirst(t *testing.T) {
 	}
 	for _, a := range all {
 		name := a.URL[strings.LastIndex(a.URL, "/")+1:]
-		mirror := update.StudioMirror + "/studio-v0.1.0/" + name
+		mirror := update.StudioPublish + "/studio-v0.1.0/" + name
 		github := "https://github.com/esengine/DeepSeek-Reasonix/releases/download/studio-v0.1.0/" + name
 		if a.URL != mirror || a.Sig != mirror+".minisig" {
 			t.Errorf("%s: primary = %q / %q, want the mirror", name, a.URL, a.Sig)
@@ -334,7 +334,7 @@ func TestLinuxArm64PackagesAreKeyedBesideAmd64(t *testing.T) {
 		if !ok || after.Downloads[name] != asset {
 			t.Fatalf("%s does not resolve to its own download", key)
 		}
-		mirror := update.StudioMirror + "/studio-v2.39.0/" + name
+		mirror := update.StudioPublish + "/studio-v2.39.0/" + name
 		github := "https://github.com/esengine/DeepSeek-Reasonix/releases/download/studio-v2.39.0/" + name
 		if asset.URL != mirror || asset.Sig != mirror+".minisig" || asset.Fallback != github || asset.FallbackSig != github+".minisig" {
 			t.Errorf("%s loses its mirror, fallback or signature: %+v", key, asset)

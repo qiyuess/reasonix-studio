@@ -191,10 +191,13 @@ func TestNotesRouteKeepsADocumentOnceAndNeverAnErrorPage(t *testing.T) {
 	var hits int
 	contentType := "text/html"
 	body := "<html>oops</html>"
+	// A note is a nested path, so it is built from the publish host rather than
+	// the flat release prefix — asserted against the builder, not a literal.
+	wantNotes := update.StudioPublish + "/studio/notes/2.31.0.md"
 	transport := stubTransport(func(r *http.Request) (*http.Response, error) {
 		hits++
-		if r.URL.String() != "https://dl.reasonix.io/studio/notes/2.31.0.md" {
-			t.Errorf("fetched %s", r.URL)
+		if r.URL.String() != wantNotes {
+			t.Errorf("fetched %s, want %s", r.URL, wantNotes)
 		}
 		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {contentType}}, Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
 	})

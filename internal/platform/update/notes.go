@@ -54,9 +54,10 @@ type VersionNotes struct {
 var releaseVersion = regexp.MustCompile(`^v?([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z][0-9A-Za-z.]*)?)$`)
 
 // notesURL is where a release's notes live. It is built from a validated
-// version and the mirror constant, never from the catalog: the catalog only
-// says whether notes exist, so it cannot aim this fetch anywhere.
-func notesURL(v string) string { return StudioMirror + "/studio/notes/" + v + ".md" }
+// version and the publish constant, never from the catalog: the catalog only
+// says whether notes exist, so it cannot aim this fetch anywhere. A note is a
+// nested path ("/studio/notes/2.31.0.md"), so it belongs to StudioPublish.
+func notesURL(v string) string { return StudioPublish + "/studio/notes/" + v + ".md" }
 
 func notesVersion(version string) (string, error) {
 	m := releaseVersion.FindStringSubmatch(strings.TrimSpace(version))

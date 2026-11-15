@@ -31,11 +31,25 @@ type Delta struct {
 	Chunks string `json:"chunks"` // base URL; a chunk is Chunks + "/" + delta.ObjectName(hash)
 }
 
-// StudioMirror is the release mirror Studio's catalog and deltas live on.
-const StudioMirror = "https://dl.reasonix.io"
+// StudioPublish is where the directory-shaped half of a release lives: the
+// catalog, the chunk store every release shares, per-version notes, and the
+// per-platform delta indexes. These need real nested paths, which a GitHub
+// release cannot hold — its /releases/download prefix addresses one tag and one
+// flat file name, and a chunk store alone is tens of thousands of objects
+// against a 1000-asset cap per release.
+//
+// Artifacts themselves are not built from a constant: the manifest writer reads
+// GITHUB_REPOSITORY, so an asset URL is "github.com/<repo>/releases/download/
+// <tag>/<file>" for whichever repository publishes it. That flat shape is why
+// nothing here hangs off it.
+//
+// It still names upstream's mirror, which no longer answers: keeping the
+// semantics honest until this line runs its own bucket. Publishing there means
+// changing this one constant, and nothing else in the updater moves with it.
+const StudioPublish = "https://dl.reasonix.io"
 
 // StudioChunks is the one chunk store every Studio release shares.
-const StudioChunks = StudioMirror + "/studio/chunks"
+const StudioChunks = StudioPublish + "/studio/chunks"
 
 // DeltaIndexName is a platform's index file inside a release's delta directory.
 const DeltaIndexName = "index.json.zst"

@@ -30,7 +30,7 @@ func deltas(deltaDir, tag string) (map[string]update.Delta, error) {
 		if err != nil {
 			return nil, err
 		}
-		url := fmt.Sprintf("%s/%s/delta/%s/%s", update.StudioMirror, tag, platform, update.DeltaIndexName)
+		url := fmt.Sprintf("%s/%s/delta/%s/%s", update.StudioPublish, tag, platform, update.DeltaIndexName)
 		out[platform] = update.Delta{
 			Index:  update.Asset{URL: url, Sig: url + ".minisig", Size: size, SHA256: sum},
 			Chunks: update.StudioChunks,

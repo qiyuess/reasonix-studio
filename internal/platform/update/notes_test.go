@@ -45,8 +45,9 @@ func notesReq(t *testing.T, c *http.Client) notesRequest {
 
 func TestNotesURLIsBuiltFromAReleaseVersionOnly(t *testing.T) {
 	v, err := notesVersion("v2.31.0")
-	if got := notesURL(v); err != nil || got != "https://dl.reasonix.io/studio/notes/2.31.0.md" {
-		t.Fatalf("notesURL(v2.31.0) = %q, %v", got, err)
+	// Built from the mirror constant, so moving the mirror moves this with it.
+	if got, want := notesURL(v), StudioPublish+"/studio/notes/2.31.0.md"; err != nil || got != want {
+		t.Fatalf("notesURL(v2.31.0) = %q, %v; want %q", got, err, want)
 	}
 	for _, bad := range []string{"", "latest", "../../x", "2.31", "2.31.0/../../x", "2.31.0?x=1", "https://evil.test/a"} {
 		if _, err := notesVersion(bad); !errors.Is(err, ErrNotesBadVersion) {
@@ -56,9 +57,15 @@ func TestNotesURLIsBuiltFromAReleaseVersionOnly(t *testing.T) {
 }
 
 func TestSecondReadComesFromDiskWithoutTheNetwork(t *testing.T) {
+	// The mirror helper rewrites the host and keeps the path, so the path is
+	// what the caller built — asserted against the builder, not a literal.
+	want, err := url.Parse(notesURL("2.31.0"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	c, hits := mirror(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/studio/notes/2.31.0.md" {
-			t.Errorf("fetched %s", r.URL.Path)
+		if r.URL.Path != want.Path {
+			t.Errorf("fetched %s, want %s", r.URL.Path, want.Path)
 		}
 		_, _ = w.Write([]byte("# notes\n- a\n"))
 	})

@@ -128,7 +128,7 @@ func releaseAsset(repo, tag, name string, mirrored bool) update.Asset {
 	if !mirrored {
 		return update.Asset{URL: github, Sig: github + ".minisig"}
 	}
-	mirror := fmt.Sprintf("%s/%s/%s", update.StudioMirror, tag, name)
+	mirror := fmt.Sprintf("%s/%s/%s", update.StudioPublish, tag, name)
 	return update.Asset{
 		URL: mirror, Sig: mirror + ".minisig",
 		Fallback: github, FallbackSig: github + ".minisig",

@@ -69,11 +69,12 @@ func UserAgent(version string) string {
 	return fmt.Sprintf("Reasonix-Studio/%s (%s/%s)", version, runtime.GOOS, runtime.GOARCH)
 }
 
-// releaseHosts is where Studio's own artifacts are published: the catalog and
-// the assets on our CDN, and the GitHub pages a release redirects through.
-// This is the updater's trust decision and is deliberately not shared with the
-// CLI's, which happens to name a subset of the same hosts.
-var releaseHosts = []string{"reasonix.io", ".reasonix.io", "github.com", ".githubusercontent.com"}
+// releaseHosts is where Studio's own artifacts are published: this line's
+// GitHub release assets, the hosts GitHub redirects a download through, and the
+// publish host the catalog, chunk store and notes still live on. This is the
+// updater's trust decision and is deliberately not shared with the CLI's, which
+// happens to name a subset of the same hosts.
+var releaseHosts = []string{"github.com", ".githubusercontent.com", "reasonix.io", ".reasonix.io"}
 
 // guarded copies rather than mutates: the shells hand in a client the rest of
 // the app shares. A caller that already chose a policy keeps it.
