@@ -15,7 +15,7 @@ const tabs: BrowserTab[] = [
 function draw(close = vi.fn(async (_id: string) => {})) {
   const port = Object.assign(new MockPort(), { browserClose: close });
   const onCloseManual = vi.fn();
-  render(<WorkbenchPanel port={port} tabs={tabs} manual={false} shown scheme="light" changes={[]} onCloseManual={onCloseManual} onSurfaces={vi.fn()} onExternal={vi.fn()} />);
+  render(<WorkbenchPanel port={port} tabs={tabs} manual={false} shown scheme="light" changes={[]} onCloseManual={onCloseManual} onExternal={vi.fn()} />);
   return { port, close, onCloseManual };
 }
 function menu(name: string) {

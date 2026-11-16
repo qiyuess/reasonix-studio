@@ -18,7 +18,7 @@ function draw(tabs = pages, manual = false) {
   const port = new MockPort();
   const close = vi.spyOn(port, "browserClose");
   const props = { port, tabs, manual, shown: true, scheme: "light" as const, changes: [],
-    onCloseManual: vi.fn(), onSurfaces: vi.fn(), onExternal: vi.fn() };
+    onCloseManual: vi.fn(), onExternal: vi.fn() };
   const view = render(<WorkbenchPanel {...props} />);
   return { ...props, close, update: (next: BrowserTab[]) => view.rerender(<WorkbenchPanel {...props} tabs={next} />) };
 }
@@ -283,9 +283,7 @@ it("offers the same actions on manual browser tabs", async () => {
   await userEvent.click(screen.getByRole("menuitem", { name: "关闭其他标签" }));
   expect(screen.getAllByRole("tab", { name: "浏览器" })).toHaveLength(1);
   expect(pane.onCloseManual).not.toHaveBeenCalled();
-  await waitFor(() => expect(pane.onSurfaces).toHaveBeenLastCalledWith(1));
 });
-
 it("leaves the native menu available when the tab title has selected text", () => {
   draw();
   const title = pick("Beta").querySelector("span")!;

@@ -10,7 +10,7 @@ import "./testkit";
 
 const props = (port: MockPort) => ({
   port, workspaceRoot: "/work/project", tabs: [], manual: false, shown: true, scheme: "light" as const,
-  changes: [], onCloseManual: vi.fn(), onSurfaces: vi.fn(), onExternal: vi.fn(),
+  changes: [], onCloseManual: vi.fn(), onExternal: vi.fn(),
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -24,6 +24,19 @@ function Both({ port, onSubmit }: { port: MockPort; onSubmit: (text: string) => 
   );
 }
 
+/** The listing the kernel actually returns: one level at a time. A nested file
+ *  arrives only after its folder has been opened, which is also what draws its
+ *  row — the tree starts every folder closed. */
+function oneLevelAtATime(path: string, folder: boolean) {
+  const parent = folder ? "" : path.split("/").slice(0, -1).join("/");
+  return async (at = "") => {
+    if (folder) return at === "" ? { files: [], directories: [path] } : { files: [], directories: [] };
+    if (at === parent) return { files: [path], directories: [] };
+    if (parent === "") return { files: [], directories: [] };
+    return at === "" ? { files: [], directories: [parent] } : { files: [], directories: [] };
+  };
+}
+
 async function openMenuOn(path: string) {
   fireEvent.contextMenu(await screen.findByRole("button", { name: (name) => name.trim() === path.split("/").at(-1) }));
   return screen.getByRole("menuitem", { name: "加入对话" }) as HTMLButtonElement;
@@ -35,13 +48,17 @@ it.each([
 ])("adds %j to the conversation as the same reference Copy reference gives", async (path, folder, reference) => {
   const user = userEvent.setup();
   const port = new MockPort();
-  vi.spyOn(port, "workspaceFiles").mockResolvedValue({ files: folder ? [] : [path], directories: folder ? [path] : [] });
+  vi.spyOn(port, "workspaceFiles").mockImplementation(oneLevelAtATime(path, folder));
   const submit = vi.spyOn(port, "submit");
   const onSubmit = vi.fn().mockResolvedValue(true);
   render(<Both port={port} onSubmit={onSubmit} />);
   const box = screen.getByRole("combobox", { name: "任务输入" }) as HTMLTextAreaElement;
   await user.click(box);
   await user.keyboard("look at ");
+  if (!folder && path.includes("/")) {
+    // A nested file lives behind its folder, exactly as the kernel lists it.
+    await user.click(await screen.findByRole("button", { name: path.split("/").slice(0, -1).join("/") }));
+  }
   await user.click(await openMenuOn(path));
   await waitFor(() => expect(box.value).toBe(`look at ${reference} `));
   expect(document.activeElement).toBe(box);
