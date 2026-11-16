@@ -237,6 +237,7 @@ var table = []Entry{
 	{ID: "serve.password_hash", Class: Guarded, Effect: OnOpen, Secret: true},
 	{ID: "serve.behind_proxy", Class: Guarded, Effect: OnOpen},
 	{ID: "serve.share_port", Class: Guarded, Effect: OnOpen},
+	{ID: "serve.public_origin", Class: Guarded, Effect: OnOpen},
 	{ID: "serve.remember_paired_devices", Class: Guarded, Effect: OnOpen},
 	{ID: "secrets.filter_subprocess_env", Class: Guarded, Effect: OnOpen},
 	{ID: "secrets.protect_sensitive_files", Class: Guarded, Effect: OnOpen},

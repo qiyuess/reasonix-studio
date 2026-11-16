@@ -77,3 +77,43 @@ func (s *DeviceShare) listenPort() string {
 	defer s.mu.Unlock()
 	return strconv.Itoa(s.port)
 }
+
+// publicOriginName is the reverse proxy's name this share answers for, read
+// under the same lock as the port so an Open never mixes two settings.
+func (s *DeviceShare) publicOriginName() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.publicOrigin
+}
+
+// RestorePublicOrigin sets the configured proxy name at startup. A value that
+// does not parse as an origin reads as none, the same way Config.PublicOrigin
+// reads a hand-written one: a name the gate cannot compare must not be a door.
+func (s *DeviceShare) RestorePublicOrigin(origin string) {
+	if canonical, err := config.NormalizePublicOrigin(origin); err == nil {
+		origin = canonical
+	} else {
+		origin = ""
+	}
+	s.mu.Lock()
+	s.publicOrigin = origin
+	s.mu.Unlock()
+}
+
+// SetPublicOrigin saves [serve] public_origin to the user config and applies it
+// from the next Open. An open share keeps its gate, so a change lands when the
+// share is next opened — which is also when phones re-pair against the new name.
+func (s *DeviceShare) SetPublicOrigin(raw string) error {
+	unlock := config.LockUserConfigEdits()
+	defer unlock()
+	path := config.UserConfigPath()
+	cfg := config.LoadForEdit(path)
+	if err := cfg.SetPublicOrigin(raw); err != nil {
+		return err
+	}
+	if err := cfg.SaveTo(path); err != nil {
+		return err
+	}
+	s.RestorePublicOrigin(cfg.PublicOrigin())
+	return nil
+}

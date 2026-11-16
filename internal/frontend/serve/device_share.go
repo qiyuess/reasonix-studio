@@ -53,7 +53,10 @@ type DeviceShare struct {
 	cloudStatus     func() CloudRemoteStatus
 	cloudPhones     CloudPhones
 	port            int
-	persistPort     func(int) error
+	// publicOrigin is the name a reverse proxy answers for this machine, as the
+	// user configured it. Empty means nothing stands in front of the listener.
+	publicOrigin string
+	persistPort  func(int) error
 	// persistState records whether the share is open and on what address, so the
 	// next process can reopen it. Nil leaves the share in memory only, which is
 	// what every test builds.
@@ -71,8 +74,22 @@ func (s *DeviceShare) remembers() bool {
 
 type shareListener struct {
 	origin string
-	stop   context.CancelFunc
-	done   chan struct{}
+	// publicOrigin is the proxy's name for this machine, when one was named:
+	// the gate answers for it beside the listener's own origin, and pairing
+	// links point at it — the address a phone outside this network can reach.
+	publicOrigin string
+	stop         context.CancelFunc
+	done         chan struct{}
+}
+
+// pairOrigin is where a pairing link points: the proxy's name when one is
+// configured — a phone that reached the share that way needs a code it can
+// spend there — and the listener's own origin otherwise.
+func (l *shareListener) pairOrigin() string {
+	if l.publicOrigin != "" {
+		return l.publicOrigin
+	}
+	return l.origin
 }
 
 // ShareAddress is one address a share can listen on.
@@ -101,14 +118,20 @@ var addressRank = map[AddressKind]int{AddressLAN: 0, AddressTailnet: 1, AddressV
 
 // ShareStatus is the whole state a window draws its sharing panel from.
 type ShareStatus struct {
-	Open         bool                  `json:"open"`
-	Port         int                   `json:"port,omitempty"`
-	Origin       string                `json:"origin,omitempty"`
-	Addresses    []ShareAddress        `json:"addresses"`
-	Devices      []DeviceView          `json:"devices"`
-	CloudDevices []CloudControllerView `json:"cloudDevices"`
-	CloudRemote  CloudRemoteStatus     `json:"cloudRemote"`
-	OfferExpires *time.Time            `json:"offerExpires,omitempty"`
+	Open         bool   `json:"open"`
+	Port         int    `json:"port,omitempty"`
+	Origin       string `json:"origin,omitempty"`
+	PublicOrigin string `json:"publicOrigin,omitempty"`
+	// AppliedPublicOrigin is the name the open door's gate was built with. It
+	// differs from PublicOrigin after a change that has not been applied yet,
+	// which is what lets the panel say "next time the door opens" without
+	// showing a stale value in the field the person just typed into.
+	AppliedPublicOrigin string                `json:"appliedPublicOrigin,omitempty"`
+	Addresses           []ShareAddress        `json:"addresses"`
+	Devices             []DeviceView          `json:"devices"`
+	CloudDevices        []CloudControllerView `json:"cloudDevices"`
+	CloudRemote         CloudRemoteStatus     `json:"cloudRemote"`
+	OfferExpires        *time.Time            `json:"offerExpires,omitempty"`
 }
 
 // CloudRemoteStatus is this Studio's own reachability through the encrypted
@@ -198,9 +221,10 @@ func (s *DeviceShare) Open(ip string) (ShareStatus, error) {
 		return s.Status(), err
 	}
 	origin := "http://" + ln.Addr().String()
+	publicOrigin := s.publicOriginName()
 	ctx, stop := context.WithCancel(context.Background())
-	live := &shareListener{origin: origin, stop: stop, done: make(chan struct{})}
-	gate := NewDeviceGate(handler, DeviceGateOptions{Registry: s.registry, Origin: origin, Page: s.page, Machine: machineName()})
+	live := &shareListener{origin: origin, publicOrigin: publicOrigin, stop: stop, done: make(chan struct{})}
+	gate := NewDeviceGate(handler, DeviceGateOptions{Registry: s.registry, Origin: origin, PublicOrigin: publicOrigin, Page: s.page, Machine: machineName()})
 	s.mu.Lock()
 	s.live = live
 	s.mu.Unlock()
@@ -323,7 +347,7 @@ func (s *DeviceShare) Offer() (ShareOffer, error) {
 		return ShareOffer{}, ErrShareClosed
 	}
 	code, expires := s.registry.Offer()
-	link := live.origin + "/#pair=" + code
+	link := live.pairOrigin() + "/#pair=" + code
 	svg, err := QRSVG(link)
 	if err != nil {
 		s.registry.Withdraw()
@@ -384,8 +408,15 @@ func (s *DeviceShare) Status() ShareStatus {
 	live := s.live
 	cloudStatus := s.cloudStatus
 	port := s.port
+	savedOrigin := s.publicOrigin
+	appliedOrigin := ""
+	if live != nil {
+		// The open door's own reading: the name its gate was built with, which
+		// a setting changed since has not reached yet.
+		appliedOrigin = live.publicOrigin
+	}
 	s.mu.Unlock()
-	st := ShareStatus{Port: port, Addresses: s.addresses(), Devices: s.registry.Devices(), CloudDevices: s.cloud.views()}
+	st := ShareStatus{Port: port, PublicOrigin: savedOrigin, AppliedPublicOrigin: appliedOrigin, Addresses: s.addresses(), Devices: s.registry.Devices(), CloudDevices: s.cloud.views()}
 	if cloudStatus != nil {
 		st.CloudRemote = cloudStatus()
 	}

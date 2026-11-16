@@ -16,6 +16,7 @@ const (
 	codeSharePortInUse    = "share.port_in_use"
 	codeSharePortRange    = "share.port_out_of_range"
 	codeSharePortSave     = "share.port_save_failed"
+	codeShareOriginSave   = "share.public_origin_save_failed"
 	codeShareRememberSave = "share.remember_save_failed"
 	codeShareUnknown      = "share.device_unknown"
 )
@@ -30,6 +31,7 @@ func (h *Hub) registerShareRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /share", h.shareStatus)
 	mux.HandleFunc("POST /share/open", h.shareOpen)
 	mux.HandleFunc("POST /share/port", h.shareSetPort)
+	mux.HandleFunc("POST /share/public-origin", h.shareSetPublicOrigin)
 	mux.HandleFunc("POST /share/close", h.shareClose)
 	mux.HandleFunc("POST /share/offer", h.shareOffer)
 	mux.HandleFunc("POST /share/cloud-offer", h.shareCloudOffer)
@@ -90,6 +92,27 @@ func (h *Hub) shareSetPort(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusBadRequest, codeSharePortRange, err.Error(), map[string]any{"min": config.MinSharePort, "max": config.MaxSharePort})
 	case err != nil:
 		saveFailed(w, http.StatusInternalServerError, codeSharePortSave, err)
+	default:
+		writeJSON(w, h.opts.Share.Status())
+	}
+}
+
+func (h *Hub) shareSetPublicOrigin(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Origin *string `json:"origin"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil || body.Origin == nil {
+		missingField(w, "origin")
+		return
+	}
+	switch err := h.opts.Share.SetPublicOrigin(*body.Origin); {
+	case errors.Is(err, config.ErrPublicOriginInvalid):
+		// The address is the user's to get wrong: say so as a refusal of the
+		// value rather than a failure of this machine. The wording reads
+		// `{error}`, so the sentence has to travel with the refusal.
+		refuse(w, http.StatusBadRequest, codeShareOriginSave, err.Error(), map[string]any{"error": err.Error()})
+	case err != nil:
+		saveFailed(w, http.StatusInternalServerError, codeShareOriginSave, err)
 	default:
 		writeJSON(w, h.opts.Share.Status())
 	}

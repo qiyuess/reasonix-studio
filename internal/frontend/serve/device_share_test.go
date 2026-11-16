@@ -77,12 +77,21 @@ type shareRig struct {
 
 func newShareRig(t *testing.T) *shareRig {
 	t.Helper()
+	return newProxiedShareRig(t, "")
+}
+
+// newProxiedShareRig opens the share the way a reverse proxy in front of it
+// would find it: the proxy's name is restored before Open, so the gate and the
+// pairing link are built with it, exactly as startup does.
+func newProxiedShareRig(t *testing.T, public string) *shareRig {
+	t.Helper()
 	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
 	page := fstest.MapFS{
 		"index.html":      {Data: []byte("<title>studio</title>")},
 		"assets/app-1.js": {Data: []byte("console.log(1)")},
 	}
 	share := NewDeviceShare(page)
+	share.RestorePublicOrigin(public)
 	share.addresses = func() []ShareAddress { return []ShareAddress{{Interface: "lo", IP: "127.0.0.1", Kind: AddressLAN}} }
 	h := NewHub(HubOptions{Page: page, Share: share, Grant: func(s *Server) { s.AllowProviderEdit() }})
 	hubRuntime(t, h, testenv.TempDir(t))

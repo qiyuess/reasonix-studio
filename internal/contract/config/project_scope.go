@@ -43,6 +43,10 @@ type heldScope struct {
 	// may not set it: a cloned repo must not be able to make a phone the person
 	// paired with stay trusted longer than they chose.
 	rememberDevices bool
+	// publicOrigin is the user's [serve] public_origin. A project may not set
+	// it: naming a reverse proxy is naming who may reach this machine, and a
+	// cloned repo is not the party that decides that.
+	publicOrigin string
 	// turnNarration is the user's [agent] turn_narration. It adds output tokens
 	// to every turn, so a cloned repo must not turn it on.
 	turnNarration string
@@ -100,6 +104,7 @@ func holdUserScope(c *Config) heldScope {
 		layaPython:      c.Tools.SystemOne.Laya.Python,
 		layaLocal:       c.Tools.SystemOne.Laya.Local,
 		rememberDevices: c.Serve.RememberPairedDevices,
+		publicOrigin:    c.Serve.PublicOrigin,
 		turnNarration:   c.TurnNarration(),
 		persona:         clonePersona(c.Agent.Persona),
 		peers:           clonePeers(c.Peers),
@@ -263,6 +268,12 @@ func (h heldScope) narrow(c *Config, r Roots, root string, projectMeta toml.Meta
 		c.ignoreProject("serve.remember_paired_devices", fmt.Sprintf("%t", c.Serve.RememberPairedDevices), ProjectUserOnly)
 	}
 	c.Serve.RememberPairedDevices = h.rememberDevices
+	// Naming a reverse proxy decides who may reach this machine, so it is the
+	// user's alone for the same reason.
+	if c.Serve.PublicOrigin != h.publicOrigin {
+		c.ignoreProject("serve.public_origin", c.Serve.PublicOrigin, ProjectUserOnly)
+	}
+	c.Serve.PublicOrigin = h.publicOrigin
 	if c.TurnNarration() != h.turnNarration {
 		c.ignoreProject("agent.turn_narration", c.TurnNarration(), ProjectUserOnly)
 	}
