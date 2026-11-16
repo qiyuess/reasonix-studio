@@ -1,3 +1,14 @@
+/* One window control's width, for every bar that draws them. Three do: the
+   window bar, the settings sheet's head and onboarding's brand bar — and only
+   the first is inside `.chrome`. Declared on the root so a bar that is not
+   `.chrome` reads the same length instead of falling back to the width its
+   content happens to make, which is how the other two silently shrank to 28px
+   when this lived inside `.chrome`. A system frame uses 44px; this is 28 — the
+   same width as the bar's own icon buttons — so the two groups keep one rhythm
+   instead of the controls reading as a wider, heavier family.
+   The targets keep the native shape — full height, square, no gap. */
+:root { --wc-w: 28px; }
+
 .app { --chrome-h: 48px; }
 [data-titlebar="app"][data-platform="darwin"] .app { --chrome-h: 51px; }
 
@@ -15,15 +26,20 @@
      than by the number they happen to add up to: the bar's own gap, and the
      `margin-left` the controls carry in front of themselves. */
   --chrome-gap: 8px;
-  --winctl-lead: 6px;
+  /* Negative on purpose. With the bar's own gap this is the space in front of
+     the window controls, and at a positive length that space read as a band of
+     nothing beside the monitor button — wider than the 4px the bar's own icons
+     keep between them. -4px leaves the same 4px edge to edge, so the two groups
+     keep one rhythm instead of two. */
+  --winctl-lead: -4px;
   /* How far the bar's right end reaches back from the window's own right edge
      to the end of anything flex-sized on it. On a shell that draws no controls
      — macOS and Linux — that is the right padding alone. Where frameless
-     Windows draws minimise/maximise/close it is 146px, counted the way the flex
-     row charges them: three 44px targets, `--winctl-lead` in front and a
+     Windows draws minimise/maximise/close it is 88px, counted the way the flex
+     row charges them: three `--wc-w` targets, `--winctl-lead` in front and a
      -12px margin hanging them off the padding, so the group takes
-     6 + 132 - 12 = 126px of the row; plus `--chrome-gap` in front of it (134);
-     plus `--chrome-pad-r` on the right (146). Named once here because two rules
+     -4 + 84 - 12 = 68px of the row; plus `--chrome-gap` in front of it (76);
+     plus `--chrome-pad-r` on the right (88). Named once here because two rules
      must agree on it — the icon group's margin and the strip's own padding —
      and written as a length rather than "the controls" so a rule can subtract
      it without asking which platform it is on. */
@@ -55,14 +71,14 @@
    one fixed line for both panes' controls, no stacking. */
 .chrome .wb-dock-head { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 0 1 auto; }
 .chrome:has(> .winctl) {
-  /* Written out of the controls' own parts rather than as 146px, so that moving
-     one of them cannot leave this number behind: three 44px targets, the
+  /* Written out of the controls' own parts rather than as 88px, so that moving
+     one of them cannot leave this number behind: three `--wc-w` targets, the
      `margin-left` in front of them, a -12px margin hanging them off the bar's
      padding, and then the two lengths the row puts before them. The slot keeps
      its left edge on the seam — one hairline has to run through the whole
      window — and keeps this much space on its own inside instead, so its tabs
      and buttons stop in front of the controls rather than under them. */
-  --winctl-w: calc(var(--chrome-pad-r) + var(--chrome-gap) + 3 * 44px + var(--winctl-lead) - 12px);
+  --winctl-w: calc(var(--chrome-pad-r) + var(--chrome-gap) + 3 * var(--wc-w) + var(--winctl-lead) - 12px);
 }
 .chrome .wb-dock-head:empty { display: none; }
 /* The strip is stretched to the slot rather than sized by its tabs. Without
@@ -71,7 +87,12 @@
    `useOverflowTabs` measures the tabs that fell outside the strip — a strip
    that grew to fit them has none outside it, so `+n` never appeared and the
    tail of the strip could not be reached by scrolling either. */
-.chrome .wb-dock-head .workbench-tabs { flex: 1 1 auto; min-width: 0; width: 100%; height: auto; padding-top: 0; border-bottom: 0; background: transparent; align-items: center; }
+/* Docked, the strip ends where the window controls begin, so its own 6px right
+   padding turned into a gap between the expand button and minimise that read
+   wider than the 4px the bar's icon group keeps. 4px here, and the two ends of
+   the bar use one rhythm. Undocked the strip keeps its 6px: there it meets the
+   panel's own edge, with no controls to align with. */
+.chrome .wb-dock-head .workbench-tabs { flex: 1 1 auto; min-width: 0; width: 100%; height: auto; padding-top: 0; padding-right: 4px; border-bottom: 0; background: transparent; align-items: center; }
 .chrome .wb-dock-head .workbench-tab { margin-bottom: 0; border-radius: var(--r-sm); }
 .chrome .wb-dock-head .workbench-tab[aria-selected="true"] { box-shadow: none; }
 .chrome .wb-dock-head .workbench-new { align-self: auto; }
@@ -94,7 +115,6 @@
 .chrome :is(.thbtn, .top-action):active { transform: scale(.94); }
 .chrome :is(.thbtn, .top-action):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .chrome .top-action .view-label { display: none; }
-.chrome .view-count { position: absolute; top: 1px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-fg); font: var(--w-med) var(--fs-micro) var(--ui); line-height: 14px; text-align: center; }
 
 .railfoot { flex: none; display: flex; flex-direction: column; gap: 0; padding: 0 10px 10px; border: 0; background: transparent; }
 .railfoot::before { content: ""; display: block; height: 1px; margin: 6px 4px; background: var(--hair); }
@@ -148,11 +168,9 @@
 .hero .t { margin: 8px 0 0; color: var(--text); font: var(--w-semi) var(--fs-display)/1.3 var(--ui); letter-spacing: var(--track-display); }
 .hero .s { margin: 0; max-width: 380px; color: var(--muted); font: var(--w-reg) var(--fs-ui)/1.65 var(--ui); }
 .pane:has([data-pane="flow"] .flow[data-empty]) { background-color: var(--surface); background-image: none; }
-.phonecard .pc-cap { margin: 4px 0 0; color: var(--faint); font: var(--w-semi) var(--fs-micro) var(--ui); }
 .phonecard .pc-route { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
 .phonecard .pc-route[data-on] { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 .phonecard .pc-route + .pc-route { margin-top: 6px; }
-.phonecard .pc-route .pc-none { margin: 6px 0 0; color: var(--faint); font: var(--w-med) var(--fs-micro)/1.6 var(--ui); }
 /* The pairing code, drawn once. It used to be written twice — a grid here and
    a grid in app.css — and the design layer won both times, so the other copy's
    numbers were dead on arrival. One place, so changing it changes something. */

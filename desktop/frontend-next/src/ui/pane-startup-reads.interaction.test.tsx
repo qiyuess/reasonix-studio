@@ -11,6 +11,7 @@ import type { WireEvent } from "../port/wire";
 import { Chrome } from "./Chrome";
 import { Pane, type PaneReport } from "./Pane";
 import { App } from "./App";
+import { expandProjects } from "./sidebarrows";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 Element.prototype.getAnimations ??= () => [];
@@ -58,7 +59,7 @@ async function mount(running = false, pathless = false) {
     const [report, setReport] = useState<PaneReport | null>(null);
     const onReport = useCallback((_: string, next: PaneReport) => setReport(next), []);
     return <>
-      <Chrome port={port} status={report?.status ?? null} workspace={report?.workspace ?? null} title="active" steer={0} theme="light" onTheme={() => {}} onFind={() => {}} view="flow" rows={0} surfaces={0} onView={() => {}} />
+      <Chrome port={port} status={report?.status ?? null} workspace={report?.workspace ?? null} title="active" steer={0} theme="light" onTheme={() => {}} onFind={() => {}} view="flow" rows={0} onView={() => {}} />
       <Pane port={port} rt={{ id: "r1", base: "/rt/r1", root: snapshot.workspaceRoot!, name: "workspace", sessionPath }}
         title="active" active visible sideHost={null} side={false} onFocus={() => {}} onReport={onReport}
         onSessionChanged={() => {}} pulse={0} findPulse={0} onSettings={() => {}} needsProject={false}
@@ -225,6 +226,7 @@ it("keeps workspace reads and late results isolated across focused panes", async
     return port;
   };
   render(<App hub={hub} />);
+  await expandProjects();
   await waitFor(() => expect(calls.get("r1")).toBe(1));
   await userEvent.click(await screen.findByRole("treeitem", { name: /站点改版/ }));
   await waitFor(() => expect([...calls.values()]).toEqual([1, 1]));

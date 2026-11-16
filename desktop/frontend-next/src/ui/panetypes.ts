@@ -21,12 +21,10 @@ export interface PaneReport {
   mcp: McpEntry[];
   wallet: string;
   interactions?: import("../state/session_types").SessionState["interactions"];
-  // Which of the pane's views is showing, how many rows the conversation holds
-  // (the analysis view is drawn only once there are some), and how many
-  // browsers and files the workbench holds: what the window's view switch shows.
+  // Which of the pane's views is showing, and how many rows the conversation
+  // holds: the analysis view is drawn only once there are some.
   view: PaneView;
   rows: number;
-  surfaces: number;
 }
 
 export interface PaneProps {

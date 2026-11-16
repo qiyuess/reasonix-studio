@@ -1,7 +1,33 @@
-import { StudioIcon } from "./StudioIcon";
+import { createLucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { t } from "../i18n";
 import { host } from "../port/host";
+
+/** The three title-bar glyphs, drawn to one measure.
+ *
+ *  Lucide's own minus, square and x reach 14, 18 and 12 units of their 24-unit
+ *  box, so inside one 16px frame they landed at 9.3, 12 and 8px — three sizes
+ *  on a row of three, which is what made the box read as wrong rather than
+ *  merely bigger. These keep every glyph inside the same 18-unit square, which
+ *  is also what the bar's own icons reach: 16px × 18/24 = 12px, the same ink as
+ *  the moon and the monitor beside them. */
+const Minimise = createLucideIcon("WindowMinimise", [
+  ["path", { d: "M3 12h18", key: "line" }],
+]);
+const Maximise = createLucideIcon("WindowMaximise", [
+  ["rect", { x: "3", y: "3", width: "18", height: "18", rx: "1.5", key: "box" }],
+]);
+// The window that is already zoomed shows the one behind it: a full box for the
+// state it returns to, and two edges for the one it is in. Its two frames make
+// it read slightly heavier than a single box, so it is drawn one unit in.
+const Restore = createLucideIcon("WindowRestore", [
+  ["rect", { x: "4", y: "9", width: "11", height: "11", rx: "1.5", key: "back" }],
+  ["path", { d: "M8 4h11a1 1 0 0 1 1 1v11", key: "front" }],
+]);
+const Close = createLucideIcon("WindowClose", [
+  ["path", { d: "M3 3l18 18", key: "down" }],
+  ["path", { d: "M21 3L3 21", key: "up" }],
+]);
 
 // Where the chrome is standing in for the title bar. Linux keeps its own frame,
 // and a browser tab has no window to zoom.
@@ -43,7 +69,7 @@ export function WindowControls() {
   return (
     <div className="winctl" role="group" aria-label={t("common.window")}>
       <button className="wc" data-action="window.minimize" onClick={() => host().minimiseWindow()} aria-label={t("app.minimize")}>
-        <StudioIcon name="minus" />
+        <Minimise />
       </button>
       <button
         className="wc"
@@ -51,10 +77,10 @@ export function WindowControls() {
         onClick={() => host().toggleMaximiseWindow()}
         aria-label={t(max ? "app.restore" : "app.maximize")}
       >
-        <StudioIcon name={max ? "copy" : "stop"} />
+        {max ? <Restore /> : <Maximise />}
       </button>
       <button className="wc close" data-action="window.close" onClick={() => host().closeWindow()} aria-label={t("common.close")}>
-        <StudioIcon name="close" />
+        <Close />
       </button>
     </div>
   );

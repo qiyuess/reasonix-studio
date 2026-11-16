@@ -96,7 +96,6 @@ const NO_REPORT: PaneReport = {
   wallet: "",
   view: "flow",
   rows: 0,
-  surfaces: 0,
 };
 
 // App is the window around the panes, not a session itself: the workspace tree,
@@ -557,7 +556,7 @@ export function App({ hub }: { hub: HubPort }) {
         theme={scheme}
         onTheme={() => setTheme(scheme === "dark" ? "light" : "dark")}
         onFind={find.toggle}
-        view={report.view} rows={report.rows} surfaces={report.surfaces} onView={showView}
+        view={report.view} rows={report.rows} onView={showView}
         hub={hub} onError={fail}
       />
 

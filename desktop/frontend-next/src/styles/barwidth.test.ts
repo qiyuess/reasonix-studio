@@ -19,27 +19,34 @@ const px = (css: string, prop: string, what: string) => {
 
 // The docked strip stops in front of the shell's own window controls, so
 // `--winctl-w` is what they take off the bar's right end. It is written as the
-// sum of the controls' own parts — three 44px targets, the margin in front of
-// them, a -12px margin behind, the row's gap, the bar's right padding — because
-// a bare length is what let this drift: the strip sat under the close button and
-// nothing said so. Each part is read by name here, and read from the rule that
-// actually paints it, so moving one moves the reservation with it.
+// sum of the controls' own parts — three `--wc-w` targets, the margin in front
+// of them, a -12px margin behind, the row's gap, the bar's right padding —
+// because a bare length is what let this drift: the strip sat under the close
+// button and nothing said so. Each part is read by name here, and read from the
+// rule that actually paints it, so moving one moves the reservation with it.
 describe("the window-controls reservation matches the controls it reserves for", () => {
   it("counts every part of the controls, and nothing twice", () => {
     const target = block(app, /\n\s*\.winctl \.wc\s*\{([^}]*)\}/, ".winctl .wc");
     const reserved = block(shell, /\n\.chrome:has\(> \.winctl\)\s*\{([^}]*)\}/, ".chrome:has(> .winctl)");
     const bar = block(shell, /\n\.chrome\s*\{([^}]*)\}/, ".chrome");
+    // The width lives on the root, not on `.chrome`: three bars draw these
+    // controls and only one of them is inside the window bar.
+    const root = block(shell, /\n:root\s*\{([^}]*)\}/, ":root");
 
     // Named parts, so a change to any of them is a change to the sum.
     const lead = px(bar, "--winctl-lead", ".chrome");
     const gap = px(bar, "--chrome-gap", ".chrome");
     const pad = px(bar, "--chrome-pad-r", ".chrome");
-    expect(px(target, "width", ".winctl .wc")).toBe(44);
+    const targetW = px(root, "--wc-w", ":root");
+    // The control reads its width from that same name rather than repeating it:
+    // a number in both places is how the two drifted before.
+    expect(target, "the control reads `--wc-w`").toContain("width: var(--wc-w)");
+    expect(targetW, "one control's width").toBe(28);
     expect(reserved, "the sum is written out of its parts").toMatch(/--winctl-w:\s*calc\(/);
     expect(reserved, "the row's gap is counted").toContain("var(--chrome-gap)");
     expect(reserved, "the controls' own margin is counted").toContain("var(--winctl-lead)");
     expect(reserved, "the bar's padding is counted").toContain("var(--chrome-pad-r)");
-    expect(reserved, "three targets, not two or four").toContain("3 * 44px");
+    expect(reserved, "three targets, not two or four").toContain("3 * var(--wc-w)");
     // The controls hang off the bar's padding by their own negative margin; it
     // is inside the sum as a subtraction, so it appears once.
     expect(reserved).toContain("- 12px");
@@ -48,7 +55,7 @@ describe("the window-controls reservation matches the controls it reserves for",
     // `.winctl` rule and the bar's gap have to be the same two lengths.
     expect(block(app, /\n\s*\.winctl\s*\{([^}]*)\}/, ".winctl"), "the controls' own margin").toContain("margin-left: var(--winctl-lead)");
     expect(bar, "the bar's gap").toContain("gap: var(--chrome-gap)");
-    expect(lead + gap + pad + 3 * 44 - 12).toBe(146);
+    expect(lead + gap + pad + 3 * targetW - 12).toBe(88);
   });
 
   it("reserves the bare padding where the shell draws no controls", () => {
