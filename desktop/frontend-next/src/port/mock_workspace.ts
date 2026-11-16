@@ -66,14 +66,14 @@ export class MockWorkspace extends MockMemoryHold {
     };
   }
 
-  async branches(): Promise<WorkspaceBranches> {
+  async branches(_repo?: string): Promise<WorkspaceBranches> {
     return {
       repo: this.branchState.repo,
       branches: ["main", "studio"].map((name) => ({ name, current: this.branchState.branch === name })),
     };
   }
 
-  async switchBranch(name: string): Promise<WorkspaceGit> {
+  async switchBranch(name: string, _repo?: string): Promise<WorkspaceGit> {
     if (!["main", "studio"].includes(name)) {
       throw new HttpError(409, "/workspace/branch/switch: no such branch", {
         code: "branch.unknown", error: "no local branch with that name",

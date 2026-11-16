@@ -15,6 +15,10 @@ interface Props {
   // The count is drawn elsewhere (the changed-files pill), so the chip keeps
   // only the branch name.
   countElsewhere?: boolean;
+  // The repository below the workspace this chip speaks for, as gitRepos lists
+  // it; "" is the workspace's own. A workspace that is a folder of projects has
+  // no repository of its own, so its branch belongs to one of the folders'.
+  repo?: string;
   // Called when a switch lands (status refresh) and when it moved the tree
   // (the change list, the branch reading and the workspace view re-read).
   onChanged: () => void;
@@ -50,9 +54,9 @@ function fitCard(anchor: HTMLDivElement) {
 // The composer's branch chip: the workspace's branch as git itself names it,
 // and the menu that moves the session to another one. The reading lives in
 // the pane's tree refresh; this component owns only the choosing.
-export function BranchChip({ port, git, changeCount, countElsewhere = false, onChanged, onSwitched, onError }: Props) {
+export function BranchChip({ port, git, changeCount, countElsewhere = false, repo = "", onChanged, onSwitched, onError }: Props) {
   const branchTipId = useId();
-  const { locals, moving, loadBranches, switchTo } = useWorkspaceBranches(port, onChanged, onSwitched, onError);
+  const { locals, moving, loadBranches, switchTo } = useWorkspaceBranches(port, onChanged, onSwitched, onError, "", repo);
   const busy = moving !== null;
   // The list re-reads on open: a terminal or another window can move HEAD
   // while this pane is not looking, and a stale list would offer a switch

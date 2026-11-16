@@ -615,12 +615,14 @@ export interface AgentPort extends RunningWorkPort, MemoryHoldPort, WorkspacePre
   commitDiff(id: string, path: string, repo?: string): Promise<ChangeDiff>;
   // The repository's local branches, the current one marked, for the composer's
   // branch menu. Re-read on open: a terminal or another window may have moved
-  // HEAD since this pane last looked.
-  branches(): Promise<WorkspaceBranches>;
+  // HEAD since this pane last looked. `repo` names a repository below the
+  // workspace as gitRepos lists it; absent is the workspace's own.
+  branches(repo?: string): Promise<WorkspaceBranches>;
   // Checks out the named local branch and answers with the work tree's
   // identity as it now stands. Refusals carry a code (branch.*) — uncommitted
   // work and branches held by another worktree are named reasons, not failures.
-  switchBranch(name: string): Promise<WorkspaceGit>;
+  // `repo` is the repository the branch belongs to, as for branches().
+  switchBranch(name: string, repo?: string): Promise<WorkspaceGit>;
   // What one of those paths actually differs by. The list says a file moved;
   // only this says how, and asking per path is what keeps a session that
   // touched two hundred files from shipping two hundred diffs nobody opened.

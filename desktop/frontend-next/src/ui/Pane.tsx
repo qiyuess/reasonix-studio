@@ -78,6 +78,8 @@ import { LiveWork, useLiveWork } from "../state/foldpref";
 import { loadChangedFilesPref, useShowsChangedFiles } from "../state/changedfiles";
 import { loadFoldWorkPref, useFoldsTurnWork } from "../state/foldwork";
 import { ChangedFilesPill } from "./ChangedFilesPill";
+import { useGitRepos } from "./useGitRepos";
+import { useGlance } from "./glance";
 import { RootMissingBanner } from "./RootMissingBanner";
 import { useConversationFiles } from "./useConversationFiles";
 import { NewAnswerAnchor } from "./NewAnswerLine";
@@ -118,13 +120,23 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
   const [askFocus, setAskFocus] = useState(0);
   const [tree, setTree] = useState<WorkspaceChanges | null>(null);
   const [git, setGit] = useState<WorkspaceGit | null>(null);
+  const gitRepos = useGitRepos(port, useGlance());
+  // Which repository the composer's branch chip speaks for. A workspace that is
+  // itself a repository lists "" as its only entry. A folder of projects has no
+  // repository of its own — `workspaceGit()` on the root answers "no repository"
+  // — so the chip reads the one found below it, the same list the workbench's
+  // explorer groups by.
+  const repoDir = useMemo(() => {
+    if (!gitRepos.repos.length) return "";
+    if (gitRepos.repos.some((r) => r.dir === "")) return "";
+    return gitRepos.repos[0].dir;
+  }, [gitRepos.repos]);
   const [ctx, setCtx] = useState<ContextBreakdown | null>(null);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const pages = useBrowserTabs(port, s.browserTabsMoved);
   const revealBrowser = useCallback(() => onManualBrowser?.(true), [onManualBrowser]);
   useRevealAgentPages(pages, active && !rt.host, revealBrowser);
   useRevealBrowserOpen(s.items, active && !rt.host, revealBrowser);
-  const [surfaces, setSurfaces] = useState(0);
   // Analysis owns the whole working canvas. A docked browser and the composer
   // are useful while talking to the agent, but both compete with the timeline
   // for exactly the horizontal/vertical space the analysis view explains.
@@ -383,10 +395,10 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
   const foldWork = useFoldsTurnWork(port);
   const brought = useBroughtResults(s.items);
   const refreshTree = useCallback((git?: WorkspaceGit) => {
-    void port.changes().then(setTree).catch(() => setTree(null));
+    void port.changes(repoDir || undefined).then(setTree).catch(() => setTree(null));
     if (git) setGit(git);
-    else void port.workspaceGit().then(setGit).catch(() => setGit(null));
-  }, [port]);
+    else void port.workspaceGit(repoDir || undefined).then(setGit).catch(() => setGit(null));
+  }, [port, repoDir]);
   useEffect(() => { if (ready || counts.wrote) refreshTree(); }, [ready, refreshTree, status?.sessionPath, running, counts.wrote]);
 
   // One turn can be dozens of model round trips — the session this was measured
@@ -506,9 +518,8 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
       interactions:s.interactions,
       view: docked ? "browser" : tab,
       rows: traj.rows.length,
-      surfaces,
     });
-  }, [rt.id, onReport, status, workspace, title, queue, run, running, blocked, trustWaiting, cost, contextPercent, ctx, mcp, walletDisplay, s.interactions, docked, tab, traj.rows.length, surfaces]);
+  }, [rt.id, onReport, status, workspace, title, queue, run, running, blocked, trustWaiting, cost, contextPercent, ctx, mcp, walletDisplay, s.interactions, docked, tab, traj.rows.length]);
 
   return (
     <section
@@ -607,7 +618,6 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
             fullMode={docked ? { full: browserSize.size === "full", onToggle: browserSize.toggleFull } : undefined}
             manual={manualBrowser}
             shown={visible && workbench}
-            onSurfaces={setSurfaces}
             onActiveFile={onActiveFile}
             scheme={theme === "light" ? "light" : "dark"}
             changes={tree?.changes ?? []} onTreeChanged={refreshTree} revealChanges={revealChanges} revealFiles={revealFiles} toggleFiles={toggleFiles} terminalRequest={terminalPulse}
@@ -666,7 +676,7 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
         {alert && <div className="cmpalert">{alert}</div>}
         <RootMissingBanner items={s.items} onPick={onOpenProject} />
         {pill && <ChangedFilesPill changes={tree?.changes ?? []} onOpen={openChanges} />}
-        <Composer queueStrip={<Queue queue={queue} running={running} shown={steerShown} onSendNow={onQueueSendNow} onToSteer={onQueueToSteer} onCancel={onQueueCancel} onRetry={onQueueRetry} onPause={onQueuePause} />} queued={waiting(queue).length > 0} worktreeTarget={worktreeTarget} onWorktreePhase={setWorktreePhase} port={port} workspace={workspace} fresh={ready && !historyPaging.hasMore && !historyPaging.busy && !historyPaging.failed && !rt.host && s.items.length === 0} status={status} running={running} quote={quote} restore={restored} inject={inserted} focus={askFocus} onSubmit={submit} onChanged={refreshStatus} onError={notify} onSettings={onSettings} side={sideAsk} onSide={() => setSideAsk((on) => !on)} sidePanel={sideAsk ? <SidePanel port={port} onClose={() => setSideAsk(false)} onQuote={(text) => setInserted((was) => ({ n: was.n + 1, text }))} /> : null} changeCount={changeCount} countElsewhere={pill} git={git} onTreeChanged={refreshTree} pulse={pulse} draftKey={draftKey(rt.host ?? "", rt.root, rt.sessionPath || status?.sessionPath || "")} />
+        <Composer queueStrip={<Queue queue={queue} running={running} shown={steerShown} onSendNow={onQueueSendNow} onToSteer={onQueueToSteer} onCancel={onQueueCancel} onRetry={onQueueRetry} onPause={onQueuePause} />} queued={waiting(queue).length > 0} worktreeTarget={worktreeTarget} onWorktreePhase={setWorktreePhase} port={port} workspace={workspace} fresh={ready && !historyPaging.hasMore && !historyPaging.busy && !historyPaging.failed && !rt.host && s.items.length === 0} status={status} running={running} quote={quote} restore={restored} inject={inserted} focus={askFocus} onSubmit={submit} onChanged={refreshStatus} onError={notify} onSettings={onSettings} side={sideAsk} onSide={() => setSideAsk((on) => !on)} sidePanel={sideAsk ? <SidePanel port={port} onClose={() => setSideAsk(false)} onQuote={(text) => setInserted((was) => ({ n: was.n + 1, text }))} /> : null} changeCount={changeCount} countElsewhere={pill} git={git} repo={repoDir} onTreeChanged={refreshTree} pulse={pulse} draftKey={draftKey(rt.host ?? "", rt.root, rt.sessionPath || status?.sessionPath || "")} />
         <MeterRail
           tps={tps} trail={trail} running={running} speed={speed} metrics={s.metrics} ctx={ctx} mcp={mcp} compact={compact} cost={cost} turnCost={s.metrics.coverage === "none" ? NO_COST : s.metrics.turn}
           wallet={wallet} hideAmounts={hideAmounts} tasks={rail.tasks} jobs={jobs} onSettings={onSettings}

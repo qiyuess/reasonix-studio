@@ -53,12 +53,12 @@ export class SseWorkspace extends SseFeedback {
     return this.get<ChangeDiff>("/git/commit/diff" + repoQuery(repo, `id=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`));
   }
 
-  branches() {
-    return this.get<WorkspaceBranches>("/workspace/branches");
+  branches(repo?: string) {
+    return this.get<WorkspaceBranches>("/workspace/branches" + repoQuery(repo));
   }
 
-  switchBranch(name: string) {
-    return this.post0<WorkspaceGit>("/workspace/branch/switch", { name });
+  switchBranch(name: string, repo?: string) {
+    return this.post0<WorkspaceGit>("/workspace/branch/switch", repo ? { name, repo } : { name });
   }
 
   changeDiff(path: string, repo?: string) {

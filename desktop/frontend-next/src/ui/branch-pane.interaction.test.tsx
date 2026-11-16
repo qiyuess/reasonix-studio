@@ -7,6 +7,7 @@ import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
 import { boot, STORAGE } from "../i18n";
 import type { Checkpoint } from "../port/port";
+import { expandProjects } from "./sidebarrows";
 
 // The transport is a fixture; App, Pane, reply actions and SayCard are real.
 afterEach(() => { cleanup(); sessionStorage.clear(); localStorage.clear(); vi.restoreAllMocks(); });
@@ -51,6 +52,7 @@ it("opens a sidebar conversation through the real final-reply BranchAt action", 
   }));
   const rename = vi.spyOn(hub, "renameSession");
   const view = render(<App hub={hub} />);
+  await expandProjects();
   const active = () => view.container.querySelector<HTMLElement>(".pane[data-active]")!;
   await waitFor(() => expect(active()).toBeTruthy());
   const buttons = await within(active()).findAllByRole("button", { name: "创建对话分支" });
