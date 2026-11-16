@@ -162,10 +162,14 @@
   .chrome > .winctl { position: relative; z-index: 2 }
   .winctl { display: flex; margin-left: var(--winctl-lead); margin-right: -12px; align-self: stretch }
   .winctl .wc {
-    display: grid; place-items: center; width: 44px; border: 0; background: transparent;
+    display: grid; place-items: center; width: var(--wc-w); border: 0; background: transparent;
     color: var(--faint); cursor: pointer; transition: background var(--m-line), color var(--m-line);
   }
-  .winctl .wc svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2 }
+  /* The same frame and weight as the bar's own icon buttons (14px, 1.45,
+     rounded joins). The targets keep the Windows shape — full height, square,
+     no gap between them — but 28px wide, the same as those icon buttons, so
+     the group stops sitting looser and heavier than the icons beside it. */
+  .winctl .wc svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round }
   .winctl .wc:hover { background: var(--overlay); color: var(--text) }
   .winctl .wc.close:hover { background: var(--err); color: #fff }
   .winctl .wc:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px }
@@ -1684,7 +1688,11 @@
   }
   .btn.stop { display: inline-flex; align-items: center; gap: 6px }
   .btn.stop .ic { display: grid; width: 13px; height: 13px; flex: none }
-  .btn.stop .ic > svg { fill: currentColor; stroke: none }
+  /* The ring is drawn and the block inside it is filled. Filling the whole
+     glyph would close the ring into one blob; drawing both would make the
+     block read as a checkbox at this size. */
+  .btn.stop .ic > svg { stroke-width: 2 }
+  .btn.stop .ic > svg > rect { fill: currentColor; stroke: none }
   .btn.stop:hover { border-color: var(--err); color: var(--err-ink) }
 
   .pill {
@@ -4364,13 +4372,8 @@
 
   .chrome:has(.phonecard) { z-index: 40 }
   .phonepop { position: relative; display: flex }
-  .phone-action[data-live] { color: var(--accent-ink) }
-  .phone-action[data-live]::after {
-    content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px;
-    border-radius: 50%; background: var(--net);
-  }
   .phone-action { position: relative }
-  .phone-action[data-online]::after { display: none }
+  .phone-action[data-live] { color: var(--accent-ink) }
   .pc-count {
     position: absolute; top: 1px; right: 0; min-width: 13px; height: 13px; padding: 0 3px; box-sizing: border-box;
     display: grid; place-items: center; border-radius: var(--r-pill);

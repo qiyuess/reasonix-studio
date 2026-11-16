@@ -1,4 +1,4 @@
-import { Square } from "lucide-react";
+import { CircleStop } from "lucide-react";
 import { t } from "../i18n";
 
 export function StopButton({ stopping, onStop }: { stopping: boolean; onStop: () => void }) {
@@ -15,7 +15,7 @@ export function StopButton({ stopping, onStop }: { stopping: boolean; onStop: ()
       onClick={onStop}
     >
       <span className="ic" aria-hidden="true">
-        <Square fill="currentColor" strokeWidth={0} />
+        <CircleStop />
       </span>
       <span>{label}</span>
     </button>

@@ -358,8 +358,8 @@ the picker and keyboard navigation.
   the strip begins at the same x the panes below split on, so the hairline runs
   the window's whole height. Both edges are read off one `--dock-col`, and the
   icon group's margin subtracts `--winctl-w`: what the shell's own window
-  controls already take off the bar's right end — three 44px targets and the
-  row's gap, 146px on frameless Windows, the bare 12px padding where the shell
+  controls already take off the bar's right end — three `--wc-w` targets and the
+  row's gap, 88px on frameless Windows, the bare 12px padding where the shell
   draws none. Charging them twice, or not at all, is what parked the icons a
   whole control group short of the seam and left the strip's tail underneath
   the close button.
