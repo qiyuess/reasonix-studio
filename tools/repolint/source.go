@@ -16,12 +16,16 @@ import (
 // skipDirs are trees whose contents this repository does not author, so debt
 // measured there names nobody who could pay it.
 var skipDirs = map[string]bool{
-	"node_modules":      true,
-	"third_party":       true,
-	"vendor":            true,
-	"testdata":          true,
-	"dist":              true,
-	"bin":               true,
+	"node_modules": true,
+	"third_party":  true,
+	"vendor":       true,
+	"testdata":     true,
+	"dist":         true,
+	"bin":          true,
+	// mobile is the phone app, carried from an upstream this repo does not
+	// author: its ceilings and doc budgets would name debt no change here could
+	// pay.
+	"mobile":            true,
 	".migration-backup": true,
 }
 
