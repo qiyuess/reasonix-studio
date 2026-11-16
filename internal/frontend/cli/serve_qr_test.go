@@ -44,6 +44,24 @@ func TestShareBaseNamesWhatAPhoneCanOpen(t *testing.T) {
 	if _, err := shareBase("", "0.0.0.0:8787", func() []serve.ShareAddress { return nil }); !errors.Is(err, errShareNoAddress) {
 		t.Fatalf("wildcard bind with no private address err = %v, want errShareNoAddress", err)
 	}
+	// Loopback is listed so a proxy on this machine has an address to dial. It is
+	// not one a phone can open, so a code naming it would be a code nobody can
+	// spend: with nothing else on offer there is no code at all.
+	if _, err := shareBase("", "0.0.0.0:8787", func() []serve.ShareAddress {
+		return []serve.ShareAddress{{Interface: "lo", IP: "127.0.0.1", Kind: serve.AddressLoopback}}
+	}); !errors.Is(err, errShareNoAddress) {
+		t.Fatalf("loopback-only bind err = %v, want errShareNoAddress", err)
+	}
+	// A list that carries both takes the one a phone can reach, whatever order
+	// it arrives in.
+	if u, err := shareBase("", "0.0.0.0:8787", func() []serve.ShareAddress {
+		return []serve.ShareAddress{
+			{Interface: "lo", IP: "127.0.0.1", Kind: serve.AddressLoopback},
+			{Interface: "eth0", IP: "192.168.1.20", Kind: serve.AddressLAN},
+		}
+	}); err != nil || u.String() != "http://192.168.1.20:8787/" {
+		t.Fatalf("shareBase with loopback listed first = %v, %v; want the LAN address", u, err)
+	}
 }
 
 // The token rides the link's fragment, so only a link that is encrypted or

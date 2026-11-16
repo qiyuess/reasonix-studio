@@ -216,6 +216,8 @@ export const REMOTE: Messages = {
   "remote.use_the_remotes_npm": { zh: "使用远端的 npm", en: "Use the remote's npm" },
   "remote.use_this_folder": { zh: "使用此目录", en: "Use this folder" },
   "remote.user": { zh: "用户", en: "User" },
+  "remote.loopback_hint": { zh: "127.0.0.1：只有本机的反代或穿透能连到它，但换网络也不受影响。", en: "127.0.0.1: only a proxy or tunnel on this machine reaches it, but it survives a network change." },
+  "remote.loopback_short": { zh: "本机回环", en: "loopback" },
   "remote.virtual_adapter": { zh: "虚拟网卡", en: "virtual adapter" },
   "remote.waiting_for_you_fingerprint_id": { zh: "等你批准 · 标识 {id}", en: "Waiting for you · fingerprint {id}" },
   "remote.web_studio_connected": { zh: "Web Studio 已连接", en: "Web Studio connected" },

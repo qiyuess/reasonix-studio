@@ -32,6 +32,10 @@ var ErrShareUnattached = errors.New("sharing has nothing to serve yet")
 // encrypted end to end, which makes it the one routed network worth offering.
 var tailnetPrefix = netip.MustParsePrefix("100.64.0.0/10")
 
+// loopbackIP is the address a proxy on this machine dials, and the one address
+// that does not change when the machine joins another network.
+const loopbackIP = "127.0.0.1"
+
 // DeviceShare is a window's second door: a listener on a private address that
 // paired devices reach the window's hub through, behind a device gate. It is
 // shut until the person at the window opens it, and shutting it unpairs every
@@ -112,9 +116,15 @@ const (
 	// AddressVirtual is anything else: a VPN or proxy tunnel, a VM switch.
 	// Listed, because it may be what someone wants, but never the default.
 	AddressVirtual AddressKind = "virtual"
+	// AddressLoopback is 127.0.0.1. No phone reaches it, but a proxy or a
+	// tunnel running on this machine hands requests to it, and it is the one
+	// address that survives this machine moving between networks. A door a
+	// proxy stands in front of should open here rather than on an address that
+	// changes with the Wi-Fi, which is why it is listed at all.
+	AddressLoopback AddressKind = "loopback"
 )
 
-var addressRank = map[AddressKind]int{AddressLAN: 0, AddressTailnet: 1, AddressVirtual: 2}
+var addressRank = map[AddressKind]int{AddressLAN: 0, AddressTailnet: 1, AddressVirtual: 2, AddressLoopback: 3}
 
 // ShareStatus is the whole state a window draws its sharing panel from.
 type ShareStatus struct {
@@ -245,7 +255,20 @@ func (s *DeviceShare) Open(ip string) (ShareStatus, error) {
 // machine now offers, because a share that cannot reopen where it was is still
 // better off open than silently shut. Phones paired on the old origin have to
 // scan again in that case; one that kept its address does not.
+//
+// A machine with a reverse proxy opens on loopback instead, and that wins even
+// over a remembered address that still answers: the proxy runs here and dials
+// the door from here, and loopback is the one address this machine keeps when it
+// joins another network. Remembering the old Wi-Fi address would re-bind the
+// door to a number that is about to be someone else's — the failure this rules
+// out. With no proxy configured, the remembered-or-first rule stands, because
+// then a phone really does dial the LAN address.
 func (s *DeviceShare) Reopen(address string) (ShareStatus, error) {
+	if s.publicOriginName() != "" {
+		if st, err := s.Open(loopbackIP); err == nil {
+			return st, nil
+		}
+	}
 	if strings.TrimSpace(address) != "" {
 		if st, err := s.Open(address); err == nil {
 			return st, nil
@@ -254,6 +277,11 @@ func (s *DeviceShare) Reopen(address string) (ShareStatus, error) {
 	list := s.addresses()
 	if len(list) == 0 {
 		return s.Status(), ErrShareAddress
+	}
+	if s.publicOriginName() != "" {
+		if a, ok := proxyAddress(list); ok {
+			return s.Open(a.IP)
+		}
 	}
 	return s.Open(list[0].IP)
 }
@@ -448,6 +476,11 @@ func OffInternet(ip netip.Addr) bool {
 
 // PrivateAddresses is every private IPv4 address on an up interface, the ones
 // a phone is likeliest to reach first: the first entry is the default.
+//
+// Loopback is listed after every reachable address, because a phone cannot dial
+// it — but a proxy or a tunnel on this machine hands requests to it, and it is
+// the only address that survives this machine changing networks. A door a proxy
+// stands in front of opens there instead; see proxyAddress.
 func PrivateAddresses() []ShareAddress {
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -455,7 +488,13 @@ func PrivateAddresses() []ShareAddress {
 	}
 	out := []ShareAddress{}
 	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		if iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			// One entry, whatever the loopback interface is called: 127.0.0.1
+			// is the name every proxy defaults its upstream to.
+			out = append(out, ShareAddress{Interface: iface.Name, IP: "127.0.0.1", Kind: AddressLoopback})
 			continue
 		}
 		addrs, err := iface.Addrs()
@@ -485,4 +524,18 @@ func PrivateAddresses() []ShareAddress {
 	}
 	slices.SortStableFunc(out, func(a, b ShareAddress) int { return addressRank[a.Kind] - addressRank[b.Kind] })
 	return out
+}
+
+// proxyAddress picks the address a share should open on when a reverse proxy
+// answers for this machine. Loopback is the answer: the proxy runs here and
+// dials the door from here, and unlike the Wi-Fi address it does not change when
+// the laptop joins another network — which is the whole reason a proxy is
+// configured. When no loopback entry is offered, the usual list stands.
+func proxyAddress(list []ShareAddress) (ShareAddress, bool) {
+	for _, a := range list {
+		if a.Kind == AddressLoopback {
+			return a, true
+		}
+	}
+	return ShareAddress{}, false
 }

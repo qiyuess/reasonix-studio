@@ -23,6 +23,25 @@ export function clock(iso: string): string {
 // but read as a name it is a hundred characters and every one starts the same.
 export const deviceLabel = (i: number) => t("remote.device_n", { n: i + 1 });
 
+/** The address the door should open on.
+ *
+ *  A machine with a reverse proxy opens on loopback: the proxy runs here and
+ *  dials the door from here, and loopback is the one address this machine keeps
+ *  when it joins another network. Binding the Wi-Fi address instead is what
+ *  makes a door stop answering the moment the laptop move to another network.
+ *
+ *  With no proxy configured the first address the kernel lists is the right one,
+ *  because then a phone really does dial the LAN address. The kernel lists
+ *  loopback last, so the two rules never disagree about what "first" means. */
+export function doorAddress(st: ShareStatus | null): string {
+  if (!st) return "";
+  if (st.publicOrigin) {
+    const loopback = st.addresses.find((a) => a.kind === "loopback");
+    if (loopback) return loopback.ip;
+  }
+  return st.addresses[0]?.ip ?? "";
+}
+
 export type Share = ReturnType<typeof useShare>;
 
 /** The window's door for phones, as one state both the settings block and the
@@ -103,7 +122,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
       setSt(await hub.closeShare());
       return;
     }
-    const at = ip || st?.addresses[0]?.ip || "";
+    const at = ip || doorAddress(st);
     await hub.openShare(at);
     await mint();
   });
@@ -129,7 +148,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
       const next = await hub.setSharePort(port);
       setSt(next);
       if (!next.open) return;
-      const at = ip || next.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") || next.addresses[0]?.ip || "";
+      const at = ip || next.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") || doorAddress(next);
       setOffer(null);
       await hub.openShare(at);
       await mint();
@@ -159,8 +178,11 @@ export function ShareBody({ share }: { share: Share }) {
       .then(() => setCopied("done"))
       .catch(() => setCopied("failed"))
       .finally(() => window.setTimeout(() => setCopied(""), 1600));
-  const chosen = ip || (st.open ? st.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") : "") || st.addresses[0]?.ip || "";
-  const noNetwork = st.addresses.length === 0;
+  const chosen = ip || (st.open ? st.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") : "") || doorAddress(st);
+  // A door with no reachable address and no proxy in front has nowhere to
+  // open: loopback alone is a door only this machine can dial, which is useless
+  // without something on this machine dialling it.
+  const noNetwork = !st.publicOrigin && !st.addresses.some((a) => a.kind !== "loopback");
   const commitPort = () => {
     if (portDraft === null) return;
     const next = portDraft === "" ? 0 : Number(portDraft);
@@ -209,11 +231,20 @@ export function ShareBody({ share }: { share: Share }) {
           >
             {st.addresses.map((a) => (
               <option key={a.ip} value={a.ip}>
-                {a.kind === "tailnet" ? `${a.ip} · Tailscale` : a.kind === "virtual" ? `${a.ip} · ${a.interface} · ${t("remote.virtual_adapter")}` : `${a.ip} · ${a.interface}`}
+                {a.kind === "tailnet"
+                  ? `${a.ip} · Tailscale`
+                  : a.kind === "virtual"
+                    ? `${a.ip} · ${a.interface} · ${t("remote.virtual_adapter")}`
+                    : a.kind === "loopback"
+                      ? `${a.ip} · ${t("remote.loopback_short")}`
+                      : `${a.ip} · ${a.interface}`}
               </option>
             ))}
           </select>
         </label>
+      )}
+      {st.addresses.some((a) => a.kind === "loopback") && chosen === st.addresses.find((a) => a.kind === "loopback")?.ip && (
+        <p className="rmthint">{t("remote.loopback_hint")}</p>
       )}
       {st.addresses.length > 1 && st.open && st.devices.length > 0 && (
         <p className="rmthint">{t("remote.switching_networks_disconnects_the_connected")}</p>

@@ -3,8 +3,11 @@
 // serve.ShareOffer and serve.DeviceView.
 
 // lan is Wi-Fi or Ethernet; virtual is a VPN or proxy tunnel a phone usually
-// cannot reach. The kernel lists them in that order, so the first is the default.
-export type AddressKind = "lan" | "tailnet" | "virtual";
+// cannot reach. Loopback is 127.0.0.1: no phone dials it, but a proxy or tunnel
+// on this machine does, and it is the only address that survives this machine
+// changing networks. The kernel lists them in that order, so the first is the
+// default.
+export type AddressKind = "lan" | "tailnet" | "virtual" | "loopback";
 
 export interface ShareAddress {
   interface: string;

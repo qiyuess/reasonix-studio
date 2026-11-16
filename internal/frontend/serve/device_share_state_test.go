@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -114,5 +115,80 @@ func TestReopenFallsBackWhenTheAddressIsGone(t *testing.T) {
 	}
 	if !st.Open || st.Origin == "" {
 		t.Fatalf("fallback left the share shut: %+v", st)
+	}
+}
+
+// TestAProxiedDoorOpensOnLoopback covers the machine that changes networks: with
+// a reverse proxy named, the door opens on 127.0.0.1 even when a remembered
+// Wi-Fi address is still offered. The proxy dials from this machine, and loopback
+// is the one address this machine keeps when it joins another network — binding
+// the Wi-Fi address is what leaves the door answering nothing after a switch.
+func TestAProxiedDoorOpensOnLoopback(t *testing.T) {
+	share := NewDeviceShare(nil)
+	share.Attach(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	share.RestorePublicOrigin(proxyName)
+	// Both entries are real loopback so Open succeeds either way; only the kind
+	// differs, which is what the choice is made on.
+	share.addresses = func() []ShareAddress {
+		return []ShareAddress{
+			{Interface: "en0", IP: "127.0.0.2", Kind: AddressLAN},
+			{Interface: "lo", IP: "127.0.0.1", Kind: AddressLoopback},
+		}
+	}
+	t.Cleanup(share.Close)
+
+	st, err := share.Reopen("127.0.0.2")
+	if err != nil {
+		t.Fatalf("reopen with a proxy named: %v", err)
+	}
+	if !st.Open || !strings.HasPrefix(st.Origin, "http://127.0.0.1:") {
+		t.Fatalf("reopened on %q, want loopback rather than the remembered Wi-Fi address", st.Origin)
+	}
+}
+
+// TestAnUnproxiedDoorKeepsTheRememberedAddress is the other half: with no proxy,
+// a phone dials the LAN address itself, so loopback is no use and the remembered
+// address stands.
+func TestAnUnproxiedDoorKeepsTheRememberedAddress(t *testing.T) {
+	share := NewDeviceShare(nil)
+	share.Attach(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	share.addresses = func() []ShareAddress {
+		return []ShareAddress{
+			{Interface: "en0", IP: "127.0.0.2", Kind: AddressLAN},
+			{Interface: "lo", IP: "127.0.0.1", Kind: AddressLoopback},
+		}
+	}
+	t.Cleanup(share.Close)
+
+	st, err := share.Reopen("127.0.0.2")
+	if err != nil {
+		t.Fatalf("reopen without a proxy: %v", err)
+	}
+	if !st.Open || !strings.HasPrefix(st.Origin, "http://127.0.0.2:") {
+		t.Fatalf("reopened on %q, want the remembered LAN address", st.Origin)
+	}
+}
+
+// TestLoopbackIsOfferedLast keeps the two ways of choosing an address agreeing.
+// A phone cannot dial loopback, so it must never be what "the first address"
+// means; only a proxy makes it the right one, and that is decided by name.
+func TestLoopbackIsOfferedLast(t *testing.T) {
+	list := []ShareAddress{
+		{IP: "127.0.0.1", Kind: AddressLoopback},
+		{IP: "192.168.1.20", Kind: AddressLAN},
+		{IP: "100.101.7.3", Kind: AddressTailnet},
+	}
+	slices.SortStableFunc(list, func(a, b ShareAddress) int { return addressRank[a.Kind] - addressRank[b.Kind] })
+	if list[0].Kind != AddressLAN {
+		t.Fatalf("first address is %q (%s), want the LAN one", list[0].IP, list[0].Kind)
+	}
+	if list[len(list)-1].Kind != AddressLoopback {
+		t.Fatalf("last address is %q (%s), want loopback", list[len(list)-1].IP, list[len(list)-1].Kind)
+	}
+	if a, ok := proxyAddress(list); !ok || a.IP != "127.0.0.1" {
+		t.Fatalf("proxyAddress = %+v, %v; want the loopback entry", a, ok)
+	}
+	if _, ok := proxyAddress([]ShareAddress{{IP: "192.168.1.20", Kind: AddressLAN}}); ok {
+		t.Fatal("proxyAddress found a loopback entry in a list that has none")
 	}
 }

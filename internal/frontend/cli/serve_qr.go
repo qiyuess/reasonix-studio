@@ -44,11 +44,21 @@ func shareBase(publicURL, bindAddr string, private func() []serve.ShareAddress) 
 	ip, err := netip.ParseAddr(host)
 	switch {
 	case host == "" || (err == nil && ip.IsUnspecified()):
+		// The kernel lists loopback so a proxy on this machine has an address to
+		// dial. It is not one a phone can open, so a code must never name it: a
+		// wildcard bind takes the first address a phone could actually reach.
 		addrs := private()
-		if len(addrs) == 0 {
+		host = ""
+		for _, a := range addrs {
+			if a.Kind == serve.AddressLoopback {
+				continue
+			}
+			host = a.IP
+			break
+		}
+		if host == "" {
 			return nil, errShareNoAddress
 		}
-		host = addrs[0].IP
 	case err == nil && ip.IsLoopback(), strings.EqualFold(host, "localhost"):
 		return nil, errShareLoopback
 	}
