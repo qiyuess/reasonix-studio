@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeAll, describe, expect, it } from "vitest";
 import { boot, STORAGE } from "./index";
-import { bytes, category, count, decimals, money, pct, seconds, tokens } from "./format";
+import { bytes, category, count, decimals, money, pct, seconds, stamp, tokens } from "./format";
 
 function speak(lang: "zh" | "en") {
   localStorage.setItem(STORAGE, lang);
@@ -53,6 +53,24 @@ describe("tokens", () => {
   // notation would say 1.2万 here, which is not what the field measures.
   it("uses the same suffix in both languages", () => {
     expect(inEnglish(() => tokens(1200))).toBe("1.2k");
+  });
+});
+
+describe("stamp", () => {
+  // A stamp is read against another stamp — the two ends of a turn — so it
+  // carries the date and the seconds every time, zero-padded.
+  it("names a moment to the second with its date", () => {
+    expect(stamp(new Date(2026, 10, 15, 23, 0, 1).getTime())).toBe("2026-11-15 23:00:01");
+    expect(stamp(new Date(2026, 0, 2, 3, 4, 5).getTime())).toBe("2026-01-02 03:04:05");
+    expect(stamp(new Date(2026, 11, 31, 23, 59, 59).getTime())).toBe("2026-12-31 23:59:59");
+  });
+
+  // The same width in both languages is the point: a line that reflowed when
+  // the window changed language would be a line that moved under the reader.
+  it("reads the same in either language", () => {
+    const at = new Date(2026, 10, 15, 23, 0, 1).getTime();
+    expect(inEnglish(() => stamp(at))).toBe("2026-11-15 23:00:01");
+    expect(inEnglish(() => stamp(at))).toBe(stamp(at));
   });
 });
 

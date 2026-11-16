@@ -189,9 +189,12 @@
 .activity-group .activity-errors { font-size: var(--fs-micro); }
 .activity-body .hl .tag { display: none; }
 .activity-body .hl > .tool-fold { display: none; }
-.rc[data-worked] { display: flex; justify-content: flex-end; margin: 2px 0 0; }
-.rc[data-worked] .rc-ok { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font: var(--w-reg) var(--fs-meta)/1.4 var(--ui); }
+.rc[data-worked] { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 2px 0 0; }
+.rc[data-worked] .rc-ok { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font: var(--w-reg) var(--fs-meta)/1.4 var(--ui); white-space: nowrap; }
 .rc[data-worked] .rc-tick { width: 14px; height: 14px; color: var(--ok-ink); }
+/* The range is the longer half and the one a narrow window can afford to lose:
+   it shrinks first, and its own two ends never wrap apart. */
+.rc[data-worked] .rc-span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); font: var(--w-reg) var(--fs-meta)/1.4 var(--ui); font-variant-numeric: tabular-nums; }
 .flow .call[data-approval] .apv-ft .btn[data-deny] { order: -1; margin-right: auto; }
 .md-tw { overflow-x: visible; }
 .md table { width: 100%; table-layout: auto; }

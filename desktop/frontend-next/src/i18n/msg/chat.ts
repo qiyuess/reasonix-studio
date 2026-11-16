@@ -212,7 +212,6 @@ export const CHAT: Messages = {
   "chat.remember_scope_project": { zh: "只在这个项目", en: "This project only" },
   "chat.shown_as_written": { zh: "按原文显示", en: "Shown as written" },
   "chat.simplified_view": { zh: "简化显示", en: "Simplified view" },
-  "chat.started_at_t": { zh: "{at} 开始", en: "Started {at}" },
   "chat.starter_explain_the_project": { zh: "解释这个项目的结构", en: "Explain this project's structure" },
   "chat.starter_find_the_regression": { zh: "找出最近的回归", en: "Find the latest regression" },
   "chat.starter_write_tests": { zh: "给改动写测试", en: "Write tests for the changes" },

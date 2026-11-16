@@ -61,6 +61,17 @@ export function clock(at: number, now = Date.now()): string {
   return `${new Intl.DateTimeFormat(tag(), { month: "numeric", day: "numeric" }).format(at)} ${time}`;
 }
 
+/** stamp names a moment to the second, date always first: 2026-11-15 23:00:01.
+ *  Unlike clock it is not written in the reader's language — a stamp is the
+ *  value two ends of a range are read against, and the same width in both
+ *  languages is what keeps a line from reflowing between them. That is the
+ *  same trade this file already makes for k/M and s. */
+export function stamp(at: number): string {
+  const d = new Date(at);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
+}
+
 /** seconds spells a millisecond duration. One place by default — the callers
  *  that used to pick their own each picked a different one. */
 export const seconds = (ms: number, digits = 1) => `${decimals(ms / 1000, digits)}s`;
