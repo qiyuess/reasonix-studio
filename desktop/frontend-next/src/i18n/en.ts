@@ -900,7 +900,6 @@ export const EN: Record<string, string> = {
   "网络、远程机器、手机": "Network, remote machines, phone",
   "常用": "Common",
   "最常改的": "Most changed",
-  "最近打开": "Recently opened",
   "Agent 行为": "Agent behaviour",
   "已启用 {on}/{all}": "{on} of {all} enabled",
   "搜索或输入完整模型 ID…": "Search or enter an exact model ID…",

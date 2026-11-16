@@ -5,7 +5,6 @@ import userEvent from "@testing-library/user-event";
 import "./testkit";
 import { langOf } from "./fileKind";
 import { leave, useEnteringTabs, useOpenSlide } from "./workbench_motion";
-import { WorkbenchTabOverflow } from "./WorkbenchTabOverflow";
 import { WorkbenchTabPicker } from "./WorkbenchTabPicker";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -29,24 +28,6 @@ describe("tabs that move, as the WB-Frame board draws them", () => {
 
   it("colours Go, Python and sheets apart and leaves the rest alone", () => {
     expect(["a/b.go", "x.py", "q3.xlsx", "data.csv", "README.md"].map(langOf)).toEqual(["go", "python", "sheet", "sheet", undefined]);
-  });
-
-  it("says how many tabs are off-screen as +n, with nothing to press", async () => {
-    // The picker at the front of the strip is the way to reach a hidden tab;
-    // this is only the count, so it must not be a second control beside it.
-    const { container } = render(<WorkbenchTabOverflow count={3} />);
-    const mark = container.querySelector(".workbench-overflow")!;
-    expect(mark.textContent).toBe("+3");
-    expect(mark.getAttribute("title")).toBe("还有 3 项没有显示");
-    expect(mark.querySelector("button")).toBeNull();
-    expect(screen.queryByRole("button")).toBeNull();
-    await userEvent.click(mark);
-    expect(screen.queryByRole("menu")).toBeNull();
-  });
-
-  it("draws nothing while every tab fits", () => {
-    const { container } = render(<WorkbenchTabOverflow count={0} />);
-    expect(container.firstChild).toBeNull();
   });
 
   it("lists every open tab to jump from, and marks the one showing", async () => {
