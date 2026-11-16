@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { MockHub } from "../port/mock_hub";
 import { HttpError } from "../port/http_error";
 import { NO_PAGING } from "./treewindow";
+import { expandProjects } from "./sidebarrows";
 
 beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
@@ -31,6 +32,7 @@ const missing = () => new HttpError(400, "stat /gone/alpha: no such file or dire
 
 it("asks, in Chinese, whether to remove a project whose folder is gone, instead of printing the system's sentence", async () => {
   const { onError } = draw(async () => { throw missing(); });
+  await expandProjects();
   await userEvent.click(screen.getByText("first"));
   expect(await screen.findByText("「alpha」的文件夹已经不在磁盘上了，要把它从列表里移除吗？")).toBeTruthy();
   expect(onError).not.toHaveBeenCalled();
@@ -40,6 +42,7 @@ it("removes the project only when told to", async () => {
   const hub = new MockHub();
   const remove = vi.spyOn(hub, "removeWorkspace");
   draw(async () => { throw missing(); }, hub);
+  await expandProjects();
   await userEvent.click(screen.getByText("first"));
   await userEvent.click(await screen.findByRole("button", { name: "取消" }));
   expect(remove).not.toHaveBeenCalled();
@@ -50,6 +53,7 @@ it("removes the project only when told to", async () => {
 
 it("keeps reporting every other failure as an error", async () => {
   const { onError } = draw(async () => { throw new HttpError(500, "boom", { code: "session.open_failed" }); });
+  await expandProjects();
   await userEvent.click(screen.getByText("first"));
   await waitFor(() => expect(onError).toHaveBeenCalled());
   expect(screen.queryByText(/文件夹已经不在磁盘上/)).toBeNull();

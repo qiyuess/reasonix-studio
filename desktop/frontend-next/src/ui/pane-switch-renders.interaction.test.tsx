@@ -8,6 +8,7 @@ import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
 import type { RuntimeView } from "../port/hub";
 import type { AgentPort } from "../port/port";
+import { expandProjects } from "./sidebarrows";
 
 const renders = vi.hoisted(() => new Map<string, number>());
 const shown = vi.hoisted(() => new Map<string, { visible: boolean; focus: () => void }>());
@@ -43,6 +44,7 @@ class SixPaneHub extends MockHub {
 // have anything new to draw; every other pane must keep what it already drew.
 it("re-renders only the two panes a tab switch touches", async () => {
   const { container } = render(<App hub={new SixPaneHub()} />);
+  await expandProjects();
   const rows = await waitFor(() => {
     const found = [...container.querySelectorAll<HTMLElement>(".sessrow")];
     expect(found.length).toBeGreaterThanOrEqual(PANES);
@@ -61,6 +63,7 @@ it("re-renders only the two panes a tab switch touches", async () => {
 // is the one drawn as visible, and the others are not.
 it("still makes the chosen pane the visible one, and its focus callback works", async () => {
   const { container } = render(<App hub={new SixPaneHub()} />);
+  await expandProjects();
   const rows = await waitFor(() => {
     const found = [...container.querySelectorAll<HTMLElement>(".sessrow")];
     expect(found.length).toBeGreaterThanOrEqual(PANES);
@@ -78,6 +81,7 @@ it("focuses existing seeded conversations without reopening or rebinding their p
   const identities = initial.map((runtime) => [runtime.id, runtime.sessionPath]);
   const open = vi.spyOn(hub, "open");
   const { container } = render(<App hub={hub} />);
+  await expandProjects();
   const pick = async (id: string) => {
     const row = await waitFor(() => {
       const path = initial.find((runtime) => runtime.id === id)!.sessionPath;

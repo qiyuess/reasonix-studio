@@ -7,6 +7,7 @@ import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
 import type { TreeWorkspace } from "../port/hub";
 import { boot, STORAGE } from "../i18n";
+import { expandProjects } from "./sidebarrows";
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -49,6 +50,7 @@ async function refreshFromNewSession(hub: MockHub) {
 it("keeps the listed conversations when a refresh after opening a session fails", async () => {
   const hub = readyHub();
   render(<App hub={hub} />);
+  await expandProjects();
   await screen.findByText("上一次的会话");
   expect(screen.getByText("my-website")).toBeTruthy();
   await screen.findByRole("combobox", { name: "任务输入" });
@@ -62,6 +64,7 @@ it("keeps the listed conversations when a refresh after opening a session fails"
 it("accepts a successful empty refresh as the new canonical tree", async () => {
   const hub = readyHub();
   render(<App hub={hub} />);
+  await expandProjects();
   await screen.findByText("上一次的会话");
   await screen.findByRole("combobox", { name: "任务输入" });
   const pending = await refreshFromNewSession(hub);

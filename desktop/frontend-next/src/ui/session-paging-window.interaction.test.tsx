@@ -6,6 +6,7 @@ import "./testkit";
 import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
 import type { TreeSession, TreeWindow, TreeWorkspace } from "../port/hub";
+import { expandProjects } from "./sidebarrows";
 
 afterEach(cleanup);
 
@@ -71,6 +72,7 @@ const filter = (name: RegExp) => {
 it("keeps the pages the reader opened across a tree refresh", async () => {
   const { hub, asked, change } = pagedHub();
   render(<App hub={hub} />);
+  await expandProjects();
 
   await userEvent.click(await screen.findByRole("button", { name: /显示更多（还有 \d+ 个）/ }));
   await waitFor(() => expect(asked.at(-1)).toMatchObject({ limit: 50, limits: { "/w": 100 }, scope: "active" }));
@@ -82,6 +84,7 @@ it("keeps the pages the reader opened across a tree refresh", async () => {
 it("filters by the word on the kernel and never asks for every row", async () => {
   const { hub, asked } = pagedHub();
   render(<App hub={hub} />);
+  await expandProjects();
   await screen.findByRole("button", { name: /显示更多/ });
 
   await userEvent.type(screen.getByRole("searchbox", { name: "搜索会话 / 项目" }), "release plan");
@@ -97,6 +100,7 @@ it("filters by the word on the kernel and never asks for every row", async () =>
 it("keeps what is left to load against the full project total while its window grows, without local-only filter badges", async () => {
   const { hub } = pagedHub();
   render(<App hub={hub} />);
+  await expandProjects();
   const more = await screen.findByRole("button", { name: /显示更多/ });
   const left = (label: string | null) => Number(/(\d+)/.exec(label ?? "")?.[1]);
   const before = left(more.textContent);
@@ -109,6 +113,7 @@ it("keeps what is left to load against the full project total while its window g
 it("reaches an archived conversation far outside the window instead of a dead end", async () => {
   const { hub, asked } = pagedHub();
   render(<App hub={hub} />);
+  await expandProjects();
   await screen.findByRole("button", { name: /显示更多/ });
 
   await userEvent.click(document.querySelector(".session-filter-trigger")!);
@@ -122,6 +127,7 @@ it("reaches an archived conversation far outside the window instead of a dead en
 it("shows the pinned conversation that is far outside the window", async () => {
   const { hub } = pagedHub();
   render(<App hub={hub} />);
+  await expandProjects();
   await screen.findByRole("button", { name: /显示更多/ });
   await userEvent.click(document.querySelector(".session-filter-trigger")!);
   await userEvent.click(filter(/^置顶/));

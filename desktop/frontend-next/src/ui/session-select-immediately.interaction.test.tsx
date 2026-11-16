@@ -7,6 +7,7 @@ import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
 import type { RuntimeView, TreeWorkspace } from "../port/hub";
 import { Workspaces } from "./Workspaces";
+import { expandProjects } from "./sidebarrows";
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
@@ -38,7 +39,13 @@ function window() {
   return { hub, gates };
 }
 
-const row = (name: RegExp) => screen.findByRole("treeitem", { name });
+// Projects rest folded on a cold launch, so a guard that reaches for a session
+// row opens the list first. The shared helper reads the fold control by the
+// action it declares, not by the sentence drawn on it.
+const row = async (name: RegExp) => {
+  await expandProjects();
+  return screen.findByRole("treeitem", { name });
+};
 const selected = (el: HTMLElement) => el.getAttribute("aria-selected");
 
 describe("a session row selects on the click, not on the kernel's answer", () => {

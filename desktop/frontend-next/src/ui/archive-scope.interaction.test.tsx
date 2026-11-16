@@ -6,6 +6,7 @@ import "./testkit";
 import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
 import type { TreeSession, TreeWindow, TreeWorkspace } from "../port/hub";
+import { expandProjects } from "./sidebarrows";
 
 afterEach(cleanup);
 
@@ -45,6 +46,7 @@ function slowArchive() {
 it("while the archived rows are being read the list says it is reading, not that nothing matches", async () => {
   const { hub, release } = slowArchive();
   render(<App hub={hub} />);
+  await expandProjects();
   await screen.findByRole("button", { name: "会话范围" });
   await screen.findByText("活跃的会话 1");
   await chooseScope(/归档/);
@@ -66,6 +68,7 @@ it("an archive that really holds nothing still says so once the kernel has answe
   };
   h.tree = async () => [{ ...folder([row(1, false)]), total: 1, archived: 0 }];
   render(<App hub={h} />);
+  await expandProjects();
   await screen.findByRole("button", { name: "会话范围" });
   await screen.findByText("活跃的会话 1");
   await chooseScope(/归档/);
@@ -92,6 +95,7 @@ it("a long archive loads further pages in the archived view, and a search still 
     return [folder([row(1, false)])];
   };
   render(<App hub={h} />);
+  await expandProjects();
   await screen.findByRole("button", { name: "会话范围" });
   await screen.findByText("活跃的会话 1");
   await chooseScope(/归档/);

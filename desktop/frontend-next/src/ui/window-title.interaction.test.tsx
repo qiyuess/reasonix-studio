@@ -6,6 +6,7 @@ import "./testkit";
 import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
 import { setShowsSessionTabs } from "../state/prefs";
+import { expandProjects } from "./sidebarrows";
 
 beforeEach(() => setShowsSessionTabs(true));
 afterEach(() => {
@@ -43,10 +44,15 @@ describe("what the window says it is showing", () => {
       return t;
     });
 
+    await expandProjects();
     const rows = document.querySelectorAll(".sessrow");
     const other = [...rows].find((r) => !r.textContent?.includes(first));
-    if (!other) return; // a fixture with one session proves nothing either way
-    await userEvent.click(other);
+    // A fixture that offers only one conversation cannot tell "the title
+    // followed the front pane" from "there was nowhere else to go", so say that
+    // here instead of passing quietly — which is what this guard used to do, for
+    // as long as the project list rested folded and every `.sessrow` was hidden.
+    expect(other, "the fixture needs a second conversation to switch to").toBeTruthy();
+    await userEvent.click(other!);
 
     const opened = await waitFor(() => {
       const t = title();

@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import "./testkit";
 import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
+import { expandProjects } from "./sidebarrows";
 
 afterEach(() => {
   cleanup();
@@ -37,6 +38,7 @@ describe("a reloaded window", () => {
     const kernel = hub();
     const first = render(<App hub={kernel} />);
     const opening = await settled();
+    await expandProjects();
     const other = [...document.querySelectorAll(".sessrow")].find((r) => !r.textContent?.includes(opening));
     expect(other, "the fixture needs a second session").toBeTruthy();
     await userEvent.click(other!);

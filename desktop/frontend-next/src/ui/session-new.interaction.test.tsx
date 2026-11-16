@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import "./testkit";
 import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
+import { expandProjects } from "./sidebarrows";
 
 afterEach(cleanup);
 
@@ -36,6 +37,10 @@ describe("a new session opens in the workspace on screen", () => {
 
     render(<App hub={hub} />);
 
+    // The list rests folded, so the conversations under a project have to be
+    // opened before one can be picked. This presses the heading control, which
+    // opens every project; it does not choose one.
+    await expandProjects();
     expect((await screen.findByRole("treeitem", { name: /my-website/ })).getAttribute("aria-expanded")).toBe("true");
     await userEvent.click(await screen.findByRole("treeitem", { name: /站点改版/ }));
     await waitFor(() => expect(asked).toEqual([SECOND]));
@@ -59,6 +64,7 @@ describe("a new session opens in the workspace on screen", () => {
     };
 
     render(<App hub={hub} />);
+    await expandProjects();
 
     const composer = await screen.findByRole("combobox", { name: "任务输入" });
     await userEvent.type(composer, "keep this draft");

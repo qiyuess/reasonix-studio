@@ -9,6 +9,7 @@ import { MockHub } from "../port/mock_hub";
 import type { TreeWindow, TreeWorkspace } from "../port/hub";
 import type { WireEvent } from "../port/wire";
 import { setHidesLegacySessions, setLiveGraceMinutes } from "../state/prefs";
+import { expandProjects } from "./sidebarrows";
 
 afterEach(() => { cleanup(); setHidesLegacySessions(false); setLiveGraceMinutes(0); localStorage.clear(); });
 
@@ -87,6 +88,7 @@ it("focuses an already-open session without opening it again, and resets Running
   }] }] : ordinary(window);
   const open = vi.spyOn(hub, "open");
   render(<App hub={hub} />);
+  await expandProjects();
   await screen.findByRole("treeitem", { name: "并行会话演示" });
   const filter = document.querySelector(".session-filter-trigger") as HTMLElement;
   await userEvent.click(filter);
@@ -124,6 +126,7 @@ it("keeps a just-completed session discoverable after it leaves Running", async 
   vi.spyOn(port, "subscribe").mockImplementation((listener) => { deliver = listener; return () => {}; });
   setLiveGraceMinutes(0);
   render(<App hub={hub} />);
+  await expandProjects();
   await screen.findByRole("treeitem", { name: "并行会话演示" });
   await waitFor(() => expect(document.querySelector(".studio-runstate[data-running]")).not.toBeNull());
   const filterButton = document.querySelector(".session-filter-trigger") as HTMLElement;

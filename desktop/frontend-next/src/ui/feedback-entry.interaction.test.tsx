@@ -12,6 +12,7 @@ import { MockHub } from "../port/mock_hub";
 import { HttpError } from "../port/port";
 import { MockFeedback } from "../port/mock_feedback";
 import type { FeedbackMine } from "../port/feedback";
+import { expandProjects } from "./sidebarrows";
 
 afterEach(() => {
   cleanup();
@@ -131,6 +132,7 @@ describe("the unread badge", () => {
     const { hub: h, asked } = quiet();
     render(<App hub={h} />);
     await screen.findByRole("button", { name: /3 项待查看/ });
+    await expandProjects();
     await userEvent.click(await screen.findByText("上一次的会话"));
     await waitFor(() => expect(document.querySelector(".app")).toBeTruthy());
     expect(asked).toHaveBeenCalledTimes(1);
@@ -171,6 +173,7 @@ it("starts and rebinds feedback polling when the first local owner becomes avail
   vi.spyOn(document, "hasFocus").mockReturnValue(true);
   render(<App hub={h} />);
   await screen.findByRole("button", { name: "发送反馈" });
+  await expandProjects();
   await userEvent.click(await screen.findByText("上一次的会话"));
   await screen.findByRole("button", { name: /发送反馈.*3 项待查看/ });
   const first = (await h.runtimes()).find((rt) => !rt.host)!;

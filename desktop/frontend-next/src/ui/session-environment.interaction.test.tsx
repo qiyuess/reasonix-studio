@@ -9,6 +9,7 @@ import type { RuntimeView } from "../port/hub";
 import type { AgentPort } from "../port/port";
 import { useOpenPane } from "./useOpenPane";
 import { setOpenSessionLimit } from "../state/prefs";
+import { expandProjects } from "./sidebarrows";
 
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
@@ -53,7 +54,7 @@ it("does not reuse an SSH pane for a local transcript at the tab limit", async (
   expect(flow.open).toHaveBeenCalledWith({ root: "/w", sessionPath: "/w/s/local" });
 });
 
-function remoteWindow() {
+async function remoteWindow() {
   const hub = new MockHub();
   const gates: Array<() => Promise<void>> = [];
   const open = hub.openRemote.bind(hub);
@@ -66,11 +67,12 @@ function remoteWindow() {
     return port;
   };
   render(<App hub={hub} />);
+  await expandProjects();
   return { gates, hub };
 }
 
 it("keeps the latest SSH session selected when an earlier connection finishes late", async () => {
-  const { gates } = remoteWindow();
+  const { gates } = await remoteWindow();
   const first = await screen.findByRole("treeitem", { name: /数据管线/ });
   const second = await screen.findByRole("treeitem", { name: /跑一遍评测/ });
   await userEvent.click(first);
@@ -85,7 +87,7 @@ it("keeps the latest SSH session selected when an earlier connection finishes la
 });
 
 it("does not steal focus back from a local conversation when an SSH open finishes late", async () => {
-  const { gates } = remoteWindow();
+  const { gates } = await remoteWindow();
   const local = await screen.findByRole("treeitem", { name: /并行会话演示/ });
   const target = await screen.findByRole("treeitem", { name: /数据管线/ });
   await userEvent.click(target);
@@ -97,7 +99,7 @@ it("does not steal focus back from a local conversation when an SSH open finishe
 });
 
 it("does not let an older local open replace the newer SSH selection", async () => {
-  const { hub, gates } = remoteWindow();
+  const { hub, gates } = await remoteWindow();
   const open = hub.open.bind(hub);
   let finish!: () => Promise<void>;
   hub.open = (req) => new Promise<RuntimeView>((resolve) => { finish = async () => { resolve(await open(req)); }; });
@@ -114,7 +116,7 @@ it("does not let an older local open replace the newer SSH selection", async () 
 });
 
 it("shares a pending SSH session open across repeated clicks and a focus detour", async () => {
-  const { gates } = remoteWindow();
+  const { gates } = await remoteWindow();
   const local = await screen.findByRole("treeitem", { name: /并行会话演示/ });
   const target = await screen.findByRole("treeitem", { name: /数据管线/ });
   await userEvent.click(target);
@@ -127,7 +129,7 @@ it("shares a pending SSH session open across repeated clicks and a focus detour"
 });
 
 it("names an existing SSH pane from the remote history instead of calling it a new conversation", async () => {
-  const { gates } = remoteWindow();
+  const { gates } = await remoteWindow();
   await userEvent.click(await screen.findByRole("treeitem", { name: /数据管线/ }));
   await act(async () => { await gates[0](); });
   await waitFor(() => expect(document.querySelector('.pane[data-active]')?.getAttribute('aria-label')).toBe('数据管线'));
