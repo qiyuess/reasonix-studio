@@ -80,6 +80,8 @@ interface Props {
   // Git state follows changeCount's refresh path (turn boundaries and writes).
   // null is unread; repo:false is a workspace without a repository.
   git?: WorkspaceGit | null;
+  // The repository that git reading speaks for, "" being the workspace's own.
+  repo?: string;
   workspace?: WorkspaceInfo | null;
   // The switch already answers with the workspace's Git state.
   onTreeChanged?: (git: WorkspaceGit) => void;
@@ -88,7 +90,7 @@ interface Props {
   draftKey?: string;
 }
 
-export function Composer({ port, status, running, queued = false, quote, restore, inject, focus, onSubmit, onChanged, onError, onSettings = () => {}, side = false, onSide, sidePanel, queueStrip, changeCount = 0, countElsewhere = false, git = null, workspace = null, onTreeChanged, pulse = 0, draftKey = "", fresh = false, worktreeTarget, onWorktreePhase }: Props) {
+export function Composer({ port, status, running, queued = false, quote, restore, inject, focus, onSubmit, onChanged, onError, onSettings = () => {}, side = false, onSide, sidePanel, queueStrip, changeCount = 0, countElsewhere = false, git = null, repo = "", workspace = null, onTreeChanged, pulse = 0, draftKey = "", fresh = false, worktreeTarget, onWorktreePhase }: Props) {
   const touch = touchKeyboard();
   const providerOrder = useProviderOrder();
   const modelGroups = useModelFilter();
@@ -714,7 +716,7 @@ export function Composer({ port, status, running, queued = false, quote, restore
             label={<><StudioIcon name={status?.plan ? "tasks" : "agent"} /><span className="studio-sr-label">{t("common.plan")}</span><span>{status?.plan ? "Plan" : "Agent"}</span><StudioIcon name="down" /></>}
           />
         </div>
-        {git?.repo && (worktree.sources || status?.workspaceRoot) ? <WorktreeChip port={port} workspace={workspace} onChanged={onChanged} onSwitched={onTreeChanged} onError={onError} changeCount={countElsewhere ? 0 : changeCount} sources={worktree.sources ?? { available: false, sourceRoot: status?.workspaceRoot ?? "", sources: [] }} canCreate={fresh && !!worktree.sources?.available} selection={worktree.selection} branch={git.branch} busy={submitting || running} onSelect={worktree.setSelection} refresh={worktree.refresh} /> : <BranchChip port={port} git={git} changeCount={changeCount} countElsewhere={countElsewhere} onChanged={onChanged} onSwitched={onTreeChanged} onError={onError} />}
+        {git?.repo && (worktree.sources || status?.workspaceRoot) ? <WorktreeChip port={port} workspace={workspace} onChanged={onChanged} onSwitched={onTreeChanged} onError={onError} changeCount={countElsewhere ? 0 : changeCount} sources={worktree.sources ?? { available: false, sourceRoot: status?.workspaceRoot ?? "", sources: [] }} canCreate={fresh && !!worktree.sources?.available} selection={worktree.selection} branch={git.branch} busy={submitting || running} onSelect={worktree.setSelection} refresh={worktree.refresh} /> : <BranchChip port={port} git={git} changeCount={changeCount} countElsewhere={countElsewhere} repo={repo} onChanged={onChanged} onSwitched={onTreeChanged} onError={onError} />}
         {/* The toggle keeps its legacy meaning: it follows `plan`, which the
             kernel turns off the moment a plan is approved. The lifecycle is a
             separate reading — an approved plan is still running, and saying so
