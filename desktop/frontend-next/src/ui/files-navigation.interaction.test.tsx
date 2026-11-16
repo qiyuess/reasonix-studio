@@ -133,11 +133,26 @@ it("folds the open files panel when the Files button is pressed again", async ()
   await waitFor(() => expect(filesShown()).toBe(true));
 });
 
+// The focused pane's own Files control, wherever its strip currently lives:
+// docked it is portalled onto the window bar, undocked it stays inside the pane.
+// Two panes can each hold an open tree, so asking the whole document for
+// "whatever reports open" would not say whose panel that is.
+const filesControl = () => {
+  const control = document.querySelector<HTMLElement>(
+    '.wb-dock-head [data-action="workbench.files"], .pane[data-active] [data-action="workbench.files"]',
+  );
+  if (!control) throw new Error("the focused pane's Files control is not drawn");
+  return control;
+};
+
 it("reads whether the panel is open from the workbench, so a panel closed elsewhere opens on the next press", async () => {
   await mount();
   await userEvent.click(railFiles());
   await waitFor(() => expect(filesShown()).toBe(true));
-  await userEvent.click(focused().querySelector<HTMLElement>("[data-action=\"workbench.files\"]")!);
+  // The claim is about this control's reading of the panel, wherever it is
+  // drawn — not about how many copies of it the document happens to hold.
+  expect(filesControl().getAttribute("aria-pressed"), "the control reports the open panel").toBe("true");
+  await userEvent.click(filesControl());
   expect(filesShown()).toBe(false);
   await userEvent.click(railFiles());
   await waitFor(() => expect(filesShown()).toBe(true));
