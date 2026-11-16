@@ -531,6 +531,7 @@ export const ACTIONS: UIAction[] = [
   { id: "share.copy-address", kind: "shell-native", target: "none", proof: "interaction" },
   { id: "share.toggle", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
   { id: "share.address", kind: "view", target: "none", proof: "interaction" },
+  { id: "share.channel", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
   { id: "share.port", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
   { id: "share.public-origin", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
   { id: "share.offer", kind: "kernel-mutation", target: "none", proof: "authority-effect" },

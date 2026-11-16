@@ -1,7 +1,7 @@
 import { watchTree } from "./tree_events";
 import { HttpError, type AgentPort } from "./port";
 import type { RemoteAsk, RemoteHost, RemoteHostEdit, RemoteListing, RemoteProbe, WSLDistros } from "./remote";
-import type { CloudShareOffer, DeviceSelf, PhoneAction, PhoneList, ShareOffer, SharePort, ShareStatus } from "./share";
+import type { CloudShareOffer, DeviceSelf, OfferChannel, PhoneAction, PhoneList, ShareOffer, SharePort, ShareStatus } from "./share";
 import { SsePort } from "./sse";
 import { host } from "./host";
 
@@ -680,8 +680,8 @@ export class SseHub implements HubPort {
     return this.post<ShareStatus>("/share/public-origin", { origin });
   }
 
-  offerShare() {
-    return this.post<ShareOffer>("/share/offer", {});
+  offerShare(channel?: OfferChannel) {
+    return this.post<ShareOffer>("/share/offer", channel ? { channel } : {});
   }
 
   offerCloudShare() {

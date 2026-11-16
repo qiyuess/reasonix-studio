@@ -4456,6 +4456,23 @@
   }
   .pc-origin button:hover { color: var(--text) }
   .pc-row select { flex: 1 }
+  /* The two doors, as one strip: a phone on this network, or the proxy's name
+     for one that is elsewhere. The active one takes the raised surface so the
+     code below reads as belonging to it rather than floating between them. */
+  .pc-tabs {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px;
+    padding: 2px; border-radius: var(--r-sm); background: var(--overlay);
+  }
+  .pc-tabs > button {
+    min-height: 22px; padding: 0 8px; border: 0; border-radius: var(--r-xs); background: none; cursor: pointer;
+    color: var(--ghost); font: var(--w-med) var(--fs-meta)/1 var(--ui);
+  }
+  .pc-tabs > button:hover:not(:disabled) { color: var(--text) }
+  .pc-tabs > button[aria-selected] {
+    background: var(--raised); color: var(--text);
+    box-shadow: 0 1px 2px -1px var(--shade);
+  }
+  .pc-tabs > button:disabled { opacity: .45; cursor: default }
   .phonecard > section { display: grid; gap: 4px; padding-top: 10px; border-top: 1px solid var(--border) }
   .pc-hd { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 2px }
   .pc-hd > span { display: grid; gap: 3px; min-width: 0 }

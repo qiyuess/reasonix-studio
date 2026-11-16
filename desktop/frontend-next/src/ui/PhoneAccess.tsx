@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { t } from "../i18n";
 import type { HubPort } from "../port/hub";
-import type { ShareOffer, ShareStatus } from "../port/share";
+import type { OfferChannel, ShareOffer, ShareStatus } from "../port/share";
 import { copyText } from "./CopyButton";
 import { Switch } from "./Switch";
 
@@ -25,21 +25,14 @@ export const deviceLabel = (i: number) => t("remote.device_n", { n: i + 1 });
 
 /** The address the door should open on.
  *
- *  A machine with a reverse proxy opens on loopback: the proxy runs here and
- *  dials the door from here, and loopback is the one address this machine keeps
- *  when it joins another network. Binding the Wi-Fi address instead is what
- *  makes a door stop answering the moment the laptop move to another network.
- *
- *  With no proxy configured the first address the kernel lists is the right one,
- *  because then a phone really does dial the LAN address. The kernel lists
- *  loopback last, so the two rules never disagree about what "first" means. */
+ *  Loopback is never the answer: no phone dials it. The kernel opens the proxy's
+ *  loopback door beside the one named here when a proxy is configured, so naming
+ *  the Wi-Fi address costs the proxy nothing and keeps the phone's own channel
+ *  answering. The list is ordered for a phone, so the first entry is the one. */
 export function doorAddress(st: ShareStatus | null): string {
   if (!st) return "";
-  if (st.publicOrigin) {
-    const loopback = st.addresses.find((a) => a.kind === "loopback");
-    if (loopback) return loopback.ip;
-  }
-  return st.addresses[0]?.ip ?? "";
+  const reachable = st.addresses.find((a) => a.kind !== "loopback");
+  return reachable?.ip ?? st.addresses[0]?.ip ?? "";
 }
 
 export type Share = ReturnType<typeof useShare>;
@@ -51,6 +44,10 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   const [st, setSt] = useState<ShareStatus | null>(null);
   const [ip, setIp] = useState("");
   const [offer, setOffer] = useState<ShareOffer | null>(null);
+  // Which door the panel is showing: the address a phone on this network dials,
+  // or the reverse proxy's name. Only the code and the address follow it — the
+  // door itself answers on both, so switching this moves nothing.
+  const [channel, setChannel] = useState<OfferChannel>("lan");
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [remember, setRemember] = useState<boolean | null>(null);
@@ -106,15 +103,40 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
 
   // The code and the status that knows it is on offer land together; set one
   // at a time, the effect above reads a fresh code against a status that has
-  // not heard of it yet and drops it.
-  const mint = useCallback(async () => {
-    const next = await hub.offerShare();
-    const now = await hub.shareStatus();
-    setSt(now);
-    setOffer(next);
-  }, [hub]);
+  // not heard of it yet and drops it. It answers with the offer so a caller that
+  // needs the link in hand — copying one, say — does not have to wait a render.
+  const mint = useCallback(
+    async (which: OfferChannel) => {
+      const next = await hub.offerShare(which);
+      const now = await hub.shareStatus();
+      setSt(now);
+      setOffer(next);
+      return next;
+    },
+    [hub],
+  );
 
-  const newCode = useCallback(() => run(mint), [run, mint]);
+  // The link worth copying: the address plus the one-shot code the picture
+  // carries. A bare address only leads a browser that has already paired to the
+  // window — a fresh one stops at "this device is not paired", which is exactly
+  // what a code is for. The code in hand is reused; when none is, one is minted.
+  const pairingLink = useCallback(async (): Promise<string> => {
+    const live = offer ?? (await mint(channel));
+    return live.url;
+  }, [offer, mint, channel]);
+
+  const newCode = useCallback(() => run(async () => { await mint(channel); }), [run, mint, channel]);
+
+  // Switching the channel asks that door for its own code: the picture on screen
+  // was minted for the other one, and its link would be spent nowhere. Nothing
+  // moves — the door answers on both addresses at once.
+  const chooseChannel = (next: OfferChannel) => {
+    if (next === channel) return;
+    setChannel(next);
+    setOffer(null);
+    if (!st?.open) return;
+    void run(async () => { await mint(next); });
+  };
 
   const toggle = () => run(async () => {
     if (st?.open) {
@@ -124,7 +146,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
     }
     const at = ip || doorAddress(st);
     await hub.openShare(at);
-    await mint();
+    await mint(channel);
   });
 
   const revoke = (id: string) => run(async () => setSt(await hub.revokeDevice(id)));
@@ -137,7 +159,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
     void run(async () => {
       setOffer(null);
       await hub.openShare(next);
-      await mint();
+      await mint(channel);
     });
   };
 
@@ -151,7 +173,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
       const at = ip || next.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") || doorAddress(next);
       setOffer(null);
       await hub.openShare(at);
-      await mint();
+      await mint(channel);
     });
 
   // The proxy's name is read at the next open too — its gate is built then —
@@ -161,7 +183,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   const savePublicOrigin = (origin: string) =>
     run(async () => setSt(await hub.setSharePublicOrigin(origin)));
 
-  return { st, ip, pick, savePort, savePublicOrigin, offer, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember, refresh: read };
+  return { st, ip, pick, savePort, savePublicOrigin, offer, channel, chooseChannel, pairingLink, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember, refresh: read };
 }
 
 /** The switch, the network, the code and the paired phones. */
@@ -179,10 +201,14 @@ export function ShareBody({ share }: { share: Share }) {
       .catch(() => setCopied("failed"))
       .finally(() => window.setTimeout(() => setCopied(""), 1600));
   const chosen = ip || (st.open ? st.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") : "") || doorAddress(st);
-  // A door with no reachable address and no proxy in front has nowhere to
-  // open: loopback alone is a door only this machine can dial, which is useless
-  // without something on this machine dialling it.
-  const noNetwork = !st.publicOrigin && !st.addresses.some((a) => a.kind !== "loopback");
+  // Loopback is not a choice this panel offers: no phone dials it, and the kernel
+  // opens the proxy's door there by itself when a proxy is named. Listing it only
+  // invited a pick that leaves the phone with nothing to connect to.
+  const dialable = st.addresses.filter((a) => a.kind !== "loopback");
+  // A machine with neither a dialable address nor a proxy in front has nowhere
+  // to open: loopback alone is a door only this machine can dial, which is
+  // useless without something on this machine dialling it.
+  const noNetwork = !st.publicOrigin && dialable.length === 0;
   const commitPort = () => {
     if (portDraft === null) return;
     const next = portDraft === "" ? 0 : Number(portDraft);
@@ -220,7 +246,7 @@ export function ShareBody({ share }: { share: Share }) {
         <Switch data-action="share.remember" on={remember ?? false} busy={busy || remember === null} label={t("remote.remember_paired_phones")} onClick={() => void saveRemember(!(remember ?? false))} />
       </div>
 
-      {st.addresses.length > 1 && (
+      {dialable.length > 1 && (
         <label className="rmtf">
           <span>{t("common.network")}</span>
           <select
@@ -229,22 +255,17 @@ export function ShareBody({ share }: { share: Share }) {
             disabled={busy}
             onChange={(e) => pick(e.target.value)}
           >
-            {st.addresses.map((a) => (
+            {dialable.map((a) => (
               <option key={a.ip} value={a.ip}>
                 {a.kind === "tailnet"
                   ? `${a.ip} · Tailscale`
                   : a.kind === "virtual"
                     ? `${a.ip} · ${a.interface} · ${t("remote.virtual_adapter")}`
-                    : a.kind === "loopback"
-                      ? `${a.ip} · ${t("remote.loopback_short")}`
-                      : `${a.ip} · ${a.interface}`}
+                    : `${a.ip} · ${a.interface}`}
               </option>
             ))}
           </select>
         </label>
-      )}
-      {st.addresses.some((a) => a.kind === "loopback") && chosen === st.addresses.find((a) => a.kind === "loopback")?.ip && (
-        <p className="rmthint">{t("remote.loopback_hint")}</p>
       )}
       {st.addresses.length > 1 && st.open && st.devices.length > 0 && (
         <p className="rmthint">{t("remote.switching_networks_disconnects_the_connected")}</p>

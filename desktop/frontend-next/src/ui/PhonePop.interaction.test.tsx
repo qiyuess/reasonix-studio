@@ -119,15 +119,17 @@ it("labels Internet controllers by their ordinal, not their list position", asyn
   expect(screen.queryByText("设备 1")).toBeNull();
 });
 
-// The card's own address is what the QR code encodes, so a phone whose camera
-// is busy can be typed to by hand — and copied in one press rather than by
-// dragging a selection out of a code line.
-it("shows the address a phone types in, and copies it in one press", async () => {
+// The card's own address is what a phone can read out and type by hand — but the
+// copy button hands over the pairing link, not that address. An address alone
+// stops a browser that has not paired at "this device is not paired", which is
+// the whole reason a code exists, so copying it was a dead end.
+it("shows the address a phone types in, and copies the pairing link", async () => {
   const origin = "http://10.0.0.2:41234";
+  const link = `${origin}/#pair=abc123`;
   const remote = { ...status(true), origin };
   const hub = {
     shareStatus: vi.fn(async () => remote),
-    offerShare: vi.fn(async () => ({ url: origin, qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
+    offerShare: vi.fn(async () => ({ url: link, qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
     shareRemember: vi.fn(async () => ({ remember: false })),
   } as unknown as HubPort;
   const writeText = vi.fn(() => Promise.resolve());
@@ -140,12 +142,13 @@ it("shows the address a phone types in, and copies it in one press", async () =>
     expect(found).not.toBeNull();
     return found!;
   });
+  // Read out, not copied: the row still shows the bare address.
   expect(row.querySelector("code")?.textContent).toBe(origin);
   // The whole value stays reachable when the column clips it.
   expect(row.querySelector("code")?.getAttribute("title")).toBe(origin);
 
   await userEvent.click(row.querySelector("button")!);
-  await waitFor(() => expect(writeText).toHaveBeenCalledWith(origin));
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith(link));
   expect(row.querySelector("button")?.textContent).toBe("已复制");
 });
 
@@ -162,4 +165,67 @@ it("draws no address row while the local door is shut", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
   await screen.findByRole("dialog");
   expect(document.querySelector(".pc-origin")).toBeNull();
+});
+
+// The switch lives in settings, once. A second one here was a door control in a
+// card opened to read a code, and it is gone: what the card draws is the two
+// channels.
+it("leaves the door switch to settings and offers the two channels", async () => {
+  const remote = { ...status(true), origin: "http://10.0.0.2:41234" };
+  const hub = {
+    shareStatus: vi.fn(async () => remote),
+    offerShare: vi.fn(async () => ({ url: "", qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
+    shareRemember: vi.fn(async () => ({ remember: false })),
+  } as unknown as HubPort;
+  render(<PhonePop hub={hub} />);
+  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog.querySelector('[data-action="share.toggle"]')).toBeNull();
+  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["局域网络", "代理网络"]);
+});
+
+// Switching the channel has to move both halves the reader came for: the address
+// on screen, and the code — which is a one-shot credential minted per door, so
+// the local one would be spent nowhere through the proxy.
+it("switches the address and asks the proxy for its own code", async () => {
+  const origin = "http://10.0.0.2:41234";
+  const proxyOrigin = "https://agent.example.com";
+  const expires = new Date(Date.now() + 60_000).toISOString();
+  const remote = { ...status(true), origin, proxyOrigin, publicOrigin: proxyOrigin, offerExpires: expires };
+  const offerShare = vi.fn(async (channel?: string) => ({
+    channel,
+    url: `${channel === "proxy" ? proxyOrigin : origin}/#pair=abc`,
+    qr: "<svg/>",
+    expires,
+  }));
+  const hub = {
+    shareStatus: vi.fn(async () => remote),
+    offerShare,
+    shareRemember: vi.fn(async () => ({ remember: false })),
+  } as unknown as HubPort;
+  render(<PhonePop hub={hub} />);
+  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
+
+  await waitFor(() => expect(document.querySelector(".pc-origin code")?.textContent).toBe(origin));
+  expect(offerShare).toHaveBeenCalledWith("lan");
+
+  await userEvent.click(screen.getByRole("tab", { name: "代理网络" }));
+  await waitFor(() => expect(document.querySelector(".pc-origin code")?.textContent).toBe(proxyOrigin));
+  expect(offerShare).toHaveBeenCalledWith("proxy");
+});
+
+// A machine with no proxy named has one door, so the tab for the other says so
+// by being unusable rather than by opening onto nothing.
+it("keeps the proxy channel shut when no proxy is named", async () => {
+  const remote = { ...status(true), origin: "http://10.0.0.2:41234" };
+  const hub = {
+    shareStatus: vi.fn(async () => remote),
+    offerShare: vi.fn(),
+    shareRemember: vi.fn(async () => ({ remember: false })),
+  } as unknown as HubPort;
+  render(<PhonePop hub={hub} />);
+  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
+  const proxy = screen.getByRole("tab", { name: "代理网络" }) as HTMLButtonElement;
+  expect(proxy.disabled).toBe(true);
+  expect((screen.getByRole("tab", { name: "局域网络" }) as HTMLButtonElement).disabled).toBe(false);
 });

@@ -52,7 +52,12 @@ export interface ShareStatus {
   open: boolean;
   // The fixed port the user chose; absent means the system picks one each time.
   port?: number;
+  // The address a phone on this network types in — the local channel's door.
   origin?: string;
+  // The address the proxy channel answers at, which is the proxy's configured
+  // name. Absent until a proxy is named, and absent while a saved name has not
+  // reached an open door yet (appliedPublicOrigin says the latter).
+  proxyOrigin?: string;
   // The reverse proxy's name for this machine, when one is configured: the
   // address a phone outside this network reaches the door through.
   publicOrigin?: string;
@@ -67,7 +72,13 @@ export interface ShareStatus {
   offerExpires?: string;
 }
 
+// The two doors a share can hand out a code for: the address a phone on this
+// network dials, and the reverse proxy's name for machines that are not here.
+export type OfferChannel = "lan" | "proxy";
+
 export interface ShareOffer {
+  // Which door the link below points at.
+  channel?: OfferChannel;
   url: string;
   // An SVG document, drawn dark on light whatever the theme so it scans.
   qr: string;
@@ -117,7 +128,10 @@ export interface SharePort {
   // where the reading failed: the share routes exist only on a window's kernel.
   shareRemember(): Promise<{ remember: boolean } | null>;
   setShareRemember(remember: boolean): Promise<{ remember: boolean }>;
-  offerShare(): Promise<ShareOffer>;
+  // A pairing code for one door. The channel names which: the local address a
+  // phone on this network dials, or the reverse proxy's name for machines that
+  // are elsewhere. Omitting it asks for the local one.
+  offerShare(channel?: OfferChannel): Promise<ShareOffer>;
   offerCloudShare(): Promise<CloudShareOffer>;
   revokeDevice(id: string): Promise<ShareStatus>;
   // The devices enrolled against this Studio at the account service. Null where

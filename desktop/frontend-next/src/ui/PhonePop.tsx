@@ -6,8 +6,7 @@ import type { HubPort } from "../port/hub";
 import type { CloudDevice, PairedDevice } from "../port/share";
 import { copyText } from "./CopyButton";
 import { useDismiss } from "./dismiss";
-import { clock, deviceLabel, type Share, useShare } from "./PhoneAccess";
-import { Switch } from "./Switch";
+import { clock, deviceLabel, doorAddress, type Share, useShare } from "./PhoneAccess";
 import { TooltipButton } from "./TooltipButton";
 
 /** The chrome's way to put a phone on this window: a code on a card, one
@@ -141,10 +140,11 @@ function useCloudPresenceNote(devices: CloudDevice[] | undefined, open: boolean)
   return open ? "" : note;
 }
 
-/** The phones already connected, then the one way a phone gets here: the same
- *  network, which has to be switched on. */
+/** The phones already connected, then the two ways a phone gets here: the
+ *  address it dials on this network, or the proxy's name when it is elsewhere.
+ *  The door itself is switched from settings, so the card only shows a code. */
 function PhoneCard({ share, failure }: { share: Share; failure: string }) {
-  const { st, ip, pick, offer, busy, newCode, toggle, revoke } = share;
+  const { st, ip, pick, offer, channel, chooseChannel, pairingLink, busy, newCode, revoke } = share;
   const [copied, setCopied] = useState("");
   const [arming, setArming] = useState("");
   const arm = useRef<number | null>(null);
@@ -156,20 +156,47 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
   const confirm = useRef<number | null>(null);
   useEffect(() => () => { if (confirm.current !== null) window.clearTimeout(confirm.current); }, []);
   if (!st) return null;
-  const noNetwork = st.addresses.length === 0;
-  const chosen = ip || (st.open ? st.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") : "") || st.addresses[0]?.ip || "";
-  // The one address a phone can type in right now. Held as a local so the
-  // onClick below reads a value that cannot change under it.
-  const origin = st.open ? st.origin ?? "" : "";
+  const hasProxy = Boolean(st.proxyOrigin);
+  const onProxy = channel === "proxy";
+  const chosen = ip || (st.open ? st.origin?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") : "") || doorAddress(st);
+  // Loopback is not a choice this card offers: no phone dials it, and the kernel
+  // opens the proxy's door there by itself whenever a proxy is named.
+  const dialable = st.addresses.filter((a) => a.kind !== "loopback");
+  // What this tab is telling a phone to type in. Held as a local so the onClick
+  // below reads a value that cannot change under it. The proxy tab names the
+  // proxy's own address, never the loopback socket behind it: that one is what
+  // the proxy dials, and no phone can reach it.
+  const address = st.open ? (onProxy ? st.proxyOrigin ?? "" : st.origin ?? "") : "";
+  // The proxy tab has nothing to show until a name is configured, and neither
+  // tab has anything until the door is switched on in settings.
+  const blocked = !st.open ? "off" : onProxy && !hasProxy ? "no-proxy" : "";
+
+  // One press either copies or says it could not. The press is remembered for as
+  // long as the word is readable, and the timer is cleared on the next press so
+  // the earlier one cannot blank this one's confirmation early.
+  const showCopied = (what: string) => {
+    setCopied(what);
+    if (confirm.current !== null) window.clearTimeout(confirm.current);
+    confirm.current = window.setTimeout(() => setCopied(""), 1600);
+  };
 
   const copy = (what: string, url: string) =>
     copyText(url)
-      .then(() => {
-        setCopied(what);
-        if (confirm.current !== null) window.clearTimeout(confirm.current);
-        confirm.current = window.setTimeout(() => setCopied(""), 1600);
-      })
-      .catch(() => {});
+      .then(() => showCopied(what))
+      // A refused clipboard is said on the button rather than swallowed: a press
+      // that did nothing and said nothing reads as a broken button.
+      .catch(() => showCopied("failed"));
+
+  // What the copy button puts on the clipboard is the pairing link, not the bare
+  // address: a browser that has not paired cannot get past the gate with an
+  // address alone, and "copy the address" read as though it could. The code rides
+  // the fragment, so the recipient's browser trades it for a cookie on the way in
+  // and wipes it from the address bar afterwards.
+  const copyPairingLink = () => {
+    void pairingLink()
+      .then((url) => copy("address", url))
+      .catch(() => showCopied("failed"));
+  };
 
   // Disconnecting takes a second press on the same place, which is cheaper
   // than a dialog in a card this small and still not one slip.
@@ -237,33 +264,66 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
       <section className="pc-route" data-on={st.open ? "" : undefined}>
         <div className="pc-hd">
           <span>
-            <b>{t("remote.same_wifi")}</b>
-            <small>{chosen ? t("remote.ip_fastest", { ip: chosen }) : t("remote.faster_without_the_relay")}</small>
+            <b>{onProxy ? t("remote.proxy_network") : t("remote.local_network")}</b>
+            <small>{onProxy ? t("remote.proxy_reaches_this_machine_at") : t("remote.this_machines_address_on_this")}</small>
           </span>
-          <Switch data-action="share.toggle" on={st.open} busy={busy || noNetwork} label={t("remote.allow_local_network_access")} onClick={() => void toggle()} />
         </div>
 
-        {/* The address a phone can reach this window at, once the door is open.
-            It is the origin the pairing link is built on, not the link itself —
-            that one carries a one-shot code — so this is the part worth reading
-            out when a phone's camera cannot be used, and worth copying when the
-            reader would rather send it to themselves. */}
-        {origin && (
+        {/* The two doors a code can point at. Switching the tab asks the other
+            door for its own code — the picture on screen carries a one-shot
+            credential, and a link minted for one door is spent nowhere on the
+            other. Nothing moves: the share answers on both at once. */}
+        <div className="pc-tabs" role="tablist" aria-label={t("remote.device_access")}>
+          <button
+            role="tab"
+            aria-selected={!onProxy}
+            data-action="share.channel"
+            data-channel="lan"
+            disabled={busy}
+            onClick={() => chooseChannel("lan")}
+          >
+            {t("remote.local_network")}
+          </button>
+          <button
+            role="tab"
+            aria-selected={onProxy}
+            data-action="share.channel"
+            data-channel="proxy"
+            disabled={busy || !hasProxy}
+            onClick={() => chooseChannel("proxy")}
+          >
+            {t("remote.proxy_network")}
+          </button>
+        </div>
+
+        {/* What this tab is telling a phone to dial, and the one press that hands
+            it to someone else. The code shown is the bare address — the part
+            worth reading out when a camera cannot be used — while the copy button
+            puts the pairing link on the clipboard, because an address alone stops
+            a fresh browser at "this device is not paired". */}
+        {address && (
           <div className="pc-row pc-origin">
             <span>{t("remote.address")}</span>
-            <code dir="ltr" title={origin}>{origin}</code>
-            <button data-action="share.copy-address" onClick={() => void copy("address", origin)}>
-              {copied === "address" ? t("common.copied") : t("common.copy")}
+            <code dir="ltr" title={address}>{address}</code>
+            <button data-action="share.copy-address" onClick={() => void copyPairingLink()}>
+              {copied === "address" ? t("common.copied") : copied === "failed" ? t("remote.copy_blocked") : t("remote.copy_pairing_link")}
             </button>
           </div>
         )}
 
-        {st.open && (
+        {blocked === "off" && <p className="pc-when">{t("remote.turn_on_access_in_settings")}</p>}
+        {blocked === "no-proxy" && <p className="pc-when">{t("remote.no_proxy_configured")}</p>}
+
+        {st.open && !blocked && (
           <div className="pc-code">
             {offer ? (
               <>
                 <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(offer.qr)}`} alt={t("remote.pairing_qr_code")} width={148} height={148} />
-                <span className="pc-when">{t("remote.local_pairing_valid_until_time", { time: clock(offer.expires) })}</span>
+                <span className="pc-when">
+                  {onProxy
+                    ? t("remote.proxy_pairing_until", { time: clock(offer.expires) })
+                    : t("remote.local_pairing_until", { time: clock(offer.expires) })}
+                </span>
                 <span className="pc-acts">
                   <button data-action="share.offer" disabled={busy} onClick={() => void newCode()}>{t("common.new_code")}</button>
                 </span>
@@ -276,13 +336,21 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
           </div>
         )}
 
-        {st.addresses.length > 1 && (
+        {/* Which of this machine's adapters the local door listens on. The proxy
+            tab has no such choice: loopback is the only address a proxy on this
+            machine can dial. Loopback is not offered here either — the kernel
+            opens that door by itself, and no phone dials it. */}
+        {!onProxy && dialable.length > 1 && (
           <label className="pc-row">
             <span>{t("common.network")}</span>
             <select data-size="sm" data-action="share.address" value={chosen} disabled={busy} onChange={(e) => pick(e.target.value)}>
-              {st.addresses.map((a) => (
+              {dialable.map((a) => (
                 <option key={a.ip} value={a.ip}>
-                  {a.kind === "tailnet" ? `${a.ip} · Tailscale` : a.kind === "virtual" ? `${a.ip} · ${t("remote.virtual_adapter")}` : `${a.ip} · ${a.interface}`}
+                  {a.kind === "tailnet"
+                    ? `${a.ip} · Tailscale`
+                    : a.kind === "virtual"
+                      ? `${a.ip} · ${t("remote.virtual_adapter")}`
+                      : `${a.ip} · ${a.interface}`}
                 </option>
               ))}
             </select>

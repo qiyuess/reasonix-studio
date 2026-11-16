@@ -1,7 +1,7 @@
 import type { AgentPort } from "./port";
 import type { HistorySearch, HubPort, RuntimeView, TreeSession, TreeWindow, TreeWorkspace } from "./hub";
 import type { RemoteHost, RemoteListing, RemoteProbe } from "./remote";
-import type { PhoneAction, PhoneList, PhoneView, ShareStatus } from "./share";
+import type { OfferChannel, PhoneAction, PhoneList, PhoneView, ShareStatus } from "./share";
 import { MockPort } from "./mock";
 
 // MockHub is the fixture's answer to a window that drives several panes. Each
@@ -391,7 +391,15 @@ export class MockHub implements HubPort {
   }
 
   openShare(ip: string) {
-    this.share = { ...this.share, open: true, origin: `http://${ip}:${this.share.port ?? 41234}`, devices: [] };
+    // The proxy's door opens beside the phone's, exactly as the kernel does it:
+    // a configured name becomes the address the proxy channel answers at.
+    this.share = {
+      ...this.share,
+      open: true,
+      origin: `http://${ip}:${this.share.port ?? 41234}`,
+      proxyOrigin: this.share.publicOrigin,
+      devices: [],
+    };
     return Promise.resolve({ ...this.share });
   }
 
@@ -421,11 +429,12 @@ export class MockHub implements HubPort {
     return Promise.resolve({ ...this.share });
   }
 
-  offerShare() {
+  offerShare(channel: OfferChannel = "lan") {
     const expires = new Date(Date.now() + 5 * 60_000).toISOString();
     this.share = { ...this.share, offerExpires: expires };
     const qr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29"><rect width="29" height="29" fill="#fff"/><path fill="#000" d="M4 4h7v7h-7zM18 4h7v7h-7zM4 18h7v7h-7zM13 13h3v3h-3z"/></svg>`;
-    return Promise.resolve({ url: `${this.share.origin}/#pair=mock-code`, qr, expires });
+    const base = channel === "proxy" ? this.share.proxyOrigin : this.share.origin;
+    return Promise.resolve({ channel, url: `${base}/#pair=mock-code`, qr, expires });
   }
 
   offerCloudShare() {
