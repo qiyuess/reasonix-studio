@@ -550,6 +550,10 @@ type Commits interface {
 	GitPushPreview(ctx context.Context, repo string) (gitpush.Plan, error)
 	GitPush(ctx context.Context, req PushRequest) (gitpush.Result, error)
 	SwitchWorkspaceBranch(ctx context.Context, name string) (gitstatus.Info, bool, error)
+	// SwitchBranchIn is SwitchWorkspaceBranch for a named repository: a
+	// workspace that is a folder of projects has no repository of its own, and
+	// the branch a reader picks there belongs to one of the repositories inside.
+	SwitchBranchIn(ctx context.Context, dir, name string) (gitstatus.Info, bool, error)
 }
 
 // SideSessions is a read-only question asked beside the session and discarded

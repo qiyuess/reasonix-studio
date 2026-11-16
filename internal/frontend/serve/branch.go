@@ -36,19 +36,20 @@ func (s *Server) workspaceBranches(w http.ResponseWriter, r *http.Request) {
 }
 
 // workspaceSwitchBranch checks out the named local branch through the
-// controller — the write belongs next to CommitStaged, where the turn gate can
-// refuse it typed — and answers with the work tree's identity as it now
-// stands, so the caller that asked updates its branch reading from the same
-// round trip.
+// controller and answers with the work tree's identity as it now stands, so the
+// caller updates its branch reading from the same round trip. `repo` names the
+// repository, a folder below the workspace as /git/repos lists it; absent is the
+// workspace's own, which a folder of projects does not have.
 func (s *Server) workspaceSwitchBranch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name string `json:"name"`
+		Repo string `json:"repo"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<10)).Decode(&req); err != nil {
 		refuse(w, http.StatusBadRequest, "branch.bad_request", "the request body is not a JSON branch switch", nil)
 		return
 	}
-	info, ok, err := s.ctl().SwitchWorkspaceBranch(r.Context(), req.Name)
+	info, ok, err := s.ctl().SwitchBranchIn(r.Context(), req.Repo, req.Name)
 	if err != nil {
 		refuseBranch(w, r, err)
 		return
