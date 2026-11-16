@@ -9,6 +9,7 @@ import { occluded, visibleBox } from "./occlusion";
 import { BrowserFailure } from "./BrowserFailure";
 import { AgentPageNote } from "./AgentPageNote";
 import { readPageTabs } from "./browser_open";
+import { pageTitle } from "./workbench_tabs";
 import { BrowserElementEdit } from "./BrowserElementEdit";
 import type { PageEditor } from "./pageedit";
 
@@ -371,7 +372,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
         {showTabs && <div className="vtabs" role="tablist">
           {tabs.map((tab) => (
             <button key={tab.target} className="tab btab" role="tab" data-action="browser.tab" data-target={tab.id} aria-selected={tab.target === target} title={tab.url} onClick={() => setPicked(tab.target)}>
-              {tab.title || tab.url || t("common.blank_page")}
+              {pageTitle(tab)}
             </button>
           ))}
         </div>}
