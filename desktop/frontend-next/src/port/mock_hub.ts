@@ -400,6 +400,11 @@ export class MockHub implements HubPort {
     return Promise.resolve({ ...this.share });
   }
 
+  setSharePublicOrigin(origin: string) {
+    this.share = { ...this.share, publicOrigin: origin || undefined };
+    return Promise.resolve({ ...this.share });
+  }
+
   private remember = false;
 
   shareRemember() {

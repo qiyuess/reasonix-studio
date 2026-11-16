@@ -50,6 +50,13 @@ export interface ShareStatus {
   // The fixed port the user chose; absent means the system picks one each time.
   port?: number;
   origin?: string;
+  // The reverse proxy's name for this machine, when one is configured: the
+  // address a phone outside this network reaches the door through.
+  publicOrigin?: string;
+  // The name the open door's gate was built with. It lags `publicOrigin` after
+  // a change that has not been applied yet, so the panel can say "next time the
+  // door opens" without showing a stale value in the field just typed into.
+  appliedPublicOrigin?: string;
   addresses: ShareAddress[];
   devices: PairedDevice[];
   cloudDevices: CloudDevice[];
@@ -100,6 +107,9 @@ export interface SharePort {
   closeShare(): Promise<ShareStatus>;
   // Zero clears the choice. Used the next time the door opens.
   setSharePort(port: number): Promise<ShareStatus>;
+  // The reverse proxy's name a phone reaches this door through, or empty for
+  // none. Used the next time the door opens, and where its code points.
+  setSharePublicOrigin(origin: string): Promise<ShareStatus>;
   // Whether this install keeps the phones that paired across restarts. Null
   // where the reading failed: the share routes exist only on a window's kernel.
   shareRemember(): Promise<{ remember: boolean } | null>;

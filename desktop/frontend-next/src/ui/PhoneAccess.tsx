@@ -135,14 +135,22 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
       await mint();
     });
 
-  return { st, ip, pick, savePort, offer, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember, refresh: read };
+  // The proxy's name is read at the next open too — its gate is built then —
+  // so unlike the port it is saved without moving an open door: moving a door
+  // that phones are already using would unpair them for a setting about where
+  // the *next* one listens.
+  const savePublicOrigin = (origin: string) =>
+    run(async () => setSt(await hub.setSharePublicOrigin(origin)));
+
+  return { st, ip, pick, savePort, savePublicOrigin, offer, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember, refresh: read };
 }
 
 /** The switch, the network, the code and the paired phones. */
 export function ShareBody({ share }: { share: Share }) {
-  const { st, ip, pick, savePort, offer, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember } = share;
+  const { st, ip, pick, savePort, savePublicOrigin, offer, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember } = share;
   const [copied, setCopied] = useState<"" | "done" | "failed">("");
   const [portDraft, setPortDraft] = useState<string | null>(null);
+  const [publicDraft, setPublicDraft] = useState<string | null>(null);
   if (!st) return null;
   // The link the code draws, for a device that cannot scan: the same one-time
   // credential, so it is copied on request and never shown as text.
@@ -158,6 +166,12 @@ export function ShareBody({ share }: { share: Share }) {
     const next = portDraft === "" ? 0 : Number(portDraft);
     setPortDraft(null);
     if (next !== (st.port ?? 0)) void savePort(next);
+  };
+  const commitPublicOrigin = () => {
+    if (publicDraft === null) return;
+    const next = publicDraft.trim();
+    setPublicDraft(null);
+    if (next !== (st.publicOrigin ?? "")) void savePublicOrigin(next);
   };
 
   return (
@@ -222,6 +236,22 @@ export function ShareBody({ share }: { share: Share }) {
         {t("remote.leave_empty_to_let_the")}
       </p>
       {st.open && st.devices.length > 0 && <p className="rmthint">{t("remote.changing_the_port_disconnects_the")}</p>}
+
+      <label className="rmtf">
+        <span>{t("remote.reverse_proxy_address")}</span>
+        <input
+          data-action="share.public-origin"
+          inputMode="url"
+          maxLength={255}
+          value={publicDraft ?? st.publicOrigin ?? ""}
+          placeholder="https://agent.example.com"
+          disabled={busy}
+          onChange={(e) => setPublicDraft(e.target.value)}
+          onBlur={commitPublicOrigin}
+        />
+      </label>
+      <p className="rmthint">{t("remote.reverse_proxy_address_hint")}</p>
+      {st.open && st.devices.length > 0 && <p className="rmthint">{t("remote.reverse_proxy_takes_effect_next_open")}</p>}
 
       {st.open && (
         <div className="shareopen">

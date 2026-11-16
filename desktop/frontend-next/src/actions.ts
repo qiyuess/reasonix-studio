@@ -532,6 +532,7 @@ export const ACTIONS: UIAction[] = [
   { id: "share.toggle", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
   { id: "share.address", kind: "view", target: "none", proof: "interaction" },
   { id: "share.port", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
+  { id: "share.public-origin", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
   { id: "share.offer", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
   { id: "share.ask-revoke", kind: "view", target: "entity", proof: "interaction" },
   { id: "share.keep", kind: "view", target: "entity", proof: "interaction" },

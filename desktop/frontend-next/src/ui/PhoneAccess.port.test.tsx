@@ -21,6 +21,7 @@ function rig(initial: ShareStatus) {
     openShare: vi.fn(async (ip: string) => (st = { ...st, open: true, origin: `http://${ip}:${st.port ?? 50000}` })),
     offerShare: vi.fn(async () => ({ url: "", qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
     shareRemember: vi.fn(async () => ({ remember: false })),
+    setSharePublicOrigin: vi.fn(async (origin: string) => (st = { ...st, publicOrigin: origin || undefined })),
   };
   return { hub, ui: <PhoneAccess hub={hub as unknown as HubPort} onError={() => {}} /> };
 }
@@ -63,4 +64,48 @@ it("moves an open door onto the new port", async () => {
   await userEvent.tab();
   await waitFor(() => expect(hub.openShare).toHaveBeenCalledWith("10.0.0.2"));
   expect(hub.setSharePort).toHaveBeenCalledWith(41234);
+});
+
+const originField = () =>
+  waitFor(() => {
+    const el = document.querySelector<HTMLInputElement>('[data-action="share.public-origin"]');
+    expect(el).not.toBeNull();
+    return el!;
+  });
+
+it("saves a typed reverse proxy address when the field loses focus", async () => {
+  const { hub, ui } = rig(base);
+  render(ui);
+  const field = await originField();
+  await userEvent.type(field, "https://agent.example.com");
+  await userEvent.tab();
+  await waitFor(() =>
+    expect(hub.setSharePublicOrigin).toHaveBeenCalledWith("https://agent.example.com"),
+  );
+});
+
+it("sends nothing when the reverse proxy address did not change, and clears it on empty", async () => {
+  const { hub, ui } = rig({ ...base, publicOrigin: "https://agent.example.com" });
+  render(ui);
+  const field = await originField();
+  expect(field.value).toBe("https://agent.example.com");
+  await userEvent.click(field);
+  await userEvent.tab();
+  expect(hub.setSharePublicOrigin).not.toHaveBeenCalled();
+  await userEvent.clear(field);
+  await userEvent.tab();
+  await waitFor(() => expect(hub.setSharePublicOrigin).toHaveBeenCalledWith(""));
+});
+
+// The name is read when the next door opens, so saving it must not move a door
+// phones are already using — that would unpair them for a setting about where
+// the following one listens.
+it("leaves an open door where it is when the reverse proxy address changes", async () => {
+  const { hub, ui } = rig({ ...base, open: true, origin: "http://10.0.0.2:50000" });
+  render(ui);
+  const field = await originField();
+  await userEvent.type(field, "https://agent.example.com");
+  await userEvent.tab();
+  await waitFor(() => expect(hub.setSharePublicOrigin).toHaveBeenCalled());
+  expect(hub.openShare).not.toHaveBeenCalled();
 });

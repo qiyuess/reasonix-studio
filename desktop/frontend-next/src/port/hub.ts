@@ -676,6 +676,10 @@ export class SseHub implements HubPort {
     return this.post<ShareStatus>("/share/port", { port });
   }
 
+  setSharePublicOrigin(origin: string) {
+    return this.post<ShareStatus>("/share/public-origin", { origin });
+  }
+
   offerShare() {
     return this.post<ShareOffer>("/share/offer", {});
   }

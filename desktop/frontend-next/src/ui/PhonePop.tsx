@@ -64,7 +64,6 @@ export function PhonePop({ hub }: { hub: HubPort }) {
         className="thbtn phone-action"
         data-action="share.card"
         data-live={shareOpen ? "" : undefined}
-        data-online={online > 0 ? "" : undefined}
         aria-expanded={open}
         aria-label={t("remote.device_access")}
         title={online > 0 ? t("remote.device_access_n_online", { n: online }) : t("remote.device_access")}
@@ -235,8 +234,6 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
         </section>
       )}
 
-      <p className="pc-cap">{t("remote.how_the_phone_reaches_this")}</p>
-
       <section className="pc-route" data-on={st.open ? "" : undefined}>
         <div className="pc-hd">
           <span>
@@ -291,7 +288,6 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
             </select>
           </label>
         )}
-        {st.open && st.devices.length === 0 && <p className="pc-none">{t("remote.no_phone_connected_yet")}</p>}
       </section>
     </div>
   );
