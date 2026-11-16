@@ -34,7 +34,7 @@ func (r *shareRig) deviceAt(t *testing.T, method, path, body, host, origin strin
 // through the proxy's name, which is the only door it can reach.
 func (r *shareRig) pairThroughProxy(t *testing.T) *http.Cookie {
 	t.Helper()
-	offer, err := r.share.Offer()
+	offer, err := r.share.Offer(OfferProxy)
 	if err != nil {
 		t.Fatalf("offer: %v", err)
 	}
@@ -58,7 +58,7 @@ func (r *shareRig) pairThroughProxy(t *testing.T) *http.Cookie {
 // so naming a proxy moves the link and leaves the listener where it is.
 func TestThePairingLinkPointsAtTheProxyWhenOneIsNamed(t *testing.T) {
 	rig := newProxiedShareRig(t, proxyName)
-	offer, err := rig.share.Offer()
+	offer, err := rig.share.Offer(OfferProxy)
 	if err != nil {
 		t.Fatal(err)
 	}

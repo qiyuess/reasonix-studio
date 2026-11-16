@@ -112,7 +112,7 @@ func newProxiedShareRig(t *testing.T, public string) *shareRig {
 // pair scans a fresh code the way the page does and returns the device cookie.
 func (r *shareRig) pair(t *testing.T) *http.Cookie {
 	t.Helper()
-	offer, err := r.share.Offer()
+	offer, err := r.share.Offer(OfferLAN)
 	if err != nil {
 		t.Fatalf("offer: %v", err)
 	}

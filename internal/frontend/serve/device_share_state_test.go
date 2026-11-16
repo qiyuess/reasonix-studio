@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -118,12 +119,12 @@ func TestReopenFallsBackWhenTheAddressIsGone(t *testing.T) {
 	}
 }
 
-// TestAProxiedDoorOpensOnLoopback covers the machine that changes networks: with
-// a reverse proxy named, the door opens on 127.0.0.1 even when a remembered
-// Wi-Fi address is still offered. The proxy dials from this machine, and loopback
-// is the one address this machine keeps when it joins another network — binding
-// the Wi-Fi address is what leaves the door answering nothing after a switch.
-func TestAProxiedDoorOpensOnLoopback(t *testing.T) {
+// TestAProxiedDoorOpensBothDoors covers the machine that changes networks: with
+// a reverse proxy named, the phone's own door still opens on the address it can
+// dial, and the proxy gets loopback beside it. Binding only loopback left a
+// phone on the same Wi-Fi with nothing to reach; binding only the Wi-Fi address
+// left the proxy's tunnel dialling a socket that was not there.
+func TestAProxiedDoorOpensBothDoors(t *testing.T) {
 	share := NewDeviceShare(nil)
 	share.Attach(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	share.RestorePublicOrigin(proxyName)
@@ -141,9 +142,64 @@ func TestAProxiedDoorOpensOnLoopback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reopen with a proxy named: %v", err)
 	}
-	if !st.Open || !strings.HasPrefix(st.Origin, "http://127.0.0.1:") {
-		t.Fatalf("reopened on %q, want loopback rather than the remembered Wi-Fi address", st.Origin)
+	if !st.Open || !strings.HasPrefix(st.Origin, "http://127.0.0.2:") {
+		t.Fatalf("reopened on %q, want the address a phone can dial", st.Origin)
 	}
+	if st.ProxyOrigin != proxyName {
+		t.Fatalf("proxy origin = %q, want %q", st.ProxyOrigin, proxyName)
+	}
+}
+
+// TestBothDoorsListenAtOnce pins the promise the two channels make: with a proxy
+// named, the phone's own address and loopback answer at the same time, on one
+// port. Picking a channel in the panel must not be what makes the other one
+// listen — a proxy configured to dial the share's port has to find a socket
+// there, and so does a phone on the same Wi-Fi.
+func TestBothDoorsListenAtOnce(t *testing.T) {
+	share := NewDeviceShare(nil)
+	share.Attach(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	share.RestorePublicOrigin(proxyName)
+	share.addresses = func() []ShareAddress {
+		return []ShareAddress{
+			{Interface: "en0", IP: "127.0.0.2", Kind: AddressLAN},
+			{Interface: "lo", IP: loopbackIP, Kind: AddressLoopback},
+		}
+	}
+	t.Cleanup(share.Close)
+
+	st, err := share.Open("127.0.0.2")
+	if err != nil {
+		t.Fatalf("open with a proxy named: %v", err)
+	}
+	_, port, err := net.SplitHostPort(strings.TrimPrefix(st.Origin, "http://"))
+	if err != nil {
+		t.Fatalf("origin %q: %v", st.Origin, err)
+	}
+	for _, ip := range []string{"127.0.0.2", loopbackIP} {
+		code := readDoor(t, ip, port)
+		// 401 is the gate answering: the socket is listening and the gate turned
+		// an unpaired read away. Anything else means that door is not up.
+		if code != http.StatusUnauthorized {
+			t.Fatalf("%s on port %s answered %d, want the gate's 401", ip, port, code)
+		}
+	}
+}
+
+// readDoor makes one unpaired read at ip:port and reports what answered.
+func readDoor(t *testing.T, ip, port string) int {
+	t.Helper()
+	addr := net.JoinHostPort(ip, port)
+	req, err := http.NewRequest(http.MethodGet, "http://"+addr+"/device", nil)
+	if err != nil {
+		t.Fatalf("request to %s: %v", addr, err)
+	}
+	req.Host = addr
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("%s: %v", addr, err)
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode
 }
 
 // TestAnUnproxiedDoorKeepsTheRememberedAddress is the other half: with no proxy,

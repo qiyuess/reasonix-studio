@@ -289,6 +289,7 @@ export const KERNEL: Messages = {
   "kernel.that_address_redirected_to_target": { zh: "该地址跳转到了 {target}，已拒绝，以免 key 被发到别处。如果信任 {target}，请把服务地址改成 {target}", en: "That address redirected to {target} and was refused so the key is not sent elsewhere. If you trust {target}, change the address to {target}" },
   "kernel.that_answer_was_meant_for": { zh: "该回答对应上一次启动的内核，请重新连接", en: "That answer was meant for an earlier run of the kernel — connect again" },
   "kernel.that_audio_format_is_not": { zh: "不支持该音频格式", en: "That audio format is not supported" },
+  "kernel.that_is_not_a_door": { zh: "这台机器上没有那个入口，请换一个。", en: "This machine has no such door; pick another." },
   "kernel.that_background_job_is_no": { zh: "这个后台任务已经不在运行了", en: "That background job is no longer running" },
   "kernel.that_backup_no_longer_exists": { zh: "这份备份已不存在", en: "That backup no longer exists" },
   "kernel.that_balance_format_is_not": { zh: "这个余额格式不在可选范围内", en: "That balance format is not one of the available ones" },

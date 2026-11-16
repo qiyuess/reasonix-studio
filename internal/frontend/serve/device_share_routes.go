@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"reasonix/internal/contract/config"
 )
 
 const (
 	codeShareAddress      = "share.address_rejected"
+	codeShareChannel      = "share.channel_unknown"
 	codeShareClosed       = "share.closed"
 	codeShareCloud        = "share.cloud_unavailable"
 	codeShareListen       = "share.listen_failed"
@@ -147,12 +149,36 @@ func (h *Hub) shareClose(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, h.opts.Share.Status())
 }
 
-func (h *Hub) shareOffer(w http.ResponseWriter, _ *http.Request) {
+// shareOffer mints a pairing code for one door. The channel names which: a
+// window drawing both the local and the proxy channel asks per channel, and the
+// default is the local one so a caller that predates the choice keeps working.
+func (h *Hub) shareOffer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	offer, err := h.opts.Share.Offer()
+	channel := OfferLAN
+	var body struct {
+		Channel string `json:"channel"`
+	}
+	if r.ContentLength > 0 {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil {
+			badBody(w)
+			return
+		}
+	}
+	switch OfferChannel(strings.TrimSpace(body.Channel)) {
+	case "", OfferLAN:
+		channel = OfferLAN
+	case OfferProxy:
+		channel = OfferProxy
+	default:
+		refuse(w, http.StatusBadRequest, codeShareChannel, "that channel is not one this share has", map[string]any{"channel": body.Channel})
+		return
+	}
+	offer, err := h.opts.Share.Offer(channel)
 	switch {
 	case errors.Is(err, ErrShareClosed):
 		refuse(w, http.StatusConflict, codeShareClosed, err.Error(), nil)
+	case errors.Is(err, ErrShareChannel):
+		refuse(w, http.StatusConflict, codeShareChannel, err.Error(), nil)
 	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err)
 	default:

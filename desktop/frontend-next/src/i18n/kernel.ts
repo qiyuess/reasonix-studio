@@ -315,6 +315,7 @@ const SAID: Record<string, string> = {
   "share.public_origin_save_failed": "kernel.could_not_save_the_reverse",
   "share.remember_save_failed": "kernel.could_not_save_the_paired",
   "share.device_unknown": "kernel.no_paired_device_has_that",
+  "share.channel_unknown": "kernel.that_is_not_a_door",
   "picker.unsupported": "kernel.this_system_has_no_folder",
   "picker.failed": "kernel.the_folder_picker_could_not",
   "provider.bad_key_slot": "kernel.the_name_name_cannot_hold",
