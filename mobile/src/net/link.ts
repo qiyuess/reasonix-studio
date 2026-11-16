@@ -1,0 +1,260 @@
+/**
+ * The state of this phone's link to a computer.
+ *
+ * A connection is not a boolean. It is attempted in steps, can be lost and
+ * reopened without the person asking, and a failure needs to say which step
+ * failed and whether trying again could help. This module is the vocabulary
+ * and the backoff rule; the machine that drives it lives in `useLink`.
+ *
+ * Nothing here knows about a transport. "LAN" and "cloud" are doors the
+ * machine tries; the state only records where it got to.
+ */
+
+export type LinkPhase =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "offline"
+  | "failed";
+
+/** The visible stages of one attempt, in order. */
+export type LinkStep = "probe" | "switch" | "verify";
+
+export const LINK_STEPS: LinkStep[] = ["probe", "switch", "verify"];
+
+export function stepLabel(step: LinkStep): string {
+  switch (step) {
+    case "probe":
+      return "正在查找电脑";
+    case "switch":
+      return "正在切换连接";
+    case "verify":
+      return "正在读取会话";
+  }
+}
+
+export interface LinkError {
+  /** A dotted code, kept so a caller can tell transport from authorization. */
+  code: string;
+  /** One sentence a person can act on. */
+  message: string;
+  /** Raw technical detail for a "详情" disclosure. */
+  detail?: string;
+  /** True when trying the same door again could plausibly work. */
+  retryable: boolean;
+}
+
+/** A dead pairing credential: retrying the same address can never bring it back. */
+export function isStalePairing(code: string | undefined): boolean {
+  return code === "device.unauthorized" || code === "http.401" || code === "http.403";
+}
+
+export interface LinkState {
+  phase: LinkPhase;
+  /** Stage in progress while connecting / reconnecting. */
+  step?: LinkStep;
+  /** Stages already done in this attempt. */
+  completed: LinkStep[];
+  /** Which door is being used, for the chip and the progress line. */
+  target?: string;
+  /** What to call that door ("192.168.5.2:56789", "工作室的 Mac"). */
+  name?: string;
+  /** Reconnect attempt number (1-based). */
+  attempt: number;
+  /** Unix milliseconds of the next automatic attempt. */
+  nextRetryAt?: number;
+  error?: LinkError;
+}
+
+export const idleLink: LinkState = { phase: "idle", completed: [], attempt: 0 };
+
+/** A connection state for an attempt that has just started. */
+export function connectingLink(step: LinkStep, previous?: LinkState): LinkState {
+  const completed = LINK_STEPS.filter((candidate) => LINK_STEPS.indexOf(candidate) < LINK_STEPS.indexOf(step));
+  return {
+    phase: "connecting",
+    step,
+    completed,
+    attempt: previous?.attempt ?? 0,
+    ...(previous?.target ? { target: previous.target } : {}),
+    ...(previous?.name ? { name: previous.name } : {}),
+  };
+}
+
+/** Short text for the Home chip and settings rows. */
+export function linkSummary(state: LinkState): string {
+  switch (state.phase) {
+    case "idle":
+      return "未连接";
+    case "connecting":
+      return state.step ? `${stepLabel(state.step)}…` : "正在连接…";
+    case "connected":
+      return "已连接";
+    case "reconnecting":
+      return state.attempt > 1 ? `正在重连（第 ${state.attempt} 次）` : "正在重连…";
+    case "offline":
+      return "等待网络";
+    case "failed":
+      return "连接失败";
+  }
+}
+
+/** Dot tone, matching the app's other status dots. */
+export function linkTone(state: LinkState): "ok" | "warn" | "bad" | "idle" | "busy" {
+  switch (state.phase) {
+    case "connected":
+      return "ok";
+    case "connecting":
+      return "busy";
+    case "reconnecting":
+      return "warn";
+    case "offline":
+      return "warn";
+    case "failed":
+      return "bad";
+    case "idle":
+      return "idle";
+  }
+}
+
+/**
+ * What a failed attempt does next.
+ *
+ * The order matters: a phone with no network waits for the network before it
+ * considers whether the failure was retryable at all. Trying again while the
+ * system says there is no way out cannot succeed, and a chain of those is
+ * exactly the "still retrying long after the Wi-Fi died" this answers.
+ */
+export type AfterFailure = "wait-for-network" | "retry" | "fail";
+
+export function afterFailure(
+  error: LinkError,
+  options: { online: boolean; exhausted: boolean },
+): AfterFailure {
+  if (!options.online) return "wait-for-network";
+  if (!error.retryable || options.exhausted) return "fail";
+  return "retry";
+}
+
+/**
+ * A failure said in the terms the person can act on.
+ *
+ * Authorization failures are deliberately not retryable: another attempt
+ * changes nothing until the pairing or the sign-in is renewed. Everything
+ * transport-shaped is, because a network can come back.
+ */
+export function linkFailure(code: string, detail?: string): LinkError {
+  const withDetail = detail ? { detail } : {};
+  switch (code) {
+    case "device.unauthorized":
+    case "http.401":
+    case "http.403":
+      return {
+        code,
+        message:
+          "配对或登录已失效，请重新扫码配对或重新登录；重试旧地址不会恢复。电脑换端口后也需要重新扫码。",
+        retryable: false,
+        ...withDetail,
+      };
+    case "account.signed_out":
+    case "account.required":
+    case "remote_reauth_required":
+      return { code, message: "Reasonix 账号已退出，请重新登录。", retryable: false, ...withDetail };
+    case "device_not_found":
+      return { code, message: "这台电脑已从账号里移除。", retryable: false, ...withDetail };
+    case "device.trust_required":
+      return {
+        code,
+        message: "这台电脑还没有在手机上确认身份，请在设置里手动连接一次。",
+        retryable: false,
+        ...withDetail,
+      };
+    case "device.trust_changed":
+      return {
+        code,
+        message: "这台电脑的身份指纹变了，连接已拒绝。确认是重装后，先在设置里移除这台电脑。",
+        retryable: false,
+        ...withDetail,
+      };
+    case "device.trust_unreadable":
+      return { code, message: "这台电脑的身份公钥无法识别，连接已拒绝。", retryable: false, ...withDetail };
+    case "device.trust_cancelled":
+      return { code, message: "已取消确认这台电脑的身份。", retryable: false, ...withDetail };
+    case "device.trust_unwritable":
+      return {
+        code,
+        message: "确认已同意，但手机没能记住这台电脑（存储被占用或已满），请清理后重试。",
+        retryable: false,
+        ...withDetail,
+      };
+    case "client.timeout":
+      return { code, message: "电脑没有及时回应，稍后重试。", retryable: true, ...withDetail };
+    case "no.doors":
+      return { code, message: "还没有连过电脑，先在设置里扫码或登录。", retryable: false, ...withDetail };
+    case "client.offline":
+    case "proxy.upstream_unreachable":
+    case "http.502":
+    case "http.503":
+    case "http.504":
+      return { code, message: "到不了这台电脑，检查网络后重试。", retryable: true, ...withDetail };
+    case "handover.off":
+      return {
+        code,
+        message: "连接已断开；自动切换已关闭，请在设置里手动换一条通道。",
+        retryable: false,
+        ...withDetail,
+      };
+    case "handover.unknown":
+      return {
+        code,
+        message: "还没确认两条通道连着同一台电脑，先留在当前连接上重试。",
+        retryable: true,
+        ...withDetail,
+      };
+    case "handover.other_machine":
+      return {
+        code,
+        message: "那条通道通向另一台电脑，已跳过自动切换；需要换电脑请在连接页手动选择。",
+        retryable: false,
+        ...withDetail,
+      };
+    default:
+      return { code, message: `没连上：${code}`, retryable: true, ...withDetail };
+  }
+}
+
+/**
+ * Exponential backoff with full jitter.
+ *
+ * Half fixed and half random keeps a phone that lost Wi-Fi from retrying in
+ * lockstep with every other client when the router comes back. `exhausted`
+ * counts attempts already handed out, so the eighth delay is followed by a
+ * final failure rather than a ninth attempt.
+ */
+export class Backoff {
+  attempt = 0;
+
+  constructor(
+    readonly initialMs = 500,
+    readonly maxMs = 30_000,
+    readonly maxAttempts = 8,
+    private readonly random: () => number = Math.random,
+  ) {}
+
+  get exhausted(): boolean {
+    return this.attempt >= this.maxAttempts;
+  }
+
+  /** The delay before the next attempt, incrementing [attempt]. */
+  next(): number {
+    this.attempt += 1;
+    const exp = this.initialMs * 2 ** (this.attempt - 1);
+    const capped = Math.min(exp, this.maxMs);
+    return Math.round(capped / 2 + this.random() * (capped / 2));
+  }
+
+  reset(): void {
+    this.attempt = 0;
+  }
+}

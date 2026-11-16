@@ -1,0 +1,73 @@
+import { readNetworkStatus } from "../native/networkWatch";
+import { readNativeDiagnostics } from "../native/turn";
+import type { ConnectionSnapshot } from "../net/connection";
+import type { LinkState } from "../net/link";
+import type { ReachRow } from "../net/server";
+
+/**
+ * The text the About page copies.
+ *
+ * It answers "which build, on what phone, over which route, with which last
+ * error" without carrying chat content, cookies, pairing codes or tokens.
+ */
+export interface DiagnosticInput {
+  link: LinkState;
+  snapshot: ConnectionSnapshot;
+  /** The last reach batch, so the text can show which doors the proxy could see. */
+  reach: readonly ReachRow[];
+}
+
+function reachText(snapshot: ConnectionSnapshot): string {
+  const reach = snapshot.reach;
+  return reach.kind === "unreachable" ? `${reach.kind} · ${reach.detail}` : reach.kind;
+}
+
+/** The last batch in one line: which doors answered, and how slowly. */
+function reachSweepText(rows: readonly ReachRow[]): string {
+  if (rows.length === 0) return "none";
+  const text = rows
+    .slice(0, 6)
+    .map((row) => {
+      const host = row.origin.replace(/^https?:\/\//, "");
+      const state = row.status > 0 ? "ok" : "down";
+      return row.ms >= 0 ? `${host} ${state} ${row.ms}ms` : `${host} ${state}`;
+    })
+    .join(" · ");
+  return text.length > 240 ? `${text.slice(0, 237)}…` : text;
+}
+
+export async function buildDiagnostics(input: DiagnosticInput): Promise<string> {
+  const [native, network] = await Promise.all([
+    readNativeDiagnostics(),
+    readNetworkStatus(),
+  ]);
+  const { link, snapshot, reach } = input;
+  const error = link.error;
+  const route = [link.phase, link.target, link.name]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" · ");
+
+  const lines = [
+    `Reasonix For Android ${__APP_VERSION__}`,
+    native
+      ? `Android ${native.android ?? "?"} (API ${native.sdk ?? "?"}) · ${native.manufacturer ?? ""} ${native.model ?? ""}`.trim()
+      : "Android: unavailable",
+    native
+      ? `Build ${native.build ?? "?"} · notifications=${native.notifications ? "on" : "off"} · battery-exempt=${native.exempt ? "yes" : "no"}`
+      : "Build: unavailable",
+    `WebView: ${navigator.userAgent}`,
+    `Link: ${route || "none"}`,
+    `Link error: ${error ? `${error.code}${error.detail ? ` · ${error.detail}` : ""}` : "none"}`,
+    `Reach: ${reachText(snapshot)}`,
+    `Reach sweep: ${reachSweepText(reach)}`,
+    `Stream: ${snapshot.stream.kind}`,
+    `Runtimes: ${snapshot.runtimes.length}`,
+    `Network: ${
+      network
+        ? `${network.connected ? "connected" : "none"} · ${network.connectionType} · validated=${network.validated} · key=${network.networkKey || "-"}`
+        : "unavailable"
+    }`,
+    `At: ${new Date().toISOString()}`,
+  ];
+  return lines.join("\n");
+}

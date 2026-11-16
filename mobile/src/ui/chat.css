@@ -1,0 +1,2583 @@
+/* The transcript: one column, thumb reach, and room for the software keyboard. */
+
+/* The conversation's reading text scales with the 字号 preference, which the
+   root carries as data-chat-font (applied like data-theme). The base is
+   .bubble's 15px; headings and code steps multiply with it. Metadata —
+   timestamps, pills, activity rows — keeps its own size: chrome, not content. */
+:root {
+  --chat-scale: 1;
+}
+
+html[data-chat-font="sm"] {
+  --chat-scale: 0.88;
+}
+
+html[data-chat-font="lg"] {
+  --chat-scale: 1.15;
+}
+
+html[data-chat-font="xl"] {
+  --chat-scale: 1.3;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  /* See shell.css: the top inset is measured natively into `--rx-inset-top`,
+     because `env()` reports the bar's height whether or not the window already
+     cleared it, and Capacitor's own variable was measured never to arrive. The
+     bottom is left to the composer, which owns its own clearance. */
+  padding-top: var(--rx-inset-top, env(safe-area-inset-top, 0px));
+  background: transparent;
+}
+
+/* A floating capsule: the conversation's identity sits above the record rather
+   than being a strip of chrome. The buttons inside step down from the global
+   44px tap size — three of them flank the title, and at full size the capsule
+   spends more width on chrome than the title it exists to show. */
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 10px 0;
+  padding: 4px 5px;
+  border: 1px solid var(--line-soft);
+  border-radius: 20px;
+  background: rgba(var(--bg-raised-rgb), 0.84);
+  @supports (color: color-mix(in srgb, red, blue)) {
+  background: color-mix(in srgb, var(--bg-raised) 84%, transparent);
+  }
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: var(--shadow-1);
+  /* Above the transcript so a long answer scrolls under it, not over it. */
+  position: relative;
+  z-index: 2;
+}
+
+.chat-head .iconbtn {
+  min-height: 40px;
+  min-width: 40px;
+  font-size: 15px;
+  background: rgba(var(--bg-rgb), 0.7);
+  @supports (color: color-mix(in srgb, red, blue)) {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  }
+  border: 1px solid var(--line-soft);
+}
+
+.chat-head .title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+/* The model this conversation runs on, and the way to change it. A chip
+   rather than a menu item: which model answered is something the person
+   checks while reading, so it belongs on screen. */
+.modelchip {
+  flex: none;
+  max-width: 38%;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg-dim);
+  font-size: 12px;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- model sheet ---- */
+
+.model-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 2px;
+  text-align: left;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.model-row.on {
+  color: var(--accent);
+}
+
+.model-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-provider {
+  font-size: 12px;
+  color: var(--fg-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-mark {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--accent);
+}
+
+.sheet-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+/* A section heading inside a sheet: the same small caps label the settings
+   page uses, so a sheet with two sections reads like one list. */
+.sheet-label {
+  margin: 14px 0 6px;
+  color: var(--fg-dim);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.sheet-label:first-of-type {
+  margin-top: 4px;
+}
+
+.chat-head .title strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-head .title span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconbtn {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 50%;
+  border-color: transparent;
+}
+
+.transcript > * {
+  flex-shrink: 0;
+}
+
+.transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* `--chat-dock` is measured from the floating chrome; the padding is what
+     lets the last row scroll clear of it. */
+  padding: 12px 12px calc(var(--chat-dock, 92px) + 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* The keyboard resizes the viewport; this keeps the newest row visible
+     instead of letting the scroll position drift upward. */
+  overscroll-behavior-y: contain;
+  scroll-padding-bottom: calc(var(--chat-dock, 92px) + 10px);
+}
+
+/* ---- rows ---- */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  max-width: 100%;
+}
+
+/* A person's own words sit right, and never span the full width: the ragged
+   edge is what tells the two speakers apart without a label. */
+.row.user {
+  align-items: flex-end;
+}
+
+/* Answers use the width of the phone. Without this an empty or reasoning-only
+   flex item can collapse to its content and read as a floating chip. */
+.row.assistant {
+  align-items: stretch;
+}
+
+.row.assistant .bubble {
+  align-self: stretch;
+}
+
+.bubble {
+  padding: 10px 12px;
+  border-radius: 16px;
+  font-size: calc(15px * var(--chat-scale));
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.row.user {
+  animation: rx-rise var(--dur-3) var(--ease-out) both;
+}
+
+.row.user .bubble {
+  background: var(--bubble-user);
+  color: var(--on-fill);
+  border-bottom-right-radius: 6px;
+  max-width: 86%;
+  box-shadow: 0 6px 18px rgba(var(--bubble-user-rgb), 0.24);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+  .row.user .bubble {
+    background: linear-gradient(145deg, color-mix(in srgb, var(--bubble-user) 86%, #fff), var(--bubble-user));
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--bubble-user) 24%, transparent);
+  }
+}
+
+.row.assistant .bubble {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 4px 2px;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.bubble .md > :first-child { margin-top: 0; }
+.bubble .md > :last-child { margin-bottom: 0; }
+
+/* ---- markdown ---- */
+
+.md {
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.md p { margin: 0.5em 0; }
+.md h1, .md h2, .md h3, .md h4 {
+  margin: 0.8em 0 0.35em;
+  line-height: 1.3;
+  font-weight: 650;
+}
+.md h1 { font-size: calc(19px * var(--chat-scale)); }
+.md h2 { font-size: calc(17px * var(--chat-scale)); }
+.md h3 { font-size: calc(15.5px * var(--chat-scale)); }
+.md h4 { font-size: calc(14.5px * var(--chat-scale)); }
+
+.md ul, .md ol {
+  margin: 0.45em 0;
+  padding-left: 1.35em;
+}
+.md li { margin: 0.15em 0; }
+.md li > p { margin: 0.2em 0; }
+
+.md blockquote {
+  margin: 0.6em 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--line);
+  color: var(--fg-dim);
+}
+
+.md code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.92em;
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.md pre {
+  margin: 0.6em 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.md pre code {
+  display: block;
+  padding: 0;
+  background: none;
+  font-size: calc(12px * var(--chat-scale));
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.md .table-wrap {
+  margin: 0.6em 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.md table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 100%;
+}
+.md th, .md td {
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md a { color: var(--accent); }
+.md hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 0.8em 0;
+}
+.md img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.md input[type="checkbox"] {
+  margin: 0 4px 0 0;
+  vertical-align: middle;
+}
+
+/* A caret that exists only while text is still arriving. */
+.streaming .bubble::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  to { visibility: hidden; }
+}
+
+/* ---- todos ---- */
+
+/* The list describes the work behind the conversation. It sits between the
+   record and the composer, so a long turn scrolls under it while the next
+   message stays in reach. Collapsed it costs one row. */
+.todos {
+  margin: 0 12px 6px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-raised);
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.todos > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: var(--tap);
+  cursor: pointer;
+  list-style: none;
+}
+
+.todos > summary::-webkit-details-marker { display: none; }
+
+.todos .todo-progress {
+  flex: none;
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.todos .todo-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+
+.todos .todo-count {
+  flex: none;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* What is being worked on is the one line worth keeping when the panel is
+   closed, so it takes the space and truncates rather than wrapping. */
+.todos .todo-current {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todos .chev {
+  flex: none;
+  color: var(--fg-dim);
+  transition: transform 0.15s ease;
+}
+
+.todos[open] .chev { transform: rotate(180deg); }
+
+.todos ol {
+  list-style: none;
+  margin: 0;
+  padding: 0 12px 8px;
+  max-height: 34vh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.todos .todo {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+  line-height: 1.35;
+}
+
+/* A sub-step is indented under its phase; the mark column stays aligned. */
+.todos .todo[data-level="1"] { padding-left: 18px; }
+
+.todos .todo .mark {
+  flex: none;
+  width: 14px;
+  text-align: center;
+  color: var(--fg-dim);
+}
+
+.todos .todo.completed .mark { color: var(--ok); }
+.todos .todo.in_progress .mark { color: var(--accent); }
+.todos .todo.completed .todo-text {
+  color: var(--fg-dim);
+  text-decoration: line-through;
+}
+.todos .todo.in_progress .todo-text { font-weight: 600; }
+
+.todos .todo small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--fg-dim);
+}
+
+.todos .todo-stale {
+  padding: 0 12px 8px;
+  color: var(--warn);
+  font-size: 12px;
+}
+
+/* ---- activity rows ---- */
+
+.activity {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-row,
+.process-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font: inherit;
+}
+
+.activity-row:active,
+.process-row:active {
+  opacity: 0.7;
+}
+
+.activity-icon {
+  flex: none;
+  width: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+
+.activity-icon.think { color: var(--accent); }
+.activity-icon.done { color: var(--ok); }
+.activity-icon.bad { color: var(--bad); }
+.activity-icon.running {
+  color: var(--accent);
+  animation: process-pulse 1.4s ease-in-out infinite;
+}
+
+/* The transcript keeps the screen's height; this chrome rides above it. The
+   gaps between its pieces stay transparent to touch, so a drag started there
+   still scrolls the record underneath. */
+.chat-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* The injected inset knows whether Capacitor already cleared the gesture
+     bar; `env()` never does, so it must not sit inside max() here either. */
+  padding-bottom: calc(8px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  pointer-events: none;
+}
+
+.chat-dock > :not(.jump-latest-wrap) {
+  pointer-events: auto;
+}
+
+/* Reading back through a long answer must not trap the person there: the
+   pair rides the record's lower edge, right-aligned with the composer, and
+   each half disappears at the end it no longer serves. */
+.jump-latest-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: none;
+  padding-right: 12px;
+  pointer-events: none;
+}
+
+.jump-latest {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  color: var(--fg-dim);
+  box-shadow: 0 2px 8px -3px rgba(0, 0, 0, 0.18);
+  animation: rx-rise var(--dur-2) var(--ease-out) both;
+  pointer-events: auto;
+}
+
+.jump-latest svg {
+  width: 16px;
+  height: 16px;
+}
+
+.jump-latest[data-value="up"] svg {
+  rotate: 180deg;
+}
+
+@keyframes process-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-icon.running { animation: none; }
+}
+
+.activity-title {
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.activity-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-dim);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+}
+
+.activity-flag {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--warn);
+  font-size: 11px;
+}
+
+.activity-flag.bad { color: var(--bad); }
+
+.activity .chev,
+.process-row .chev {
+  font-size: 14px;
+  transition: transform 0.15s ease;
+}
+
+.activity.open .chev { transform: rotate(90deg); }
+
+.activity-detail {
+  margin: 0 0 8px 28px;
+  padding: 6px 0 2px 10px;
+  border-left: 2px solid var(--line);
+}
+
+.reasoning-text {
+  white-space: pre-wrap;
+  color: var(--fg-dim);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* ---- thought window (compact fold) ---- */
+
+.thought {
+  margin: 0 0 6px;
+}
+
+.thought-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.thought-row:active {
+  opacity: 0.7;
+}
+
+.thought-label {
+  flex: none;
+  font-weight: 600;
+}
+
+.thought-meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ghost);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.thought .chev {
+  flex: none;
+  font-size: 14px;
+  transition: transform 0.15s ease;
+}
+
+.thought.open .chev {
+  transform: rotate(90deg);
+}
+
+/* Eight lines of thought, scrollable: enough to follow the reasoning without
+   handing the screen back to the wall the compact fold exists to avoid. */
+.thought-body {
+  max-height: calc(1.65em * 8);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 2px 0 4px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--line);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg-sunken);
+  color: var(--fg-dim);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.thought-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thought-body::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.thought-caret {
+  display: inline-block;
+  width: 5px;
+  height: 11px;
+  margin-left: 2px;
+  background: var(--fg-dim);
+  vertical-align: -1px;
+  animation: process-pulse 1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thought-caret {
+    animation: none;
+  }
+}
+
+.process-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.process-count {
+  flex: none;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+/* ---- operation timeline ---- */
+
+.process-sheet .timeline {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-step {
+  position: relative;
+  padding: 0 0 2px 30px;
+}
+
+.timeline-step::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed var(--line);
+}
+
+.timeline-step:last-child::before {
+  bottom: auto;
+  height: 20px;
+}
+
+.timeline-mark {
+  position: absolute;
+  left: 0;
+  top: 11px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--fg-dim);
+  font-size: 10px;
+}
+
+.timeline-mark.think { color: var(--accent); }
+.timeline-mark.done { color: var(--ok); }
+.timeline-mark.bad { color: var(--bad); }
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font: inherit;
+}
+
+.timeline-title {
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.timeline-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-dim);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+}
+
+.timeline-row .chev {
+  font-size: 14px;
+  transition: transform 0.15s ease;
+}
+
+.timeline-step.open .chev { transform: rotate(90deg); }
+
+.timeline-detail {
+  margin: 0 0 8px;
+}
+
+/* A prompt card says what it is; the answered state is a tick, not a sentence. */
+.prompt-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-dim);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.prompt-done {
+  color: var(--ok);
+}
+
+
+/* ---- tool detail ---- */
+
+.tool-detail pre {
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 46vh;
+  overflow: auto;
+  color: var(--fg-dim);
+}
+
+.tool-detail pre.out { color: var(--fg); }
+
+.tool-detail pre.out.diff {
+  padding: 8px 0;
+  white-space: pre;
+  word-break: normal;
+}
+
+.tool-detail .out.diff .line {
+  display: block;
+  min-height: 1.5em;
+  padding: 0 12px;
+}
+
+.tool-detail .out.diff .line.add {
+  background: var(--diff-add);
+  color: var(--diff-add-ink);
+}
+
+.tool-detail .out.diff .line.del {
+  background: var(--diff-del);
+  color: var(--diff-del-ink);
+}
+
+.tool-detail .out.diff .line.hunk {
+  background: var(--bg-raised);
+  color: var(--fg-dim);
+}
+
+.tool-detail .out.diff .line.meta {
+  color: var(--fg-dim);
+  font-weight: 600;
+}
+
+/* A refusal is an identity, not a sentence, so the code leads and the words
+   follow. */
+.tool-detail .refusal {
+  padding: 8px 10px;
+  border: 1px solid var(--bad);
+  border-radius: 10px;
+  color: var(--bad);
+  font-size: 13px;
+}
+
+.tool-detail .refusal code {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ---- notices ---- */
+
+.notice {
+  font-size: 13px;
+  color: var(--fg-dim);
+  padding: 9px 12px;
+  border-left: 2px solid var(--line);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: rgba(var(--bg-raised-rgb), 0.72);
+  @supports (color: color-mix(in srgb, red, blue)) {
+  background: color-mix(in srgb, var(--bg-raised) 72%, transparent);
+  }
+}
+
+.notice.warn { border-left-color: var(--warn); }
+.notice.error { border-left-color: var(--bad); color: var(--bad); }
+
+.notice details { margin-top: 4px; }
+.notice summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; }
+
+/* ---- prompts ---- */
+
+.prompt {
+  border: 1px solid var(--accent);
+  @supports (color: color-mix(in srgb, red, blue)) {
+    border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--line));
+  }
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  @supports (color: color-mix(in srgb, red, blue)) {
+    background:
+      linear-gradient(
+        160deg,
+        color-mix(in srgb, var(--accent) 7%, var(--bg-raised)),
+        var(--bg-raised) 52%
+      );
+  }
+  box-shadow: var(--shadow-1);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prompt .q {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.prompt .why {
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+
+/* A plan card carries the steps approving starts. The list scrolls on its own
+   so a long plan cannot push the allow/refuse buttons off the screen. */
+.plan-steps {
+  max-height: 34vh;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.plan-steps-label {
+  margin-bottom: 4px;
+  color: var(--fg-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-steps ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-steps li {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.plan-steps li[data-level="1"] {
+  padding-left: 16px;
+}
+
+.plan-steps li .mark {
+  flex: none;
+  width: 14px;
+  color: var(--fg-dim);
+}
+
+.plan-steps li.in_progress .mark {
+  color: var(--accent);
+}
+
+.plan-steps li.completed {
+  color: var(--fg-dim);
+}
+
+.plan-steps li.completed .mark {
+  color: var(--ok);
+}
+
+.prompt .choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prompt .choices button {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  text-align: left;
+  padding: 10px 12px;
+  line-height: 1.4;
+  white-space: normal;
+  transition:
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
+}
+
+.prompt .choices button:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.prompt .pick {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+}
+
+.prompt .pick.box {
+  border-radius: 5px;
+}
+
+.prompt .choices button.chosen .pick {
+  border: 4px solid var(--accent);
+}
+
+.prompt .choices button.chosen .pick.box {
+  border: 0;
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--bg-raised);
+}
+
+.prompt .pick-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.prompt .ask-hint {
+  margin: -2px 0 2px;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+.prompt .choices button small {
+  display: block;
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-top: 2px;
+}
+
+.prompt .answered {
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+
+/* A form with several questions is one prompt, so the questions are spaced
+   apart and the confirm button sits under all of them. */
+.prompt .question + .question {
+  margin-top: 12px;
+}
+
+/* A chosen option has to look chosen: multi-select sends what is highlighted,
+   and a phone gives no hover to confirm a tap landed. */
+.prompt .choices button.chosen {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.14);
+  @supports (color: color-mix(in srgb, red, blue)) {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+}
+
+/* The card's own "write it yourself" option: dashed until it is the choice,
+   then it reads like any other selected option. */
+.prompt .choices button.opt-other {
+  border-style: dashed;
+  color: var(--fg-dim);
+}
+
+.prompt .choices button.opt-other.chosen {
+  border-style: solid;
+  color: var(--fg);
+}
+
+.prompt .ask-extra {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+}
+
+.prompt .ask-extra:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.prompt .confirm {
+  margin-top: 12px;
+  padding: 10px 12px;
+  font-weight: 600;
+}
+
+/* Code blocks carry their own copy action and a fixed dark syntax palette:
+   the token colours come from one theme, so the background must match it in
+   both app themes. */
+.md pre {
+  background: #0d1117;
+  border-color: #242b36;
+  color: #c9d1d9;
+}
+.md pre code.hljs {
+  background: transparent;
+  color: inherit;
+}
+.code-block {
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
+}
+/* The copy button floats over the first line, so keep that line clear. */
+.code-block > pre {
+  padding-top: 34px;
+}
+.md pre::-webkit-scrollbar {
+  height: 4px;
+}
+.md pre::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 2px;
+}
+.code-block > .copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 9px;
+  font-size: 11px;
+  background: #161b22;
+  border-color: #30363d;
+  color: #c9d1d9;
+  opacity: 0.85;
+}
+.code-block > .copy:active {
+  opacity: 1;
+}
+.bubble-actions {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+.bubble-actions .copy {
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  opacity: 0.75;
+}
+/* When this client watched the answer land, the row carries the clock beside
+   the copy action — the ZCode answer row's icon-plus-time pattern. */
+.bubble-actions .bubble-at {
+  color: var(--fg-dim);
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* The icon actions Studio puts under a row: copy, quote, fork, regenerate on
+   an answer; time, copy, edit, rewind on a person's words. */
+.row-act {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-dim);
+  opacity: 0.8;
+}
+
+.row-act:active {
+  background: rgba(var(--fg-rgb), 0.06);
+  @supports (color: color-mix(in srgb, red, blue)) {
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  }
+}
+
+.row-act .studio-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.copy.icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-dim);
+  opacity: 0.8;
+}
+
+.copy.icon .studio-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.user-acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  padding: 0 2px;
+}
+
+.user-time {
+  color: var(--fg-dim);
+  font-size: 11px;
+  opacity: 0.8;
+  margin-right: 2px;
+}
+
+/* The turn's close, right-aligned under the answer like Studio's tick line. */
+.worked {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0 0;
+}
+
+.worked-ok {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-dim);
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.worked-tick {
+  width: 13px;
+  height: 13px;
+  color: var(--ok);
+}
+
+/* Rewriting a message before it is sent again. */
+.edit-message-text {
+  width: 100%;
+  min-height: 96px;
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.edit-message-note {
+  margin: 8px 0;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+.edit-message-acts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.prompt .confirm:disabled {
+  opacity: 0.5;
+}
+
+/* ---- composer ---- */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 12px;
+  padding: 8px 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  /* Rows now scroll behind the card; at 88% their blur read as a smudge
+     under the draft. */
+  background: rgba(var(--bg-raised-rgb), 0.96);
+  @supports (color: color-mix(in srgb, red, blue)) {
+  background: color-mix(in srgb, var(--bg-raised) 96%, transparent);
+  }
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16);
+  transition:
+    border-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+
+.composer:focus-within {
+  border-color: var(--line);
+  @supports (color: color-mix(in srgb, red, blue)) {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
+  }
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    0 8px 28px rgba(15, 23, 42, 0.16);
+}
+
+.composer-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.composer-bar .attach {
+  flex: none;
+}
+
+/* A hold is a gesture, not a selection. Without this the WebView draws its
+   text-selection handles over the mic and offers copy once the press is long
+   enough; the glyph is an SVG now, and the control owns the whole press. */
+.composer-bar .iconbtn,
+.composer-bar .send {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.composer-bar .mic {
+  touch-action: none;
+}
+
+.composer-bar .mic svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Press-and-hold dictation. The live strip sits above the textarea, the
+   way a keyboard suggestion bar does; red means the hold is armed to be
+   thrown away. */
+.composer-bar .mic.live {
+  color: var(--accent-fill);
+  background: var(--accent-soft);
+}
+
+.composer-bar .mic.cancel {
+  color: var(--bad);
+  background: rgba(var(--bad-rgb), 0.14);
+}
+
+.voice-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  margin: 0 2px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation: rx-fade var(--dur-1) var(--ease-out);
+}
+
+.voice-live.cancel {
+  background: rgba(var(--bad-rgb), 0.14);
+  color: var(--bad);
+}
+
+/* The microphone level, one sliding bar per 80ms RMS sample from the
+   recognizer. Height is set inline from the level; the base height below
+   is what a silent mic shows. */
+.voice-wave {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 21px;
+}
+
+.voice-wave i {
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.voice-live-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.composer-bar .modelchip {
+  margin: 0 auto;
+}
+
+.composer-bar .send {
+  flex: none;
+}
+
+.composer-model {
+  margin: 0 auto;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+/* What rides with the message: a quoted reply or an uploaded file is one small
+   chip above the box, so neither the quote's lines nor the file's path fill the
+   draft. The row scrolls instead of wrapping. */
+.composer-chips {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 2px 6px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.composer-chips::-webkit-scrollbar { display: none; }
+
+.composer .attachment,
+.quote-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  max-width: min(170px, 49vw);
+  padding: 4px 5px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+.composer .attachment img,
+.composer .attachment-file,
+.quote-glyph {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.composer .attachment img {
+  object-fit: cover;
+}
+
+.composer .attachment-file {
+  background: rgba(var(--fg-rgb), 0.05);
+  color: var(--fg-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.quote-glyph {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.composer .attachment-meta,
+.quote-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.composer .attachment-name,
+.quote-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.composer .attachment-name {
+  max-width: 84px;
+}
+
+.quote-name {
+  max-width: 92px;
+}
+
+.composer .attachment-kind,
+.quote-lines {
+  color: var(--fg-dim);
+  font-size: 10px;
+}
+
+.attachment-thumb {
+  display: block;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.chip-remove {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-dim);
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* `+` opens the attach sheet; the model sits between it and the stop control,
+   where Qoder puts it, so the header carries only the conversation's name. */
+.attach-glyph {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  font-size: 13px;
+}
+
+.attach-actions button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.attach-actions button small {
+  margin-left: auto;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+.head-menu .sheet-actions button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.head-menu .sheet-actions button small {
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+/* A reading, not an action: the cache split sits with the session's numbers
+   without pretending to be a switch. */
+.head-menu .sheet-actions .head-menu-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 6px;
+  font-size: 15px;
+}
+
+.head-menu .sheet-actions .head-menu-note small {
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+/* The posture is a session setting; its five rows live with the conversation
+   they change, not in the machine-wide settings page. */
+.approval-choices {
+  display: flex;
+  flex-direction: column;
+}
+
+.approval-choices button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-size: 15px;
+}
+
+.approval-choices button + button {
+  border-top: 1px solid var(--line);
+}
+
+.approval-choices button small {
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+.approval-choices button.on {
+  color: var(--accent);
+}
+
+.approval-choices button.on small {
+  color: var(--accent);
+}
+
+.approval-choices button:disabled {
+  opacity: 0.5;
+}
+
+.checkpoints-sheet .checkpoint-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.checkpoint-list small {
+  color: var(--fg-dim);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.rewind-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+.rewind-plan strong {
+  font-size: 15px;
+}
+
+.rewind-plan p {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.rewind-plan .rewind-gap {
+  color: var(--warn);
+}
+
+.rewind-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.rewind-actions .chip {
+  flex: 1;
+}
+
+/* What the kernel said about the last message sent into a running turn. A
+   strip above the composer, because it answers "did my interruption land?" and
+   that question is asked while looking at the composer. */
+.inbox-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--fg-dim);
+  font-size: 13px;
+}
+
+.inbox-note span {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox-note button {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-dim);
+}
+
+/* 排队 / 插话: two ways into a turn that is still running. They sit above the
+   composer, where the draft is, so the send slot keeps its own meaning (stop). */
+.interject {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 6px;
+  background: transparent;
+}
+
+.chip {
+  flex: 1;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.chip.accent {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.composer textarea {
+  width: 100%;
+  min-height: 38px;
+  /* Grows with content up to a third of the screen, then scrolls: a composer
+     that eats the transcript is worse than one that scrolls. */
+  max-height: 33vh;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  resize: none;
+  overflow-y: auto;
+}
+
+.composer textarea:focus {
+  outline: none;
+}
+
+.composer .send {
+  flex: none;
+  width: var(--tap);
+  min-width: var(--tap);
+  padding: 0;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-fill);
+  font-size: 16px;
+  box-shadow: 0 6px 16px rgba(var(--accent-fill-rgb), 0.3);
+  @supports (color: color-mix(in srgb, red, blue)) {
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent-fill) 30%, transparent);
+  }
+}
+
+.composer .send:active:not(:disabled) {
+  background: var(--accent-press);
+  transform: scale(0.94);
+}
+
+.composer .send:disabled {
+  opacity: 0.4;
+}
+
+.composer .stop {
+  width: auto;
+  min-width: 56px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--bad);
+  border-color: var(--bad);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.composer .attach {
+  flex: none;
+  width: var(--tap);
+  min-width: var(--tap);
+  padding: 0;
+  border-radius: 50%;
+  background: var(--bg);
+}
+
+.composer .attach:disabled {
+  opacity: 0.4;
+}
+
+.file-input {
+  display: none;
+}
+
+/* The images waiting to be sent: a wrapping row of chips, because a phone can
+   now pick several and they must not push the composer off screen. */
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 12px 8px;
+}
+
+.attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+.attachment img {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.attachment span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment button {
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+.message-images {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.message-image {
+  display: block;
+  max-width: min(100%, 280px);
+  max-height: 260px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.message-images.multi {
+  flex-direction: row;
+  flex-wrap: wrap;
+  max-width: min(100%, 280px);
+}
+
+.message-images.multi .message-image {
+  width: 88px;
+  height: 88px;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.message-image-button {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  cursor: zoom-in;
+}
+
+.message-image-button .message-image {
+  display: block;
+}
+
+.image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.94);
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.image-viewer-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.image-viewer-stage img {
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
+}
+
+.image-viewer-close {
+  position: absolute;
+  top: calc(12px + var(--rx-inset-top, env(safe-area-inset-top, 0px)));
+  right: 12px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.sendfail {
+  font-size: 13px;
+  color: var(--bad);
+  padding: 0 12px 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sendfail button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+/* ---- states ---- */
+
+.centered {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--fg-dim);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.centered strong {
+  color: var(--fg);
+  display: block;
+  margin-bottom: 6px;
+  font-size: 16px;
+}
+
+/* The reason a read failed, under the sentence that says it did. Small and
+   dim: it is for whoever reports the problem, not the first thing to read. */
+.centered .hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.62;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- structured ask (surface) ---- */
+
+/* A surface card sits inside `.row.prompt`, which already draws the frame;
+   this only lays out what the kernel described. */
+.surface {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.surface-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.surface-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.surface-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.surface-row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.surface-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.surface-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.surface-tone-dim { color: var(--fg-dim); }
+.surface-tone-strong { font-weight: 600; }
+.surface-tone-ok { color: var(--ok); }
+.surface-tone-warn { color: var(--warn); }
+.surface-tone-err { color: var(--bad); }
+.surface-tone-accent { color: var(--accent); }
+
+.surface-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.surface-kv-key {
+  color: var(--fg-dim);
+  flex: none;
+}
+
+.surface-kv-value {
+  text-align: right;
+  word-break: break-word;
+}
+
+.surface-pip {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-dim);
+}
+
+.surface-pip.surface-tone-ok { background: var(--ok); }
+.surface-pip.surface-tone-warn { background: var(--warn); }
+.surface-pip.surface-tone-err { background: var(--bad); }
+.surface-pip.surface-tone-accent { background: var(--accent); }
+
+.surface-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.surface-meter-label {
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+
+.surface-meter-track {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.surface-meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.surface-meter-fill.surface-tone-ok { background: var(--ok); }
+.surface-meter-fill.surface-tone-warn { background: var(--warn); }
+.surface-meter-fill.surface-tone-err { background: var(--bad); }
+
+.surface-divider {
+  height: 1px;
+  background: var(--line);
+}
+
+.surface-diff summary {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.surface-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.surface-dash-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.surface-dash-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.surface-dash-cat {
+  flex: none;
+  width: 44px;
+  color: var(--fg-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.surface-dash-bars {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.surface-dash-bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  min-width: 2px;
+}
+
+.surface-action {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 6px 0;
+}
+
+/* A field: the label over its control, because a phone cannot put a label and
+   an input side by side without shrinking both. */
+.surface-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.surface-field-label {
+  color: var(--fg-dim);
+  font-size: 13px;
+}
+
+.surface-required {
+  color: var(--bad);
+  margin-left: 3px;
+}
+
+.surface-field input[type="text"],
+.surface-field input[type="number"] {
+  min-height: var(--tap);
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 16px;
+}
+
+.surface-field input:disabled {
+  opacity: 0.6;
+}
+
+.surface-bool {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.surface-bool input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.surface-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.surface-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.surface-cards button {
+  flex: 1 1 45%;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+  padding: 10px 12px;
+  line-height: 1.35;
+}
+
+.surface-choices button,
+.surface-cards button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.surface-choices button small,
+.surface-cards button small {
+  color: var(--fg-dim);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.surface-choices button.chosen,
+.surface-cards button.chosen {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.surface-preview {
+  font-family: ui-monospace, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ---- context sheet ---- */
+
+/* The two halves of the gauge: the number a person came for, and the ratio
+   that makes it mean something. Tabular figures keep the total from shifting
+   as a turn grows it. */
+.context-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.context-total {
+  flex: 1;
+  font-size: 22px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.context-percent {
+  color: var(--fg-dim);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* From 80% the reading is a warning, not a report: the same colour the desktop
+   uses, with no dialog to dismiss. */
+.context-percent.warn {
+  color: var(--warn);
+}
+
+.context-bar {
+  display: block;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.context-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-fill), var(--ok));
+  transition: width var(--dur-3) var(--ease-out);
+}
+
+.context-bar.warn i {
+  background: var(--warn);
+}
+
+/* One row per class, the label left and its cost right: a table without the
+   rules, because four numbers do not need a grid. */
+.context-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.context-rows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 14px;
+}
+
+.context-rows li + li {
+  border-top: 1px solid var(--line-soft);
+}
+
+.context-rows li span:last-child {
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one action in the sheet, so it carries the accent rather than sitting
+   among settings rows. */
+.context-compact {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent-fill);
+  color: var(--on-fill);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.context-compact:disabled {
+  opacity: 0.6;
+}
+
+
+
+.prompt.wizard {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.wizard-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 6px;
+}
+
+.wizard-head .prompt-head {
+  padding: 0;
+}
+
+.wizard-count {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+
+.wizard-tabs {
+  display: flex;
+  gap: 16px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line-soft);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.wizard-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.wizard-tabs button {
+  flex: none;
+  min-height: 34px;
+  padding: 0 0 7px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.wizard-tabs button.on {
+  color: var(--fg);
+  font-weight: 650;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.wizard-done {
+  margin-left: 3px;
+  color: var(--ok);
+  font-size: 10px;
+}
+
+.wizard-step {
+  padding: 10px 12px 0;
+}
+
+.wizard-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 9px 12px 11px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.wizard-gap {
+  flex: 1;
+}
+
+.wizard-prev {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 12px;
+}
+
+.wizard-prev:disabled {
+  opacity: 0.4;
+}
+
+.wizard-next {
+  min-height: 34px;
+  font-size: 12px;
+}
+
+.prompt.wizard .confirm {
+  min-height: 34px;
+  margin-top: 0;
+  font-size: 12px;
+}
+
+[data-style="paper"] .chat-head {
+  margin: 6px 16px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-style="paper"] .chat-head .iconbtn {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+}
+
+[data-style="paper"] .chat-head .title strong {
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+[data-style="paper"] .composer {
+  background: var(--bg-raised);
+  border-color: var(--line-strong, var(--line));
+}
+
+.interject .chip {
+  border-color: var(--line-strong);
+}
+
+.voice-live-text {
+  flex: 1;
+}

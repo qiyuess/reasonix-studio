@@ -1,0 +1,140 @@
+/**
+ * The native foreground-service bridge.
+ *
+ * Browser builds and tests have no service; both helpers become no-ops there.
+ * Failures are swallowed by design: a missing notification must never fail a
+ * turn that the kernel is already running.
+ */
+
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
+export interface TurnLink {
+  title?: string;
+  /** The runtime's request prefix, e.g. `/rt/ab12`. */
+  base?: string;
+  /** The project root, carried so the notification can open the chat. */
+  root?: string;
+  runtimeId?: string;
+}
+
+export interface BackgroundStatus {
+  /** The system allows this app to run outside its battery optimizations. */
+  exempt: boolean;
+  /** The system will show this app's notifications. */
+  notifications: boolean;
+}
+
+export interface NativeDiagnostics {
+  version?: string;
+  build?: number;
+  android?: string;
+  sdk?: number;
+  model?: string;
+  manufacturer?: string;
+  exempt?: boolean;
+  notifications?: boolean;
+}
+
+interface TurnNotificationsPlugin {
+  start(options: TurnLink): Promise<void>;
+  stop(options: { completed?: boolean }): Promise<void>;
+  setNotificationOptions(options: { showOptions: boolean }): Promise<void>;
+  setNotificationPrefs(options: {
+    ongoing?: boolean;
+    ask?: boolean;
+    done?: boolean;
+    headsUp?: boolean;
+  }): Promise<void>;
+  backgroundStatus(): Promise<BackgroundStatus>;
+  diagnostics(): Promise<NativeDiagnostics>;
+  openBatterySettings(): Promise<void>;
+  openNotificationSettings(): Promise<void>;
+}
+
+const TurnNotifications = registerPlugin<TurnNotificationsPlugin>("TurnNotifications");
+
+export function startTurnNotification(link: TurnLink = {}): void {
+  if (!Capacitor.isNativePlatform()) return;
+  const options: TurnLink = {};
+  if (link.title) options.title = link.title;
+  if (link.base) options.base = link.base;
+  if (link.root) options.root = link.root;
+  if (link.runtimeId) options.runtimeId = link.runtimeId;
+  void TurnNotifications.start(options).catch(() => {
+    // The notification is a convenience; the turn is not.
+  });
+}
+
+export function stopTurnNotification(completed = false): void {
+  if (!Capacitor.isNativePlatform()) return;
+  void TurnNotifications.stop({ completed }).catch(() => {
+    // Nothing to do; the service stops with the process anyway.
+  });
+}
+
+/** Inline ask options in the notification, or only the open-the-chat action. */
+export function setNotificationOptions(showOptions: boolean): void {
+  if (!Capacitor.isNativePlatform()) return;
+  void TurnNotifications.setNotificationOptions({ showOptions }).catch(() => {
+    // The next app start writes the choice again.
+  });
+}
+
+/**
+ * Push the notification choices to the service.
+ *
+ * Only the fields given are sent, so a caller that changed one switch does not
+ * have to know the others. The service posts notifications while the WebView
+ * is gone, which is why this is a push rather than something it reads from the
+ * page: by the time a background turn finishes there is no page left to ask.
+ */
+export function applyNotificationPrefs(prefs: {
+  ongoing?: boolean;
+  ask?: boolean;
+  done?: boolean;
+  headsUp?: boolean;
+}): void {
+  if (!Capacitor.isNativePlatform()) return;
+  void TurnNotifications.setNotificationPrefs(prefs).catch(() => {
+    // The next app start writes the choices again.
+  });
+}
+
+/**
+ * Whether notifications and battery settings let this app work in the
+ * background. `null` in a browser, or when the native side cannot answer —
+ * the screen then hides the rows rather than claiming a state it does not
+ * know.
+ */
+export async function loadBackgroundStatus(): Promise<BackgroundStatus | null> {
+  if (!Capacitor.isNativePlatform()) return null;
+  try {
+    return await TurnNotifications.backgroundStatus();
+  } catch {
+    return null;
+  }
+}
+
+export function openBatterySettings(): void {
+  if (!Capacitor.isNativePlatform()) return;
+  void TurnNotifications.openBatterySettings().catch(() => {
+    // No settings page on this device; the hint stays as a sentence.
+  });
+}
+
+/** Native facts for the copy-diagnostics row; null in a browser. */
+export async function readNativeDiagnostics(): Promise<NativeDiagnostics | null> {
+  if (!Capacitor.isNativePlatform()) return null;
+  try {
+    return await TurnNotifications.diagnostics();
+  } catch {
+    return null;
+  }
+}
+
+export function openNotificationSettings(): void {
+  if (!Capacitor.isNativePlatform()) return;
+  void TurnNotifications.openNotificationSettings().catch(() => {
+    // Same as above.
+  });
+}

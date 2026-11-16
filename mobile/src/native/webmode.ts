@@ -1,0 +1,31 @@
+import { registerPlugin } from "@capacitor/core";
+
+/**
+ * The paired computer's own Studio page, in a full-screen app WebView.
+ *
+ * The kernel serves the whole Studio frontend on its port, but a LAN door
+ * loads it through the app's loopback proxy: the proxy is what pins the
+ * connection to Wi-Fi when a VPN owns the default route, adds the pairing
+ * cookie and speaks the kernel's own CSRF Origin. A bare WebView on the kernel
+ * address loses all three and times out. The activity is still plain — the
+ * page owns its connection and its SSE stream — it is the *origin* that moves.
+ */
+export interface WebModePlugin {
+  open(options: {
+    url: string;
+    /** The URL belongs to the loopback proxy, not the kernel itself. */
+    viaProxy?: boolean;
+    /** The real kernel origin, so absolute self-links can be rewritten. */
+    origin?: string;
+    /**
+     * Hosts the page may navigate to and keep running here.
+     *
+     * A page that hands itself to a second host of the same visit is still the
+     * same page, not an external link. Matched by exact host over https;
+     * anything else still goes to the system browser.
+     */
+    allowHosts?: string[];
+  }): Promise<void>;
+}
+
+export const WebMode = registerPlugin<WebModePlugin>("WebMode");

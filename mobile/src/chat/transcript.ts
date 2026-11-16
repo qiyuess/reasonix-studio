@@ -1,0 +1,738 @@
+/**
+ * Folds an event stream into the rows a phone renders.
+ *
+ * The kernel streams deltas; a person reads turns. The fold answers three
+ * questions the wire does not: when a run of `text` becomes one bubble, when a
+ * tool call belongs to the turn above it, and what a turn that never finished
+ * leaves behind.
+ *
+ * Rows are appended and mutated in place, and the array is copied on every
+ * change, so a renderer can compare by reference and key on row id.
+ */
+
+import type { EventPayload, WireAsk, WireApproval, WireTool } from "../wire/events";
+
+export interface ToolRow {
+  kind: "tool";
+  id: string;
+  name: string;
+  args?: string;
+  output?: string;
+  err?: string;
+  refusalCode?: string;
+  outputDiff: boolean;
+  readOnly: boolean;
+  /** A dispatch with no result yet: the call is still running. */
+  running: boolean;
+  /**
+   * What the model thought before making this call, carried over from the
+   * reasoning-only step that preceded it. Folded into the card instead of
+   * being drawn as its own bubble: a 20-step turn would otherwise be 20 empty
+   * "思考了" cards, and dropping it entirely loses the only account of why the
+   * tool was called.
+   */
+  reasoning?: string;
+}
+
+export interface AssistantRow {
+  kind: "assistant";
+  id: string;
+  text: string;
+  reasoning: string;
+  thoughtMs?: number;
+  streaming: boolean;
+  /**
+   * Wall clock of when the answer stopped streaming, stamped by this client.
+   * History-rebuilt rows have none — the wire carries no per-message time —
+   * so an action row shows the clock only when it actually watched the end.
+   */
+  finishedAt?: number;
+}
+
+export interface UserRow {
+  kind: "user";
+  id: string;
+  text: string;
+  /** Drawn before the kernel's `turn_started` confirms the send. */
+  local?: boolean;
+  /** The session index of the authored message, when the wire named it. */
+  msgIndex?: number;
+  /** When it landed: `createdAt` from history, or this client's clock live. */
+  at?: number;
+}
+
+/**
+ * The close of a turn: a tick and how long it ran, as Studio draws it. Only
+ * worth a line when the turn actually took time — under half a second the
+ * duration would round to nothing.
+ */
+export interface WorkedRow {
+  kind: "worked";
+  id: string;
+  ms: number;
+}
+
+export interface NoticeRow {
+  kind: "notice";
+  id: string;
+  text: string;
+  detail?: string;
+  level: string;
+}
+
+export interface AskRow {
+  kind: "ask";
+  id: string;
+  ask: WireAsk;
+  /** Cleared once answered; the row stays as the record of what was asked. */
+  pending: boolean;
+  /**
+   * What the person picked, by question id. Kept so a row answered on another
+   * device — which therefore never saw its own reply — still reads as answered
+   * rather than as a prompt nobody got to.
+   */
+  selected?: Record<string, string[]>;
+}
+
+export interface ApprovalRow {
+  kind: "approval";
+  id: string;
+  approval: WireApproval;
+  pending: boolean;
+  /** How it was settled, once something said so. */
+  outcome?: string;
+}
+
+export type Row =
+  | UserRow
+  | AssistantRow
+  | ToolRow
+  | NoticeRow
+  | AskRow
+  | ApprovalRow
+  | WorkedRow;
+
+export interface Transcript {
+  rows: Row[];
+  /** True between `turn_started` and `turn_done`. */
+  running: boolean;
+  /** Set when the last turn ended in failure or cancellation. */
+  ended?: { cancelled: boolean; error?: string; outcome?: string };
+  /** The model the last turn named, for the composer to show. */
+  modelRef?: string;
+  /**
+   * A relay replay was incomplete. The transcript is missing a stretch of
+   * events, and the screen must offer a reload instead of quietly continuing.
+   */
+  gap?: boolean;
+}
+
+export const emptyTranscript: Transcript = { rows: [], running: false };
+
+let counter = 0;
+
+function nextId(prefix: string): string {
+  counter += 1;
+  return `${prefix}-${counter}`;
+}
+
+/** Reset the id counter. Tests only: ids must stay stable within a session. */
+export function resetIds(): void {
+  counter = 0;
+}
+
+/**
+ * A row the phone draws while `POST /submit` is in flight.
+ *
+ * `turn_started` marks the start of the user's turn but carries no text, so it
+ * confirms the oldest unconfirmed row instead of appending one. A text-bearing
+ * frame from an older kernel still matches by text.
+ */
+export function optimisticUser(text: string): UserRow {
+  return { kind: "user", id: nextId("local"), text, local: true };
+}
+
+/** Remove an unconfirmed row when its submit failed. Confirmed rows stay. */
+export function removeLocalUser(transcript: Transcript, id: string): Transcript {
+  const rows = transcript.rows.filter(
+    (row) => !(row.kind === "user" && row.local === true && row.id === id),
+  );
+  return rows.length === transcript.rows.length ? transcript : { ...transcript, rows };
+}
+
+/** The oldest unconfirmed row, optionally narrowed to one text, is this turn. */
+function confirmLocalUser(
+  rows: Row[],
+  text?: string,
+  msgIndex?: number,
+): Row[] | null {
+  let at = -1;
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (
+      row?.kind === "user" &&
+      row.local === true &&
+      (text === undefined || row.text === text)
+    ) {
+      at = index;
+      break;
+    }
+  }
+  if (at < 0) return null;
+  const next = rows.slice();
+  const row = rows[at];
+  if (row?.kind === "user") {
+    next[at] = {
+      ...row,
+      local: false,
+      at: row.at ?? Date.now(),
+      ...(msgIndex !== undefined ? { msgIndex } : {}),
+    };
+  }
+  return next;
+}
+
+/**
+ * A reasoning-only bubble is a step, not an answer: once its tool call starts,
+ * the thought belongs to that call. This folds it into the tool card rather
+ * than leaving a second bubble — a long agent turn would read as a wall of
+ * empty "思考了" cards on a phone — and returns the thought so the caller can
+ * attach it.
+ */
+function takeTrailingThought(rows: Row[]): { rows: Row[]; reasoning: string } {
+  let end = rows.length;
+  while (end > 0) {
+    const row = rows[end - 1];
+    if (row?.kind === "assistant" && row.text === "" && row.reasoning !== "") {
+      end -= 1;
+      continue;
+    }
+    break;
+  }
+  if (end === rows.length) return { rows, reasoning: "" };
+  const thought = rows
+    .slice(end)
+    .map((row) => (row.kind === "assistant" ? row.reasoning : ""))
+    .filter(Boolean)
+    .join("\n\n");
+  return { rows: rows.slice(0, end), reasoning: thought };
+}
+
+/**
+ * The kernel keeps operator notices ("no API key set") out of the end-user
+ * conversation, and so does the phone: that audience is about the machine.
+ */
+function isOperatorNotice(event: EventPayload): boolean {
+  return event.audience === "operator";
+}
+
+function openAssistant(): AssistantRow {
+  return {
+    kind: "assistant",
+    id: nextId("assistant"),
+    text: "",
+    reasoning: "",
+    streaming: true,
+  };
+}
+
+function isOpenAssistant(row: Row): row is AssistantRow {
+  return row.kind === "assistant" && row.streaming;
+}
+
+/**
+ * The answer a settled `message` frame belongs to: the newest assistant bubble
+ * still streaming, searched back from the end. -1 when there is none.
+ *
+ * Not simply the last row. A tool call the answer made lands between its
+ * deltas and the frame that settles it, so `text -> tool -> message` is one
+ * answer — and reading only the last row drew that answer twice, once as the
+ * deltas and once as the settled copy below the tool card.
+ *
+ * The search stops at a user row: an answer can never settle into the turn
+ * before it.
+ */
+function settledAnswerIndex(rows: Row[]): number {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row === undefined) break;
+    if (row.kind === "user") return -1;
+    if (isOpenAssistant(row)) return i;
+  }
+  return -1;
+}
+
+/**
+ * Append, or extend the last row when it is the one this event continues.
+ *
+ * Neither branch mutates: a renderer holds the previous transcript, and a fold
+ * that edits rows in place would rewrite a snapshot already on screen.
+ */
+function appendOrExtend<T extends Row>(
+  rows: Row[],
+  extendsLast: (row: Row) => boolean,
+  make: () => T,
+  extend: (row: T) => T,
+): Row[] {
+  const last = rows[rows.length - 1];
+  if (last !== undefined && extendsLast(last)) {
+    return [...rows.slice(0, -1), extend(last as T)];
+  }
+  return [...rows, make()];
+}
+
+function closeStreaming(rows: Row[], stampClock: boolean): Row[] {
+  return rows.map((row) => {
+    if (row.kind === "assistant" && row.streaming)
+      return {
+        ...row,
+        streaming: false,
+        ...(stampClock ? { finishedAt: Date.now() } : {}),
+      };
+    if (row.kind === "tool" && row.running) return { ...row, running: false };
+    return row;
+  });
+}
+
+/**
+ * Close the prompt with this id, and only that one.
+ *
+ * Returns the array it was given when nothing matched, so a receipt for a
+ * prompt this transcript never drew costs no re-render.
+ */
+function closePrompt(rows: Row[], id: string, outcome: string): Row[] {
+  let changed = false;
+  const next = rows.map((row) => {
+    if (row.kind === "ask" && row.pending && row.id === id) {
+      changed = true;
+      return { ...row, pending: false };
+    }
+    if (row.kind === "approval" && row.pending && row.id === id) {
+      changed = true;
+      return { ...row, pending: false, outcome };
+    }
+    return row;
+  });
+  return changed ? next : rows;
+}
+
+/**
+ * Close every prompt still waiting.
+ *
+ * A turn that ended cannot be waiting on a question: the ask broker settles
+ * anything it was blocked on when the turn goes away. So a prompt left pending
+ * past `turn_done` is one whose receipt was lost, and leaving it pending would
+ * show a question that can never be answered.
+ */
+function closePending(rows: Row[]): Row[] {
+  let changed = false;
+  const next = rows.map((row) => {
+    if (row.kind === "ask" && row.pending) {
+      changed = true;
+      return { ...row, pending: false };
+    }
+    if (row.kind === "approval" && row.pending) {
+      changed = true;
+      return { ...row, pending: false, outcome: "turn_ended" };
+    }
+    return row;
+  });
+  return changed ? next : rows;
+}
+
+/**
+ * Re-draw a prompt this transcript may already hold.
+ *
+ * The kernel's prompt delivery is at-least-once by design: the original frame
+ * is numbered into the replay log, every (re)connection is handed a snapshot of
+ * what the run is blocked on, and each SSE reconnect takes both again. Folding
+ * each copy into its own row drew the same question once per reconnect — three
+ * identical cards for one ask. The id is the identity: a copy for a prompt this
+ * transcript already holds updates that row in place and keeps the answer state
+ * the row has already earned — a replay must not reopen a question a receipt
+ * has settled.
+ */
+function upsertAsk(rows: Row[], ask: WireAsk): Row[] | null {
+  const index = rows.findIndex((row) => row.kind === "ask" && row.id === ask.id);
+  if (index < 0) return [...rows, { kind: "ask", id: ask.id, ask, pending: true }];
+  const existing = rows[index];
+  if (existing === undefined || existing.kind !== "ask") return null;
+  // An unchanged copy costs no re-render, which a reconnecting phone sends
+  // several of per minute while a prompt sits unanswered.
+  if (JSON.stringify(existing.ask) === JSON.stringify(ask)) return null;
+  const next = rows.slice();
+  next[index] = { ...existing, ask };
+  return next;
+}
+
+function upsertApproval(rows: Row[], approval: WireApproval): Row[] | null {
+  const index = rows.findIndex((row) => row.kind === "approval" && row.id === approval.id);
+  if (index < 0) return [...rows, { kind: "approval", id: approval.id, approval, pending: true }];
+  const existing = rows[index];
+  if (existing === undefined || existing.kind !== "approval") return null;
+  if (JSON.stringify(existing.approval) === JSON.stringify(approval)) return null;
+  const next = rows.slice();
+  next[index] = { ...existing, approval };
+  return next;
+}
+
+/**
+ * Close an approval this screen settled itself.
+ *
+ * The kernel also sends a receipt for it, but that is a separate round trip
+ * through the stream: without this the card keeps its buttons until the
+ * receipt arrives, and a person who taps twice sends two answers.
+ */
+export function closeApproval(
+  transcript: Transcript,
+  approvalId: string,
+  outcome: string,
+): Transcript {
+  const rows = closePrompt(transcript.rows, approvalId, outcome);
+  return rows === transcript.rows ? transcript : { ...transcript, rows };
+}
+
+/** Record what was picked, so the row can say it after the fact. */
+export function markAnswered(
+  transcript: Transcript,
+  askId: string,
+  selected: Record<string, string[]>,
+): Transcript {
+  let changed = false;
+  const rows = transcript.rows.map((row) => {
+    if (row.kind !== "ask" || row.id !== askId) return row;
+    changed = true;
+    return { ...row, pending: false, selected: { ...row.selected, ...selected } };
+  });
+  return changed ? { ...transcript, rows } : transcript;
+}
+
+/**
+ * Close a structured question once the kernel accepted its values.
+ *
+ * The values themselves are kept in the form component, not here: a surface
+ * answer is an object of typed fields, and flattening it into the label map
+ * this row uses for option questions would render as a list of `[object
+ * Object]`. The row only needs to stop being answerable.
+ */
+export function markAnsweredSurface(transcript: Transcript, askId: string): Transcript {
+  let changed = false;
+  const rows = transcript.rows.map((row) => {
+    if (row.kind !== "ask" || row.id !== askId) return row;
+    changed = true;
+    return { ...row, pending: false };
+  });
+  return changed ? { ...transcript, rows } : transcript;
+}
+
+/** The name a row shows: a proxy's real target when the kernel names it. */
+function displayToolName(tool: WireTool): string {
+  const resolved = tool.resolvedName?.trim();
+  return resolved ? resolved : tool.name;
+}
+
+function toolRow(tool: WireTool, fallbackId: string, running: boolean): ToolRow {
+  const base: ToolRow = {
+    kind: "tool",
+    // The kernel's own id when it has one: a result pairs against it.
+    id: tool.id !== undefined && tool.id !== "" ? tool.id : fallbackId,
+    name: displayToolName(tool),
+    outputDiff: tool.outputDiff === true,
+    readOnly: tool.readOnly === true,
+    running,
+  };
+  if (tool.args) base.args = tool.args;
+  if (tool.output) base.output = tool.output;
+  if (tool.err) base.err = tool.err;
+  if (tool.refusalCode) base.refusalCode = tool.refusalCode;
+  return base;
+}
+
+/**
+ * Apply one event.
+ *
+ * Returns the same object when nothing changed, so a renderer can skip frames
+ * that only carry transport metadata.
+ */
+/**
+ * Apply one event.
+ *
+ * Returns the same object when nothing changed, so a renderer can skip frames
+ * that only carry transport metadata.
+ *
+ * `stampClock` is the caller vouching that this frame arrived while the phone
+ * watched the turn live. Only a vouched answer gets `finishedAt`: the wire
+ * carries no per-message time, and a clock stamped at receive time would read
+ * as a landing time for a frame a reconnect replayed long after the fact —
+ * which is exactly what a backlog batch is.
+ */
+export function reduce(
+  transcript: Transcript,
+  event: EventPayload,
+  options?: { stampClock?: boolean },
+): Transcript {
+  const stampClock = options?.stampClock === true;
+  switch (event.kind) {
+    case "turn_started": {
+      // A new turn closes whatever bubble the last one left open: a turn that
+      // died mid-stream must not keep absorbing the next turn's text.
+      const rows = closeStreaming(transcript.rows, stampClock);
+      const next: Transcript = {
+        rows,
+        running: true,
+        // A gap stays visible until a history reload clears it; ending this
+        // turn does not make the missing stretch reappear.
+        ...(transcript.gap === true ? { gap: true } : {}),
+        ...(typeof event.modelRef === "string" ? { modelRef: event.modelRef } : {}),
+      };
+      const text = typeof event.text === "string" ? event.text : "";
+      const msgIndex = typeof event.msgIndex === "number" ? event.msgIndex : undefined;
+      // A continuation after an ask re-announces the message it is about.
+      // The index names that message, so the same one is not drawn twice.
+      if (
+        msgIndex !== undefined &&
+        rows.some((row) => row.kind === "user" && row.msgIndex === msgIndex)
+      ) {
+        return next;
+      }
+      if (!text) {
+        const confirmed = confirmLocalUser(rows, undefined, msgIndex);
+        return confirmed ? { ...next, rows: confirmed } : next;
+      }
+      const confirmed = confirmLocalUser(rows, text, msgIndex);
+      if (confirmed) return { ...next, rows: confirmed };
+      return {
+        ...next,
+        rows: [
+          ...rows,
+          {
+            kind: "user",
+            id: nextId("user"),
+            text,
+            at: Date.now(),
+            ...(msgIndex !== undefined ? { msgIndex } : {}),
+          },
+        ],
+      };
+    }
+
+    case "steer": {
+      const text = typeof event.text === "string" ? event.text : "";
+      if (!text) return transcript;
+      return {
+        ...transcript,
+        rows: [...transcript.rows, { kind: "user", id: nextId("steer"), text }],
+      };
+    }
+
+    case "text": {
+      const delta = typeof event.text === "string" ? event.text : "";
+      if (!delta) return transcript;
+      const rows = appendOrExtend(
+        transcript.rows,
+        isOpenAssistant,
+        () => ({ ...openAssistant(), text: delta }),
+        (row) => ({ ...row, text: row.text + delta }),
+      );
+      return { ...transcript, rows };
+    }
+
+    case "reasoning": {
+      const delta = typeof event.reasoning === "string" ? event.reasoning : "";
+      if (!delta) return transcript;
+      const rows = appendOrExtend(
+        transcript.rows,
+        isOpenAssistant,
+        () => ({ ...openAssistant(), reasoning: delta }),
+        (row) => ({ ...row, reasoning: row.reasoning + delta }),
+      );
+      return { ...transcript, rows };
+    }
+
+    case "message": {
+      // The finished answer, replacing whatever the deltas built up.
+      const text = typeof event.text === "string" ? event.text : "";
+      const reasoning = typeof event.reasoning === "string" ? event.reasoning : "";
+      // A tool-call-only step produces a `message` with nothing to say. Its
+      // tool rows carry the work; an empty bubble would be a blank strip.
+      if (!text && !reasoning) return transcript;
+      const thoughtMs = typeof event.thoughtMs === "number" ? event.thoughtMs : undefined;
+      // The clock only lands on an answer the caller vouched for; see reduce.
+      const finishedAt = stampClock ? Date.now() : undefined;
+      const settled = settledAnswerIndex(transcript.rows);
+      // Settle the bubble the deltas built, wherever the turn's tool calls
+      // pushed it to; only a genuinely new answer appends a row.
+      const rows =
+        settled >= 0
+          ? transcript.rows.map((row, index) =>
+              index === settled && row.kind === "assistant"
+                ? {
+                    ...row,
+                    ...(text ? { text } : {}),
+                    ...(reasoning ? { reasoning } : {}),
+                    ...(thoughtMs !== undefined ? { thoughtMs } : {}),
+                    ...(finishedAt !== undefined ? { finishedAt } : {}),
+                    streaming: false,
+                  }
+                : row,
+            )
+          : [
+              ...transcript.rows,
+              {
+                kind: "assistant" as const,
+                id: nextId("message"),
+                text,
+                reasoning,
+                ...(thoughtMs !== undefined ? { thoughtMs } : {}),
+                ...(finishedAt !== undefined ? { finishedAt } : {}),
+                streaming: false,
+              },
+            ];
+      return { ...transcript, rows };
+    }
+
+    case "tool_dispatch": {
+      const tool = event.tool;
+      if (!tool) return transcript;
+      const taken = takeTrailingThought(transcript.rows);
+      const row = toolRow(tool, nextId("tool"), true);
+      if (taken.reasoning) row.reasoning = taken.reasoning;
+      return { ...transcript, rows: [...taken.rows, row] };
+    }
+
+    case "tool_result": {
+      const tool = event.tool;
+      if (!tool) return transcript;
+      const id = tool.id ?? "";
+      // A result closes the dispatch carrying the same id. With no id there is
+      // nothing to pair against, so it becomes its own row rather than being
+      // dropped silently.
+      const index = id
+        ? transcript.rows.findIndex(
+            (row) => row.kind === "tool" && row.running && row.id === id,
+          )
+        : -1;
+      if (index >= 0) {
+        const rows = transcript.rows.slice();
+        const existing = rows[index];
+        if (existing !== undefined && existing.kind === "tool") {
+          const done: ToolRow = {
+            ...existing,
+            // A result may be the first frame that names a proxy's target.
+            name: tool.resolvedName?.trim() ? displayToolName(tool) : existing.name,
+            running: false,
+            outputDiff: tool.outputDiff === true,
+            readOnly: tool.readOnly === true,
+          };
+          if (tool.output !== undefined) done.output = tool.output;
+          if (tool.err !== undefined) done.err = tool.err;
+          if (tool.refusalCode !== undefined) done.refusalCode = tool.refusalCode;
+          rows[index] = done;
+        }
+        return { ...transcript, rows };
+      }
+      const taken = takeTrailingThought(transcript.rows);
+      const row = toolRow(tool, nextId("tool"), false);
+      if (taken.reasoning) row.reasoning = taken.reasoning;
+      return { ...transcript, rows: [...taken.rows, row] };
+    }
+
+    case "ask_request": {
+      const ask = event.ask;
+      if (!ask) return transcript;
+      // The kernel sends `questions`, never a single prompt. An ask with none
+      // is a shape this client does not know; drawing it would be a prompt
+      // with no buttons, so it is left to the contract rule and ignored.
+      if (!Array.isArray(ask.questions) || ask.questions.length === 0) return transcript;
+      const rows = upsertAsk(transcript.rows, ask);
+      return rows === null ? transcript : { ...transcript, rows };
+    }
+
+    case "ask_engaged": {
+      // Someone else picked the question up. It is still unanswered, but it is
+      // no longer this screen's to answer, and drawing it as waiting on the
+      // person here would be a lie.
+      const id = typeof event.ask?.id === "string" ? event.ask.id : "";
+      if (!id) return transcript;
+      return { ...transcript, rows: closePrompt(transcript.rows, id, "engaged") };
+    }
+
+    case "approval_request": {
+      const approval = event.approval;
+      if (!approval) return transcript;
+      const rows = upsertApproval(transcript.rows, approval);
+      return rows === null ? transcript : { ...transcript, rows };
+    }
+
+    case "notice": {
+      // A decision receipt rides a notice and is the only frame that says a
+      // prompt was settled somewhere — including on another device, which is
+      // the normal case for a phone: the desktop asks, the phone answers, or
+      // the reverse. Without this a row stays pending forever.
+      const receipt = event.decisionReceipt as
+        | { id?: string; kind?: string; outcome?: string }
+        | undefined;
+      if (receipt && typeof receipt.id === "string" && receipt.id !== "") {
+        const settled = closePrompt(transcript.rows, receipt.id, receipt.outcome ?? "settled");
+        if (settled !== transcript.rows) {
+          return { ...transcript, rows: settled };
+        }
+      }
+      if (isOperatorNotice(event)) return transcript;
+      const text = typeof event.text === "string" ? event.text : "";
+      if (!text) return transcript;
+      const row: NoticeRow = {
+        kind: "notice",
+        id: nextId("notice"),
+        text,
+        level: typeof event.level === "string" ? event.level : "info",
+      };
+      if (typeof event.detail === "string" && event.detail) row.detail = event.detail;
+      return { ...transcript, rows: [...transcript.rows, row] };
+    }
+
+    case "turn_done": {
+      const error = typeof event.err === "string" && event.err ? event.err : undefined;
+      const rows = closePending(closeStreaming(transcript.rows, stampClock)).filter(
+        (row) => !(row.kind === "assistant" && row.text === "" && row.reasoning === ""),
+      );
+      // The turn's close, as Studio draws it: a tick and how long it ran. Under
+      // half a second the duration rounds to nothing, so it earns no line.
+      const ms = event.workDurationMs;
+      const closed =
+        typeof ms === "number" && ms >= 500
+          ? [...rows, { kind: "worked" as const, id: nextId("worked"), ms }]
+          : rows;
+      return {
+        ...transcript,
+        rows: closed,
+        running: false,
+        ended: {
+          cancelled: event.cancelled === true,
+          ...(error !== undefined ? { error } : {}),
+          ...(typeof event.outcome === "string" ? { outcome: event.outcome } : {}),
+        },
+      };
+    }
+
+    case "stream_gap": {
+      // The relay's replay was incomplete. Do not pretend the transcript is
+      // continuous: the screen shows a banner and offers a fresh history read.
+      return { ...transcript, gap: true };
+    }
+
+    // Transport frames, and kinds this client does not render yet. Ignoring an
+    // unknown kind is the contract: a newer kernel must not break an older app.
+    default:
+      return transcript;
+  }
+}
+
+/** Fold a batch, which is what a replayed backlog arrives as. */
+export function reduceAll(
+  transcript: Transcript,
+  events: EventPayload[],
+  options?: { stampClock?: boolean },
+): Transcript {
+  return events.reduce((acc, event) => reduce(acc, event, options), transcript);
+}

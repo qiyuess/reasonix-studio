@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <!-- The bar above the page is the window, not the WebView. Below
+             WebView 140 Capacitor pads the WebView down by the inset instead
+             of laying it under the bar, so whatever this paints is a strip the
+             page cannot reach. Matching the page background removes the seam.
+             The icons are a separate switch: on the light background they have
+             to go dark to stay visible. Both values follow the system theme.
+             windowBackground matters too: Capacitor's SystemBars plugin copies
+             this attribute onto the decor view on every bridge init, so
+             leaving it at the AppCompat/splash default painted a second,
+             darker band that statusBarColor alone could not reach. -->
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:statusBarColor">@color/app_background</item>
+        <item name="android:windowLightStatusBar">@bool/status_bar_icons_dark</item>
+    </style>
+
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/launch_background</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:statusBarColor">@color/app_background</item>
+        <item name="android:windowLightStatusBar">@bool/status_bar_icons_dark</item>
+    </style>
+</resources>

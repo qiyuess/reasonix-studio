@@ -1,0 +1,361 @@
+/**
+ * The stored conversation, folded into the same rows the live stream produces.
+ *
+ * The stream only carries what happens while a client is attached: the kernel
+ * answers a first connection with initial notices, not with a replay of the
+ * session so far. Without this read, opening a session that has been running
+ * for days shows an empty transcript — which is what it did.
+ *
+ * Folding history is not the same job as folding events. History is already
+ * settled: there are no deltas to join, no turn to close, and a tool result
+ * arrives as its own message carrying the id of the call it belongs to. So the
+ * two folds share the row types and nothing else.
+ */
+
+import type {
+  HistoryMessage,
+  HistoryToolCall,
+  HistoryToolContext,
+} from "../wire/history";
+import { RequestTimeout, fetchWithTimeout } from "./http";
+import type { Row, ToolRow } from "../chat/transcript";
+
+/** Control sequences are not text; a transcript that shows them is broken. */
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
+
+function clean(text: string): string {
+  return text.replace(CONTROL, "");
+}
+
+/**
+ * Ids for rebuilt rows.
+ *
+ * Prefixed rather than numbered so a history row can never collide with a row
+ * the live fold numbered: both lists are drawn by the same renderer and keyed
+ * by id, and a collision silently drops a row.
+ */
+function historyId(msgIndex: number, part: number, suffix = ""): string {
+  return `h:${msgIndex}:${part}${suffix}`;
+}
+
+function toolRow(call: HistoryToolCall, id: string): ToolRow {
+  const row: ToolRow = {
+    kind: "tool",
+    id,
+    name: call.resolvedName ?? call.name,
+    outputDiff: false,
+    readOnly: false,
+    running: false,
+  };
+  if (call.arguments) row.args = call.arguments;
+  return row;
+}
+
+/**
+ * Fold one stored conversation.
+ *
+ * Two rules are taken from the desktop, because both were bugs there:
+ *
+ * - A `hostAuthored` user message is the host's words, not the person's.
+ *   Drawing it puts words in their mouth, so it is dropped.
+ * - A tool result is joined to its call by id, not by position. A call whose
+ *   result is missing keeps its card; a result whose call is missing gets one
+ *   of its own rather than being lost.
+ *
+ * A page of a paged conversation breaks that second rule on its own: the
+ * newest page can hold a result whose call sits pages earlier. The kernel
+ * ships those calls in `toolContext`, and each is drawn here as its own card
+ * so the result has somewhere to land. The card's id is the one the call's
+ * own message would generate, so when an older page later brings that
+ * message in, the prepend dedupe drops the duplicate and one card remains.
+ */
+export function foldHistory(
+  messages: HistoryMessage[],
+  toolContext?: HistoryToolContext[],
+): Row[] {
+  const rows: Row[] = [];
+  // Where each call's card landed, so its result can fill it in.
+  const calls = new Map<string, number>();
+
+  // Calls whose messages sit outside this page. They render before the page's
+  // own rows — their msgIndex is strictly earlier — in context order.
+  const inPage = new Set(messages.map((message) => message.msgIndex));
+  for (const ctx of toolContext ?? []) {
+    if (!ctx || typeof ctx.messageIndex !== "number" || !ctx.call?.id) continue;
+    if (inPage.has(ctx.messageIndex)) continue;
+    calls.set(ctx.call.id, rows.length);
+    rows.push(toolRow(ctx.call, historyId(ctx.messageIndex, (ctx.ordinal ?? 0) + 1)));
+  }
+
+  for (const message of messages) {
+    const index = message.msgIndex;
+
+    if (message.role === "system") continue;
+
+    if (message.role === "user") {
+      if (message.hostAuthored) continue;
+      const text = clean(message.content);
+      if (!text) continue;
+      rows.push({
+        kind: "user",
+        id: historyId(index, 0),
+        text,
+        msgIndex: index,
+        ...(typeof message.createdAt === "number" ? { at: message.createdAt } : {}),
+      });
+      continue;
+    }
+
+    if (message.role === "assistant") {
+      const text = clean(message.content);
+      const reasoning = clean(message.reasoning ?? "");
+      const toolCalls = message.toolCalls ?? [];
+      // A tool step's reasoning belongs to the call it preceded, not to a
+      // bubble of its own: drawing one per step gives the phone a wall of empty
+      // "思考了" cards. It is attached to the first tool card below instead, so
+      // the record still says why the tool ran.
+      if ((text || reasoning) && (text !== "" || toolCalls.length === 0)) {
+        rows.push({
+          kind: "assistant",
+          id: historyId(index, 0),
+          text,
+          reasoning,
+          ...(message.thoughtMs !== undefined ? { thoughtMs: message.thoughtMs } : {}),
+          // Nothing is streaming in a stored turn; a bubble that says it is
+          // would show a caret blinking at the end of an old answer.
+          streaming: false,
+        });
+      }
+      for (const [ordinal, call] of toolCalls.entries()) {
+        const id = historyId(index, ordinal + 1);
+        if (call.id) calls.set(call.id, rows.length);
+        const row = toolRow(call, id);
+        // The step's thinking explains the first call of the step. Later calls
+        // in the same message share it; repeating it on each would be noise.
+        if (ordinal === 0 && reasoning && text === "") row.reasoning = reasoning;
+        rows.push(row);
+      }
+      // The message that closed the turn carries its run time; the receipt the
+      // live stream appends is rebuilt from it so a reload reads the same.
+      if (typeof message.workDurationMs === "number" && message.workDurationMs >= 500) {
+        rows.push({ kind: "worked", id: historyId(index, 0, ":worked"), ms: message.workDurationMs });
+      }
+      continue;
+    }
+
+    if (message.role === "tool") {
+      const at = message.toolCallId === undefined ? undefined : calls.get(message.toolCallId);
+      const existing = at === undefined ? undefined : rows[at];
+      if (existing !== undefined && existing.kind === "tool") {
+        const filled: ToolRow = {
+          ...existing,
+          output: clean(message.content),
+          outputDiff: message.outputDiff === true,
+        };
+        if (message.toolFailed) filled.err = clean(message.content);
+        if (message.toolRefusalCode) filled.refusalCode = message.toolRefusalCode;
+        rows[at as number] = filled;
+        continue;
+      }
+      // No call to join to: keep the output rather than drop the host's own
+      // account of what ran.
+      const orphan: ToolRow = {
+        kind: "tool",
+        id: historyId(index, 0),
+        name: message.toolName ?? "tool",
+        output: clean(message.content),
+        outputDiff: message.outputDiff === true,
+        readOnly: false,
+        running: false,
+      };
+      if (message.toolFailed) orphan.err = clean(message.content);
+      if (message.toolRefusalCode) orphan.refusalCode = message.toolRefusalCode;
+      rows.push(orphan);
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Read the stored conversation for one runtime.
+ *
+ * `base` is the runtime's request prefix. A kernel that cannot answer is not a
+ * reason to fail the screen: the live stream still works, and an empty
+ * transcript with a working composer is better than no screen at all. The
+ * caller is told which happened.
+ */
+/**
+ * Reading the stored conversation.
+ *
+ * The primary path is `GET /history/page` — the kernel serves the newest
+ * window (limit 1-500) with `hasMoreBefore`, `nextCursor`, `snapshot` and
+ * `total`, reads it off disk per page and never rebuilds the whole message
+ * list. Measured against a 7.4 MB session on a v2.56 kernel: 270ms cold /
+ * 7ms warm with a 135 KB body, against 2.7 MB for the whole read. On the
+ * mesh-VPN link where the whole read times out, the body size — not the
+ * server — was always the bottleneck, so the page is what makes long
+ * conversations open at all.
+ *
+ * Two fallbacks keep older kernels and moving sessions working:
+ * - 409 `history.snapshot_changed` on a cursor read means the conversation
+ *   moved between requests; the newest page is fetched again, which is the
+ *   answer the reader wants anyway.
+ * - 404 means a kernel without the page route; the whole `/history` read
+ *   stays as the fallback with its own long deadline (the body is the whole
+ *   transcript, and the proxy gives up at 60s — going past that would only
+ *   change which side abandons first).
+ */
+export const HISTORY_PAGE_SIZE = 200;
+export const HISTORY_PAGE_TIMEOUT_MS = 30_000;
+export const HISTORY_TIMEOUT_MS = 55_000;
+
+/** What one read of the stored conversation produced. */
+export interface HistoryRead {
+  rows: Row[];
+  /** The kernel's count of messages in the whole conversation. */
+  total: number;
+  /** True when older messages exist behind `nextCursor`. */
+  hasMoreBefore: boolean;
+  /** Pass back to `loadHistory` to read the page before this one. */
+  nextCursor?: string;
+  /** The snapshot this page was cut from; a mismatched older page is stale. */
+  snapshot?: string;
+  /** Index of this page's first message in the whole conversation. */
+  start?: number;
+  /** Index one past this page's last message. */
+  end?: number;
+  /** False when a kernel without `/history/page` served the whole transcript. */
+  paged: boolean;
+}
+
+type HistoryResult = { ok: true; read: HistoryRead } | { ok: false; code: string };
+
+/**
+ * Shape-check one page the way the desktop's own reader does.
+ *
+ * A page whose bookkeeping disagrees with itself — `hasMoreBefore` without a
+ * cursor, bounds outside `total`, `hasMoreBefore` claiming more when `start`
+ * says this was the first — is not a page to fold, it is a kernel bug to
+ * surface as `history.shape`. Folding it silently would wedge the cursor
+ * walk: the next request would re-read the same window forever.
+ */
+function checkedPage(page: {
+  messages?: unknown;
+  total?: unknown;
+  hasMoreBefore?: unknown;
+  nextCursor?: unknown;
+  snapshot?: unknown;
+  start?: unknown;
+  end?: unknown;
+  toolContext?: unknown;
+}): {
+  messages: HistoryMessage[];
+  total: number;
+  hasMoreBefore: boolean;
+  nextCursor?: string;
+  snapshot?: string;
+  start?: number;
+  end?: number;
+  toolContext?: HistoryToolContext[];
+} | null {
+  if (!page || !Array.isArray(page.messages)) return null;
+  const total = page.total as number;
+  if (!Number.isSafeInteger(total) || total < 0) return null;
+  const hasMoreBefore = page.hasMoreBefore === true;
+  if (hasMoreBefore && typeof page.nextCursor !== "string") return null;
+  if (page.start !== undefined || page.end !== undefined) {
+    const start = page.start as number;
+    const end = page.end as number;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) return null;
+    if (start < 0 || end < start || total < end) return null;
+    if (hasMoreBefore !== start > 0) return null;
+  }
+  return {
+    messages: page.messages,
+    total,
+    hasMoreBefore,
+    ...(typeof page.nextCursor === "string" && page.nextCursor
+      ? { nextCursor: page.nextCursor }
+      : {}),
+    ...(typeof page.snapshot === "string" && page.snapshot
+      ? { snapshot: page.snapshot }
+      : {}),
+    ...(Number.isSafeInteger(page.start) ? { start: page.start as number } : {}),
+    ...(Number.isSafeInteger(page.end) ? { end: page.end as number } : {}),
+    // Calls whose messages sit outside the page; the fold guards each entry's
+    // own shape, so a list here is accepted as carried.
+    ...(Array.isArray(page.toolContext)
+      ? { toolContext: page.toolContext as HistoryToolContext[] }
+      : {}),
+  };
+}
+
+async function readPage(base: string, cursor?: string): Promise<HistoryResult> {
+  const query = cursor
+    ? `limit=${HISTORY_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`
+    : `limit=${HISTORY_PAGE_SIZE}`;
+  const response = await fetchWithTimeout(
+    `${base}/history/page?${query}`,
+    { credentials: "same-origin" },
+    HISTORY_PAGE_TIMEOUT_MS,
+  );
+  if (response.status === 409) return { ok: false, code: "history.snapshot_changed" };
+  if (!response.ok) return { ok: false, code: `http.${response.status}` };
+  const page = checkedPage((await response.json()) as Record<string, unknown>);
+  if (!page) return { ok: false, code: "history.shape" };
+  return {
+    ok: true,
+    read: {
+      rows: foldHistory(page.messages, page.toolContext),
+      total: page.total,
+      hasMoreBefore: page.hasMoreBefore,
+      ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}),
+      ...(page.snapshot ? { snapshot: page.snapshot } : {}),
+      ...(page.start !== undefined ? { start: page.start } : {}),
+      ...(page.end !== undefined ? { end: page.end } : {}),
+      paged: true,
+    },
+  };
+}
+
+/** The whole-transcript read, for kernels that predate `/history/page`. */
+async function readWhole(base: string): Promise<HistoryResult> {
+  const response = await fetchWithTimeout(
+    `${base}/history`,
+    { credentials: "same-origin" },
+    HISTORY_TIMEOUT_MS,
+  );
+  if (!response.ok) return { ok: false, code: `http.${response.status}` };
+  const messages = (await response.json()) as HistoryMessage[];
+  if (!Array.isArray(messages)) return { ok: false, code: "history.shape" };
+  return {
+    ok: true,
+    read: {
+      rows: foldHistory(messages),
+      total: messages.length,
+      hasMoreBefore: false,
+      paged: false,
+    },
+  };
+}
+
+export async function loadHistory(base: string, cursor?: string): Promise<HistoryResult> {
+  try {
+    const first = await readPage(base, cursor);
+    if (first.ok || first.code !== "history.snapshot_changed") {
+      if (first.ok || first.code !== "http.404") return first;
+      return await readWhole(base);
+    }
+    // The conversation moved while this cursor was in flight. The newest
+    // page is what the reader needs; a second 409 cannot happen — only a
+    // cursor read checks the snapshot against it.
+    return await readPage(base);
+  } catch (error) {
+    // A deadline and a dead socket both used to read as `client.offline`,
+    // which hid the one that this screen can actually do something about.
+    if (error instanceof RequestTimeout) return { ok: false, code: "client.timeout" };
+    return { ok: false, code: "client.offline" };
+  }
+}

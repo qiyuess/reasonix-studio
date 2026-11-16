@@ -1,0 +1,2916 @@
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ChatScreen } from "./ChatScreen";
+import type { ChatScreenProps } from "./ChatScreen";
+import type { Connection, ConnectionSnapshot } from "../net/connection";
+import type { EventPayload } from "../wire/events";
+import type { RuntimeView } from "../wire/runtime";
+import { saveReading } from "./reading";
+import { resetTranscriptCache, scheduleSaveRows } from "./transcriptCache";
+
+vi.mock("../native/speech", () => ({
+  speechSupported: () => true,
+  // A hold that starts already mid-sentence and delivers on release, the
+  // way a fast recognizer does.
+  beginSpeechHold: vi.fn(async (onChange: (state: Record<string, unknown>) => void) => {
+    const state = {
+      transcript: "修复登录白屏",
+      // A mid-hold wave: the sliding samples the recognizer has streamed.
+      levels: Array.from({ length: 14 }, (_, i) => (i % 4) / 4),
+      ready: true,
+      cancelArmed: false,
+      ended: false,
+      error: "",
+    };
+    onChange({ ...state });
+    return {
+      hold: {
+        session: 1,
+        state,
+        move: () => {},
+        release: () => {
+          state.ended = true;
+          onChange({ ...state });
+        },
+        abandon: () => {
+          state.ended = true;
+          onChange({ ...state });
+        },
+      },
+    };
+  }),
+}));
+
+/**
+ * The screen's own job — putting the stored conversation under the live stream
+ * — is the part a fold test cannot reach. A session that has been running for
+ * days opens empty without it, which is exactly what it did.
+ *
+ * The task list has its own read for the same reason: it is the kernel's
+ * canonical list, not something the transcript can be folded into. These tests
+ * keep the two routes apart so one cannot stand in for the other.
+ */
+
+let container: HTMLDivElement;
+let root: Root | null = null;
+
+beforeEach(() => {
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  localStorage.clear();
+  // The cache is module state: rows saved by an earlier test would hydrate
+  // the next one and break every empty/loading assertion.
+  resetTranscriptCache();
+});
+
+afterEach(() => {
+  act(() => root?.unmount());
+  root = null;
+  container.remove();
+  localStorage.clear();
+  resetTranscriptCache();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+const runtime: RuntimeView = { id: "r1", base: "/rt/r1", root: "/w", name: "w" };
+const other: RuntimeView = { id: "r2", base: "/rt/r2", root: "/w2", name: "w2" };
+
+/**
+ * The queue's numbering, as the real `Connection` issues it: every frame gets
+ * a number one higher than the last, and the screen folds whatever it has not
+ * seen yet. A fixed number here would make the second event look like a
+ * repeat of the first, and the fold would skip it.
+ */
+let nextEventSeq = 0;
+
+function snapshot(
+  lastEvent?: EventPayload,
+  runtimes: RuntimeView[] = [runtime],
+  reach: ConnectionSnapshot["reach"] = { kind: "ok" },
+): ConnectionSnapshot {
+  const seq = lastEvent ? (nextEventSeq += 1) : nextEventSeq;
+  return {
+    reach,
+    runtimes,
+    stream: { kind: "open" },
+    events: lastEvent ? [{ seq, event: lastEvent }] : [],
+    eventSeq: seq,
+    ...(lastEvent ? { lastEvent } : {}),
+  };
+}
+
+/** Only attach/detach are reached; the real stream needs an EventSource jsdom lacks. */
+const connection = {
+  attach: () => {},
+  detach: () => {},
+  drainEvents: () => {},
+} as unknown as Connection;
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+/**
+ * One kernel, several routes. The old mock answered every request with the
+ * history body, so `/todos` silently received a transcript as its checklist.
+ */
+function stubKernel(
+  options: {
+    /** Newest-page body; `messages` is the array the screen folds. */
+    history?: unknown;
+    historyStatus?: number;
+    /** Served for cursor requests: the page before the newest one. */
+    olderPage?: unknown;
+    /** Serves the whole-transcript fallback at GET /history. */
+    wholeHistory?: unknown;
+    todos?: unknown;
+    todosStatus?: number;
+    status?: unknown;
+    statusStatus?: number;
+    /** The kernel's checkpoint list, pairing a turn with its message index. */
+    checkpoints?: unknown;
+    /** Where a fork lands; the screen hands the path to its opener. */
+    branchPath?: string;
+  } = {},
+): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/checkpoints")) {
+      return Promise.resolve(json(options.checkpoints ?? []));
+    }
+    if (url.endsWith("/rewind/prepare")) {
+      return Promise.resolve(
+        json({
+          planId: "plan-1",
+          turn: 1,
+          coverage: "all",
+          canFiles: true,
+          canConversation: true,
+          fileCount: 0,
+          requiresConfirmation: false,
+        }),
+      );
+    }
+    if (url.endsWith("/rewind/commit")) {
+      return Promise.resolve(json({ ok: true }));
+    }
+    if (url.endsWith("/branch/at")) {
+      return Promise.resolve(json({ path: options.branchPath ?? "/w/sessions/fork.jsonl" }));
+    }
+    if (url.endsWith("/todos")) {
+      return Promise.resolve(json(options.todos ?? [], options.todosStatus));
+    }
+    if (url.endsWith("/status")) {
+      return Promise.resolve(
+        json(options.status ?? { running: false, busy: false, decisions: [] }, options.statusStatus),
+      );
+    }
+    if (url.includes("/history/page")) {
+      if (url.includes("cursor=") && options.olderPage !== undefined) {
+        return Promise.resolve(json(options.olderPage, options.historyStatus));
+      }
+      const body = options.history ?? [];
+      const page =
+        Array.isArray(body)
+          ? { messages: body, total: body.length, hasMoreBefore: false }
+          : body;
+      return Promise.resolve(json(page, options.historyStatus));
+    }
+    return Promise.resolve(json(options.wholeHistory ?? options.history ?? [], options.historyStatus));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function todoCalls(fetchMock: ReturnType<typeof vi.fn>): number {
+  return fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/todos")).length;
+}
+
+async function flush(): Promise<void> {
+  // Both reads resolve through `json()`, so give the microtask queue more than
+  // one turn before asserting that the screen settled.
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+/**
+ * Render, or re-render the same mounted screen.
+ *
+ * Reusing the root matters: a new root is a new component with new state, so
+ * it could never show that a later event landed below an earlier history read.
+ */
+function render(
+  snap: ConnectionSnapshot,
+  runtimeId = "r1",
+  extra: Partial<ChatScreenProps> = {},
+): void {
+  const element = (
+    <ChatScreen
+      connection={connection}
+      snapshot={snap}
+      runtimeId={runtimeId}
+      onBack={() => {}}
+      {...extra}
+    />
+  );
+  if (!root) {
+    root = createRoot(container);
+    act(() => root?.render(element));
+    return;
+  }
+  act(() => root?.render(element));
+}
+
+describe("ChatScreen history", () => {
+  it("draws the stored conversation before the live one", async () => {
+    stubKernel({
+      history: [
+        { role: "user", content: "老问题", msgIndex: 1 },
+        { role: "assistant", content: "老回答", msgIndex: 2 },
+      ],
+    });
+
+    render(snapshot());
+    await flush();
+
+    // A frame that arrived while the read was in flight must land below the
+    // history, not above it: it happened after.
+    render(snapshot({ kind: "text", text: "新回答" }));
+    await flush();
+
+    const text = container.textContent ?? "";
+    expect(text.indexOf("老问题")).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("老问题")).toBeLessThan(text.indexOf("老回答"));
+    expect(text.indexOf("老回答")).toBeLessThan(text.indexOf("新回答"));
+  });
+
+  it("folds every frame of a burst, not only the last", async () => {
+    // A relay poll answers with a whole backlog and hands each frame over
+    // synchronously, so React commits the burst as one render. Keeping only
+    // the newest frame dropped every delta but the final one — and the kernel
+    // never replays a droppable `text` frame, so that text was lost.
+    stubKernel({ history: [] });
+    render(snapshot());
+    await flush();
+
+    const base = snapshot();
+    const frames = ["第一段", "第二段", "第三段"].map((text) => {
+      nextEventSeq += 1;
+      return { seq: nextEventSeq, event: { kind: "text" as const, text } };
+    });
+    render({
+      ...base,
+      events: frames,
+      eventSeq: nextEventSeq,
+      lastEvent: frames[frames.length - 1]!.event,
+    });
+    await flush();
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("第一段");
+    expect(text).toContain("第二段");
+    expect(text).toContain("第三段");
+  });
+
+  it("says the history could not be read without failing the screen", async () => {
+    stubKernel({ historyStatus: 500 });
+
+    render(snapshot());
+    await flush();
+
+    expect(container.textContent).toContain("没读到历史");
+  });
+
+  it("names the failure, so a bug report can tell a 404 from a deadline", async () => {
+    // Without the code, every failure looked identical on the phone: the
+    // deadline on a long conversation and a kernel that closed the pane both
+    // read as "没读到历史".
+    stubKernel({ historyStatus: 404 });
+
+    render(snapshot());
+    await flush();
+
+    expect(container.textContent).toContain("http.404");
+  });
+
+  it("says it is still reading rather than claiming there is nothing", async () => {
+    // "还没有消息" on a session with history is a lie the person acts on.
+    let resolve: (value: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input).endsWith("/todos")) return Promise.resolve(json([]));
+        return new Promise<Response>((done) => (resolve = done));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+
+    expect(container.textContent).toContain("正在读这个会话");
+
+    await act(async () => {
+      resolve(json([]));
+      await Promise.resolve();
+    });
+  });
+
+  it("shows no messages only once an empty history really is empty", async () => {
+    stubKernel({ history: [] });
+
+    render(snapshot());
+    await flush();
+
+    expect(container.textContent).toContain("还没有消息");
+  });
+
+  it("repaints the cached conversation instead of waiting on the read", async () => {
+    // The point of the cache: the rows the screen drew last time are on
+    // screen before the history request returns.
+    scheduleSaveRows(["r1"], [
+      { kind: "user", id: "u1", text: "缓存里的问题" },
+      { kind: "assistant", id: "a1", text: "缓存里的回答", reasoning: "", streaming: false },
+    ]);
+
+    let resolve: (value: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input).endsWith("/todos")) return Promise.resolve(json([]));
+        return new Promise<Response>((done) => (resolve = done));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+
+    expect(container.textContent).toContain("缓存里的问题");
+    expect(container.textContent).not.toContain("正在读这个会话");
+
+    await act(async () => {
+      resolve(
+        json([
+          { role: "user", content: "缓存里的问题", msgIndex: 1 },
+          { role: "assistant", content: "缓存里的回答", msgIndex: 2 },
+        ]),
+      );
+      await Promise.resolve();
+    });
+
+    // The read replaces the cache rather than prefixing it — the cache IS the
+    // earlier history, so a merge would draw the conversation twice.
+    expect(container.textContent.split("缓存里的问题")).toHaveLength(2);
+  });
+
+  it("drops a cached optimistic send history already contains — no ghost message", async () => {
+    // A pane closed before `turn_started` cached the optimistic row; history
+    // then carries the same message under its own id.
+    scheduleSaveRows(["r1"], [
+      { kind: "user", id: "local-1", text: "之前发过的消息", local: true },
+    ]);
+
+    const pending: ((value: Response) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json([]));
+        if (url.endsWith("/status")) {
+          return Promise.resolve(json({ running: false, busy: false, decisions: [] }));
+        }
+        return new Promise<Response>((done) => pending.push(done));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    expect(container.textContent).toContain("之前发过的消息");
+
+    await act(async () => {
+      for (const done of pending) {
+        done(json({ messages: [{ role: "user", content: "之前发过的消息", msgIndex: 1 }], total: 1, hasMoreBefore: false }));
+      }
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(container.textContent.split("之前发过的消息")).toHaveLength(2);
+  });
+
+  it("drops a confirmed optimistic send history already contains", async () => {
+    // `turn_started` confirmed the optimistic row, so it is no longer marked
+    // local; matching only local rows left the send beside history's copy.
+    scheduleSaveRows(["r1"], [
+      { kind: "user", id: "local-7", text: "同一条消息", msgIndex: 4 },
+    ]);
+
+    const pending: ((value: Response) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json([]));
+        if (url.endsWith("/status")) {
+          return Promise.resolve(json({ running: false, busy: false, decisions: [] }));
+        }
+        return new Promise<Response>((done) => pending.push(done));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    await act(async () => {
+      for (const done of pending) {
+        done(json({ messages: [{ role: "user", content: "同一条消息", msgIndex: 4 }], total: 1, hasMoreBefore: false }));
+      }
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(container.textContent.split("同一条消息")).toHaveLength(2);
+  });
+
+  it("keeps a cached optimistic send history does not have", async () => {
+    scheduleSaveRows(["r1"], [
+      { kind: "user", id: "local-1", text: "这条还没进历史", local: true },
+    ]);
+
+    const pending: ((value: Response) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json([]));
+        if (url.endsWith("/status")) {
+          return Promise.resolve(json({ running: false, busy: false, decisions: [] }));
+        }
+        return new Promise<Response>((done) => pending.push(done));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    await act(async () => {
+      for (const done of pending) {
+        done(json({ messages: [{ role: "user", content: "历史里的另一条", msgIndex: 1 }], total: 1, hasMoreBefore: false }));
+      }
+      await Promise.resolve();
+    });
+    await flush();
+    expect(container.textContent).toContain("这条还没进历史");
+    expect(container.textContent).toContain("历史里的另一条");
+  });
+
+  it("drops a cached streaming bubble that history has finished — no ghost answer", async () => {
+    // Reported on a device: a turn still streaming when the pane was closed
+    // reopens with the answer drawn twice. The cache flushed the bubble
+    // mid-turn (streaming: true), history carries the finished message, and
+    // keepUnconfirmed alone preserves both. A genuinely running turn is
+    // unaffected: history carries settled messages only, so no prefix match.
+    scheduleSaveRows(["r1"], [
+      { kind: "assistant", id: "a-ghost", text: "这段回答出现过两次", reasoning: "", streaming: true },
+    ]);
+
+    let resolve: (value: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input).endsWith("/todos")) return Promise.resolve(json([]));
+        return new Promise<Response>((done) => (resolve = done));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+
+    // The streamed half painted from the cache, ghost included.
+    expect(container.textContent).toContain("这段回答出现过两次");
+
+    await act(async () => {
+      resolve(
+        json([
+          { role: "user", content: "问题", msgIndex: 1 },
+          { role: "assistant", content: "这段回答出现过两次，以及后文", msgIndex: 2 },
+        ]),
+      );
+      await Promise.resolve();
+    });
+
+    // History's finished copy stays, the streaming ghost is dropped: exactly
+    // one draw now.
+    expect(container.textContent.split("这段回答出现过两次")).toHaveLength(2);
+  });
+
+  it("keeps a cached streaming bubble when history has no finished copy — a turn still running", async () => {
+    // The turn is genuinely live: no settled message in history matches, so
+    // the streamed text must survive the replace and keep absorbing deltas.
+    scheduleSaveRows(["r1"], [
+      { kind: "assistant", id: "a-live", text: "仍在生成的回答前半", reasoning: "", streaming: true },
+    ]);
+
+    let resolve: (value: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input).endsWith("/todos")) return Promise.resolve(json([]));
+        return new Promise<Response>((done) => (resolve = done));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+
+    await act(async () => {
+      resolve(
+        json([{ role: "user", content: "问题", msgIndex: 1 }]),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("仍在生成的回答前半");
+  });
+
+  it("paints the cache before /runtimes answers, and says so", async () => {
+    // `base` comes from `GET /runtimes`, which is the slowest thing on a bad
+    // network. The cache exists to paint before that lands, so it must not be
+    // gated on it — and the screen must not claim the pane is gone meanwhile.
+    scheduleSaveRows(["r1"], [
+      { kind: "user", id: "u1", text: "缓存里的问题" },
+      { kind: "assistant", id: "a1", text: "缓存里的回答", reasoning: "", streaming: false },
+    ]);
+
+    // Every route hangs: the runtime list has not arrived.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+
+    // `unknown` is the state before the first answer, which is what a phone on
+    // a bad network sits in.
+    render(snapshot(undefined, [], { kind: "unknown" }));
+    await flush();
+
+    // The cache was read without a base, which is the fix.
+    expect(container.textContent).toContain("已缓存 2 条");
+    expect(container.textContent).not.toContain("这个会话已经关掉了");
+  });
+
+  it("says the pane is gone once the list has answered without it", async () => {
+    // The list did answer (reach ok) and this pane is not in it: the old
+    // wording is right, and a stale cache must not hide it.
+    scheduleSaveRows(["r1"], [{ kind: "user", id: "u1", text: "旧缓存" }]);
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+
+    render(snapshot(undefined, [other], { kind: "ok" }));
+    await flush();
+
+    expect(container.textContent).toContain("这个会话已经关掉了");
+  });
+});
+
+describe("ChatScreen todos", () => {
+  it("draws the kernel's list above the conversation", async () => {
+    stubKernel({
+      history: [{ role: "user", content: "老问题", msgIndex: 1 }],
+      todos: [
+        { content: "读契约", status: "completed" },
+        { content: "写测试", status: "in_progress", activeForm: "正在写测试" },
+      ],
+    });
+
+    render(snapshot());
+    await flush();
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("1/2");
+    expect(text).toContain("正在写测试");
+
+    const panel = container.querySelector(".todos");
+    const transcript = container.querySelector(".transcript");
+    expect(panel).not.toBeNull();
+    expect(transcript).not.toBeNull();
+    // The checklist is a strip between the record and the composer: it stays
+    // in reach while the conversation scrolls, without taking its top.
+    expect(
+      panel !== null &&
+        transcript !== null &&
+        (transcript.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+    ).toBe(true);
+  });
+
+  it("re-reads the list when a todo_progress clock moves", async () => {
+    let list = [{ content: "第一步", status: "in_progress" }];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json(list));
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    expect(container.textContent).toContain("0/1");
+
+    list = [
+      { content: "第一步", status: "completed" },
+      { content: "第二步", status: "in_progress" },
+    ];
+    render(
+      snapshot({
+        kind: "todo_progress",
+        todoProgress: { kind: "advance", progressRevision: 1 },
+      }),
+    );
+    await flush();
+
+    expect(container.textContent).toContain("1/2");
+    expect(container.textContent).toContain("第二步");
+  });
+
+  it("drops a finished checklist the way Studio does", async () => {
+    // Studio empties a plan whose every step is done: struck through above the
+    // next turn it reads as if that turn already has one.
+    let list = [{ content: "第一步", status: "in_progress" }];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json(list));
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    expect(container.querySelector(".todos")).not.toBeNull();
+
+    list = [{ content: "第一步", status: "completed" }];
+    render(
+      snapshot({
+        kind: "todo_progress",
+        todoProgress: { kind: "advance", progressRevision: 1 },
+      }),
+    );
+    await flush();
+
+    expect(container.querySelector(".todos")).toBeNull();
+  });
+
+  it("drops the list when a turn ends with no progress frame", async () => {
+    // A cancel rebuilds the canonical list from the truncated transcript and
+    // writes no todo_progress. Without a read on the turn end, the checklist
+    // outlives the turn that owned it — the phone kept showing a plan the
+    // kernel had already cleared.
+    let list = [{ content: "第一步", status: "in_progress" }];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json(list));
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    expect(container.textContent).toContain("0/1");
+
+    list = [];
+    const done: EventPayload = { kind: "turn_done", cancelled: true };
+    render(snapshot(done));
+    await flush();
+
+    expect(container.querySelector(".todos")).toBeNull();
+  });
+
+  it("reads the turn end even when a later frame shares its burst", async () => {
+    // One relay poll delivers the whole backlog as one commit; `lastEvent`
+    // keeps the newest frame, which may be anything. The turn end still has
+    // to be seen or a cancelled list stays on screen.
+    let list = [{ content: "第一步", status: "in_progress" }];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json(list));
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    expect(container.textContent).toContain("0/1");
+
+    list = [];
+    const done: EventPayload = { kind: "turn_done", cancelled: true };
+    const text: EventPayload = { kind: "text", text: "已取消" };
+    nextEventSeq += 1;
+    const first = { seq: nextEventSeq, event: done };
+    nextEventSeq += 1;
+    const second = { seq: nextEventSeq, event: text };
+    render({
+      ...snapshot(),
+      events: [first, second],
+      eventSeq: nextEventSeq,
+      lastEvent: text,
+    });
+    await flush();
+
+    expect(container.querySelector(".todos")).toBeNull();
+  });
+
+  it("reads once per turn end, not once per render", async () => {
+    const fetchMock = stubKernel({
+      todos: [{ content: "第一步", status: "in_progress" }],
+    });
+    render(snapshot());
+    await flush();
+
+    const done: EventPayload = { kind: "turn_done" };
+    render(snapshot(done));
+    await flush();
+    const afterFirst = todoCalls(fetchMock);
+    expect(afterFirst).toBeGreaterThan(0);
+
+    // The same payload object is what the snapshot holds until the next
+    // frame; re-rendering must not read again.
+    render({ ...snapshot(done), eventSeq: nextEventSeq });
+    await flush();
+    expect(todoCalls(fetchMock)).toBe(afterFirst);
+  });
+
+  it("does not re-read on a frame whose clocks did not move", async () => {
+    const fetchMock = stubKernel({
+      todos: [{ content: "第一步", status: "in_progress" }],
+    });
+
+    render(snapshot());
+    await flush();
+    const before = todoCalls(fetchMock);
+
+    const frame: EventPayload = {
+      kind: "todo_progress",
+      todoProgress: { kind: "advance", progressRevision: 1 },
+    };
+    render(snapshot(frame));
+    await flush();
+    const afterFirst = todoCalls(fetchMock);
+    expect(afterFirst).toBe(before + 1);
+
+    // Same three clocks: the kernel would answer exactly what is on screen.
+    render(
+      snapshot({
+        kind: "todo_progress",
+        todoProgress: { kind: "advance", progressRevision: 1 },
+      }),
+    );
+    await flush();
+    expect(todoCalls(fetchMock)).toBe(afterFirst);
+  });
+
+  it("reads a todo_progress that shares a burst with text", async () => {
+    // A relay poll delivers a whole backlog at once, so a progress frame and
+    // the deltas that follow it land in one task and commit as one render.
+    // `lastEvent` keeps only the newest, which is the text — reading the
+    // checklist from there missed the progress entirely and left it lagging
+    // until the next frame.
+    let list = [
+      { content: "第一步", status: "in_progress" },
+      { content: "第二步", status: "pending" },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json(list));
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    expect(container.textContent).toContain("0/2");
+
+    list = [
+      { content: "第一步", status: "completed" },
+      { content: "第二步", status: "in_progress" },
+    ];
+    const progress: EventPayload = {
+      kind: "todo_progress",
+      todoProgress: { kind: "advance", progressRevision: 1 },
+    };
+    const text: EventPayload = { kind: "text", text: "做好了" };
+    nextEventSeq += 1;
+    const first = { seq: nextEventSeq, event: progress };
+    nextEventSeq += 1;
+    const second = { seq: nextEventSeq, event: text };
+    render({
+      ...snapshot(),
+      events: [first, second],
+      eventSeq: nextEventSeq,
+      lastEvent: text,
+    });
+    await flush();
+
+    // The list was re-read and moved on, even though the newest frame in the
+    // burst says nothing about todos.
+    expect(container.textContent).toContain("1/2");
+    expect(container.textContent).toContain("第二步");
+  });
+
+  it("keeps the conversation when the list cannot be read", async () => {
+    stubKernel({
+      history: [{ role: "user", content: "还在", msgIndex: 1 }],
+      todosStatus: 500,
+    });
+
+    render(snapshot());
+    await flush();
+
+    expect(container.textContent).toContain("还在");
+    expect(container.querySelector(".todos")).toBeNull();
+  });
+
+  it("keeps the last list and marks it stale when a refresh fails", async () => {
+    let fail = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (!url.endsWith("/todos")) return Promise.resolve(json([]));
+        if (fail) return Promise.resolve(new Response(null, { status: 500 }));
+        return Promise.resolve(json([{ content: "旧任务", status: "in_progress" }]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    expect(container.textContent).toContain("旧任务");
+    expect(container.textContent).not.toContain("任务列表暂时没更新");
+
+    fail = true;
+    render(
+      snapshot({
+        kind: "todo_progress",
+        todoProgress: { kind: "advance", progressRevision: 1 },
+      }),
+    );
+    await flush();
+
+    // The old list is still the best account of the work; hiding it would
+    // make a transient read failure look like the agent abandoned its plan.
+    expect(container.textContent).toContain("旧任务");
+    expect(container.textContent).toContain("任务列表暂时没更新");
+  });
+
+  it("keeps the newer answer when two reads overlap on the same pane", async () => {
+    let releaseFirst: (value: Response) => void = () => {};
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (!url.endsWith("/todos")) return Promise.resolve(json([]));
+        calls += 1;
+        if (calls === 1) return new Promise<Response>((done) => (releaseFirst = done));
+        return Promise.resolve(json([{ content: "新任务", status: "in_progress" }]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    // The first read is still in flight; a frame starts a second one.
+    render(
+      snapshot({
+        kind: "todo_progress",
+        todoProgress: { kind: "advance", progressRevision: 1 },
+      }),
+    );
+    await flush();
+    expect(container.textContent).toContain("新任务");
+
+    await act(async () => {
+      releaseFirst(json([{ content: "旧任务", status: "in_progress" }]));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("新任务");
+    expect(container.textContent).not.toContain("旧任务");
+  });
+
+  it("retries a failed refresh on the next frame with the same clocks", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (!url.endsWith("/todos")) return Promise.resolve(json([]));
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve(json([{ content: "初始任务", status: "in_progress" }]));
+        }
+        if (calls === 2) return Promise.resolve(new Response(null, { status: 500 }));
+        return Promise.resolve(json([{ content: "重试成功", status: "in_progress" }]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    expect(container.textContent).toContain("初始任务");
+
+    const frame = (): EventPayload => ({
+      kind: "todo_progress",
+      todoProgress: { kind: "advance", progressRevision: 1 },
+    });
+    render(snapshot(frame()));
+    await flush();
+    expect(container.textContent).toContain("初始任务");
+
+    // Same clocks on a new frame: the revision guard would normally skip it,
+    // but the previous read failed, so it is worth asking again.
+    render(snapshot(frame()));
+    await flush();
+    expect(container.textContent).toContain("重试成功");
+  });
+
+  it("does not let the previous pane's list land on the new one", async () => {
+    let releaseOld: (value: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/rt/r1/todos") {
+          return new Promise<Response>((done) => (releaseOld = done));
+        }
+        if (url === "/rt/r2/todos") {
+          return Promise.resolve(json([{ content: "新会话的任务", status: "in_progress" }]));
+        }
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot(undefined, [runtime, other]));
+    render(snapshot(undefined, [runtime, other]), "r2");
+    await flush();
+
+    expect(container.textContent).toContain("新会话的任务");
+
+    // The old read was still in flight when the screen moved on. Its answer
+    // belongs to the pane that is no longer open.
+    await act(async () => {
+      releaseOld(json([{ content: "旧会话的任务", status: "in_progress" }]));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).not.toContain("旧会话的任务");
+    expect(container.textContent).toContain("新会话的任务");
+  });
+});
+
+describe("ChatScreen cache reading", () => {
+  function openMenu(): void {
+    act(() => (container.querySelector('button[aria-label="更多"]') as HTMLButtonElement).click());
+  }
+
+  it("states the session's cache hit rate in the head menu", async () => {
+    stubKernel({
+      history: [{ role: "user", content: "你好", msgIndex: 1 }],
+      status: {
+        running: false,
+        busy: false,
+        decisions: [],
+        sessionUsage: { requests: 2, cacheHit: 750, cacheMiss: 250, cacheUnknown: 0 },
+      },
+    });
+
+    render(snapshot());
+    await flush();
+    openMenu();
+
+    const note = container.querySelector(".head-menu-note");
+    expect(note?.textContent).toContain("缓存命中率");
+    expect(note?.textContent).toContain("75%");
+    expect(note?.textContent).toContain("命中 750");
+    expect(note?.textContent).toContain("未命中 250");
+  });
+
+  it("says nothing was measured before a prompt is split", async () => {
+    stubKernel({
+      history: [{ role: "user", content: "你好", msgIndex: 1 }],
+      status: { running: false, busy: false, decisions: [] },
+    });
+
+    render(snapshot());
+    await flush();
+    openMenu();
+
+    expect(container.querySelector(".head-menu-note")?.textContent).toContain("还没有可统计的请求");
+  });
+});
+
+describe("ChatScreen message actions", () => {
+  const checkpoints = [{ turn: 1, prompt: "问", files: 0, msgIndex: 1 }];
+  const history = [
+    { role: "user", content: "问", msgIndex: 1, createdAt: Date.UTC(2026, 9, 9, 12, 51) },
+    { role: "assistant", content: "答", msgIndex: 2 },
+  ];
+
+  it("closes a turn with a tick and how long it ran", async () => {
+    stubKernel({ history: [] });
+
+    render(snapshot({ kind: "turn_done", workDurationMs: 2_275_000 } as EventPayload));
+    await flush();
+
+    expect(container.querySelector(".worked")?.textContent).toContain("已完成 · 37m 55s");
+  });
+
+  it("puts the person's time and actions under their words", async () => {
+    stubKernel({ history, checkpoints });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    expect(container.querySelector(".user-time")?.textContent).not.toBe("");
+    expect(container.querySelector('[aria-label="编辑并重发"]')).toBeTruthy();
+    expect(container.querySelector('[aria-label="回到这条消息之前"]')).toBeTruthy();
+    expect(container.querySelector('[aria-label="重新生成"]')).toBeTruthy();
+    expect(container.querySelector('[aria-label="新建分支"]')).toBeTruthy();
+  });
+
+  it("holds a quote above the box instead of pasting it into the draft", async () => {
+    stubKernel({ history, checkpoints });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    act(() => (container.querySelector('[aria-label="引用到输入框"]') as HTMLButtonElement).click());
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("");
+    expect(container.querySelector(".quote-chip")?.textContent).toContain("引用第 1 轮回复");
+    expect(container.querySelector(".quote-chip")?.textContent).toContain("1 行");
+
+    act(() =>
+      (container.querySelector('button[aria-label="移除引用"]') as HTMLButtonElement).click(),
+    );
+    expect(container.querySelector(".quote-chip")).toBeNull();
+  });
+
+  it("sends the quoted turn before the question", async () => {
+    const fetchMock = stubKernel({ history, checkpoints });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    act(() => (container.querySelector('[aria-label="引用到输入框"]') as HTMLButtonElement).click());
+    typeDraft("再解释一下");
+    act(() => sendButton().click());
+    await flush();
+    await flush();
+
+    const submit = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/submit"));
+    expect(JSON.parse(String(submit?.[1]?.body))).toEqual({
+      input: "[Quoting the assistant reply from turn 1.]\n> 答\n\n再解释一下",
+    });
+    expect(container.querySelector(".quote-chip")).toBeNull();
+  });
+
+  it("regenerates by rewinding the conversation and sending the question again", async () => {
+    const fetchMock = stubKernel({ history, checkpoints });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    act(() => (container.querySelector('[aria-label="重新生成"]') as HTMLButtonElement).click());
+    await flush();
+    await flush();
+
+    const calls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(calls).toContain("/rt/r1/rewind/prepare");
+    expect(calls).toContain("/rt/r1/rewind/commit");
+    const submit = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/submit"));
+    expect(JSON.parse(String(submit?.[1]?.body))).toEqual({ input: "问" });
+  });
+
+  it("replays a message without taking the chips above the box", async () => {
+    const fetchMock = stubKernel({ history, checkpoints });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    act(() => (container.querySelector('[aria-label="引用到输入框"]') as HTMLButtonElement).click());
+    act(() => (container.querySelector('[aria-label="重新生成"]') as HTMLButtonElement).click());
+    await flush();
+    await flush();
+
+    const submit = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/submit"));
+    expect(JSON.parse(String(submit?.[1]?.body))).toEqual({ input: "问" });
+    // The chip is for the next message; the replayed turn is not the composer's.
+    expect(container.querySelector(".quote-chip")?.textContent).toContain("引用第 1 轮回复");
+  });
+
+  it("forks at the turn and hands the new session to the opener", async () => {
+    stubKernel({ history, checkpoints, branchPath: "/w/sessions/fork.jsonl" });
+    const onOpenBranch = vi.fn(async () => true);
+
+    render(snapshot(), "r1", { onOpenBranch, title: "我的会话" });
+    await flush();
+    await flush();
+
+    act(() => (container.querySelector('[aria-label="新建分支"]') as HTMLButtonElement).click());
+    await flush();
+
+    expect(onOpenBranch).toHaveBeenCalledWith("/w/sessions/fork.jsonl", "我的会话 · 分支");
+  });
+
+  it("says the fork exists when this phone cannot open it", async () => {
+    stubKernel({ history, checkpoints });
+    const onOpenBranch = vi.fn(async () => false);
+
+    render(snapshot(), "r1", { onOpenBranch });
+    await flush();
+    await flush();
+
+    act(() => (container.querySelector('[aria-label="新建分支"]') as HTMLButtonElement).click());
+    await flush();
+    await flush();
+
+    expect(container.querySelector(".sendfail")?.textContent).toContain("分支已经建好");
+  });
+
+  it("keeps the fork on a closed turn while the next one runs", async () => {
+    stubKernel({ history, checkpoints });
+
+    render(snapshot());
+    await flush();
+    await flush();
+    expect(container.querySelector('[aria-label="重新生成"]')).toBeTruthy();
+
+    render(snapshot({ kind: "turn_started", text: "下一问", msgIndex: 3 } as EventPayload));
+    await flush();
+
+    expect(container.querySelector('[aria-label="新建分支"]')).toBeTruthy();
+    expect(container.querySelector('[aria-label="重新生成"]')).toBeNull();
+  });
+
+  it("rewrites a message in place through the rewind", async () => {
+    const fetchMock = stubKernel({ history, checkpoints });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    act(() => (container.querySelector('[aria-label="编辑并重发"]') as HTMLButtonElement).click());
+    const box = container.querySelector(".edit-message-text") as HTMLTextAreaElement;
+    expect(box.value).toBe("问");
+
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    act(() => {
+      setter?.call(box, "问（改）");
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const send = Array.from(container.querySelectorAll(".edit-message-acts button")).find(
+      (button) => button.textContent?.includes("发送"),
+    ) as HTMLButtonElement;
+    act(() => send.click());
+    await flush();
+    await flush();
+
+    const calls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(calls).toContain("/rt/r1/rewind/prepare");
+    const submit = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/submit"));
+    expect(JSON.parse(String(submit?.[1]?.body))).toEqual({ input: "问（改）" });
+  });
+
+  it("prepares the plan for the turn a row asks to rewind to", async () => {
+    stubKernel({ history, checkpoints });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    act(() => (container.querySelector('[aria-label="回到这条消息之前"]') as HTMLButtonElement).click());
+    await flush();
+    await flush();
+
+    expect(container.querySelector(".rewind-plan")?.textContent).toContain("回到第 1 轮之前");
+  });
+});
+
+function typeDraft(text: string): void {
+  const textarea = container.querySelector("textarea");
+  if (!textarea) throw new Error("no composer");
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+  act(() => {
+    setter?.call(textarea, text);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function sendButton(): HTMLButtonElement {
+  const button = container.querySelector('button[aria-label="发送"]');
+  if (!button) throw new Error("no send button");
+  return button as HTMLButtonElement;
+}
+
+describe("ChatScreen composer", () => {
+  it("shows the empty state when neither history nor live rows exist", async () => {
+    stubKernel();
+    render(snapshot());
+    await flush();
+    expect(container.textContent).toContain("还没有消息");
+  });
+
+  it("appends dictation to the draft", async () => {
+    stubKernel();
+    render(snapshot());
+    await flush();
+    typeDraft("先看看");
+
+    const mic = container.querySelector('button[aria-label="按住说话"]') as HTMLButtonElement;
+    expect(mic).toBeTruthy();
+    // Press: the hold opens and the partial transcript shows up live.
+    await act(async () => {
+      mic.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientY: 200 }));
+      await flush();
+    });
+    const live = container.querySelector(".voice-live");
+    expect(live?.textContent).toContain("修复登录白屏");
+    // The wave rides along: one bar per sliding level sample.
+    expect(container.querySelectorAll(".voice-wave i")).toHaveLength(14);
+
+    // Release: the final text lands in the draft, next to what was typed.
+    await act(async () => {
+      mic.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
+      await flush();
+    });
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe(
+      "先看看 修复登录白屏",
+    );
+  });
+
+  it("cancels dictation by tapping the live strip", async () => {
+    stubKernel();
+    render(snapshot());
+    await flush();
+    typeDraft("先看看");
+
+    const mic = container.querySelector('button[aria-label="按住说话"]') as HTMLButtonElement;
+    await act(async () => {
+      mic.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientY: 200 }));
+      await flush();
+    });
+    const live = container.querySelector(".voice-live") as HTMLButtonElement;
+    expect(live).toBeTruthy();
+    expect(live.textContent).not.toContain("取消");
+
+    act(() => live.click());
+    await flush();
+
+    expect(container.querySelector(".voice-live")).toBeNull();
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("先看看");
+  });
+
+  it("puts the mic immediately left of the send control", async () => {
+    stubKernel();
+    render(snapshot());
+    await flush();
+
+    const mic = container.querySelector('button[aria-label="按住说话"]') as HTMLButtonElement;
+    const send = container.querySelector('button[aria-label="发送"]') as HTMLButtonElement;
+    expect(mic).toBeTruthy();
+    expect(send).toBeTruthy();
+    expect(mic.nextElementSibling).toBe(send);
+  });
+
+  it("keeps a long press from opening the copy menu on the mic", async () => {
+    stubKernel();
+    render(snapshot());
+    await flush();
+
+    const mic = container.querySelector('button[aria-label="按住说话"]') as HTMLButtonElement;
+    expect(mic.querySelector("svg")).toBeTruthy();
+    // No text inside the button means the selection engine has nothing to
+    // copy; the context menu is refused as well.
+    expect(mic.textContent?.trim()).toBe("");
+    const menu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    let allowed = true;
+    await act(async () => {
+      allowed = mic.dispatchEvent(menu);
+    });
+    expect(allowed).toBe(false);
+  });
+
+  it("restores a draft left in this pane before an interruption", async () => {
+    localStorage.setItem("reasonix.draft.r1", "没发出去的想法");
+    stubKernel();
+
+    render(snapshot());
+    await flush();
+
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe(
+      "没发出去的想法",
+    );
+  });
+
+  it("restores a draft by the stored session path, not the pane id", async () => {
+    localStorage.setItem("reasonix.draft./w/s.json", "按会话存的草稿");
+    stubKernel();
+
+    render(snapshot(undefined, [{ ...runtime, sessionPath: "/w/s.json" }]));
+    await flush();
+
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe(
+      "按会话存的草稿",
+    );
+  });
+
+  it("moves a draft taken under the pane id when the session path arrives", async () => {
+    localStorage.setItem("reasonix.draft.r1", "留下的想法");
+    stubKernel();
+    render(snapshot());
+    await flush();
+
+    render(snapshot(undefined, [{ ...runtime, sessionPath: "/w/s.json" }]));
+    await flush();
+
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe(
+      "留下的想法",
+    );
+    expect(localStorage.getItem("reasonix.draft./w/s.json")).toBe("留下的想法");
+    expect(localStorage.getItem("reasonix.draft.r1")).toBeNull();
+  });
+
+  it("does not send while an input method is composing", async () => {
+    // Seeded on purpose: in the default newline mode a bare Enter does not
+    // send anyway, so the test would pass with the guard deleted. Under the
+    // send mode the guard is the only thing between Enter and a submit.
+    localStorage.setItem("reasonix.enter", "send");
+    try {
+      const fetchMock = stubKernel();
+      render(snapshot());
+      await flush();
+      typeDraft("nihao");
+
+      act(() => {
+        container.querySelector("textarea")?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            bubbles: true,
+            cancelable: true,
+            isComposing: true,
+          }),
+        );
+      });
+      await flush();
+
+      const submitted = fetchMock.mock.calls.some(([input]) => String(input).endsWith("/submit"));
+      expect(submitted).toBe(false);
+
+      // The same keystroke without a composition is a send: what the guard
+      // blocks is the composing Enter, not the key itself.
+      act(() => {
+        container.querySelector("textarea")?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+        );
+      });
+      await flush();
+      expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/submit"))).toBe(true);
+    } finally {
+      localStorage.removeItem("reasonix.enter");
+    }
+  });
+
+  it("breaks the line on Enter and sends on Ctrl+Enter by default", async () => {
+    const fetchMock = stubKernel();
+    render(snapshot());
+    await flush();
+    typeDraft("分两行写");
+
+    // The soft keyboard is told what its return key does, so it does not keep
+    // showing a send arrow while Enter inserts a line break.
+    expect(
+      container.querySelector("textarea")?.getAttribute("enterkeyhint"),
+    ).toBe("enter");
+
+    // Plain Enter inserts the line break; the kernel sees nothing.
+    act(() => {
+      const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+      textarea.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+      textarea.value = `${textarea.value}\n`;
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await flush();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/submit"))).toBe(false);
+
+    // Ctrl+Enter is the send.
+    act(() => {
+      container.querySelector("textarea")?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await flush();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/submit"))).toBe(true);
+  });
+
+  it("sends on Enter and keeps Shift+Enter a line break in the send mode", async () => {
+    // The preference is read once per composer mount, so the seed goes in
+    // before the screen exists.
+    localStorage.setItem("reasonix.enter", "send");
+    try {
+      const fetchMock = stubKernel();
+      render(snapshot());
+      await flush();
+      typeDraft("直接发送");
+
+      // Shift+Enter stays a line break even in this mode.
+      act(() => {
+        container.querySelector("textarea")?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+      await flush();
+      expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/submit"))).toBe(false);
+
+      act(() => {
+        container.querySelector("textarea")?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+        );
+      });
+      await flush();
+      expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/submit"))).toBe(true);
+    } finally {
+      localStorage.removeItem("reasonix.enter");
+    }
+  });
+
+  it("shows a retryable refusal and keeps the text in the composer", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/todos")) return Promise.resolve(json([]));
+        if (url.endsWith("/submit")) {
+          return Promise.resolve(json({ code: "http.500", error: "busy" }, 500));
+        }
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    typeDraft("hello");
+
+    act(() => sendButton().click());
+    await flush();
+    await flush();
+
+    expect(container.querySelector(".sendfail")?.textContent).toContain("没发出去：http.500");
+    expect(container.querySelector(".sendfail button")?.textContent).toBe("重试");
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("hello");
+    expect(container.querySelector(".row.user")).toBeNull();
+  });
+
+  it("asks for a refresh when a send may have reached the kernel", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/submit")) return Promise.reject(new TypeError("Failed to fetch"));
+        if (url.endsWith("/todos")) return Promise.resolve(json([]));
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    typeDraft("hello");
+
+    act(() => sendButton().click());
+    await flush();
+    await flush();
+
+    expect(container.querySelector(".sendfail")?.textContent).toContain(
+      "不确定这一轮有没有发出去",
+    );
+    expect(container.querySelector(".sendfail button")?.textContent).toBe("刷新确认");
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("hello");
+  });
+
+  it("draws the sent message before the stream confirms it", async () => {
+    let release!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/submit")) return pending;
+        if (url.endsWith("/todos")) return Promise.resolve(json([]));
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    typeDraft("hello");
+
+    act(() => sendButton().click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector(".row.user")?.textContent).toContain("hello");
+
+    act(() => release(json({})));
+    await flush();
+    await flush();
+
+    expect(container.querySelectorAll(".row.user")).toHaveLength(1);
+  });
+
+  it("does not wipe text typed while the send is in flight", async () => {
+    let release!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/submit")) return pending;
+        if (url.endsWith("/todos")) return Promise.resolve(json([]));
+        return Promise.resolve(json([]));
+      }),
+    );
+
+    render(snapshot());
+    await flush();
+    typeDraft("first");
+
+    act(() => sendButton().click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // The person keeps typing while the request is in flight.
+    typeDraft("second");
+    act(() => release(json({})));
+    await flush();
+    await flush();
+
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("second");
+    expect(localStorage.getItem("reasonix.draft.r1")).toBe("second");
+  });
+
+  it("does not yank the transcript down while the person reads back", async () => {
+    stubKernel();
+    render(snapshot());
+    await flush();
+
+    const list = container.querySelector(".transcript") as HTMLDivElement;
+    Object.defineProperty(list, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(list, "clientHeight", { value: 500, configurable: true });
+    Object.defineProperty(list, "scrollTop", { value: 100, configurable: true, writable: true });
+    const scrollTo = vi.fn();
+    list.scrollTo = scrollTo;
+    act(() => list.dispatchEvent(new Event("scroll")));
+    scrollTo.mockClear();
+
+    render(snapshot({ kind: "text", text: "新内容" }));
+    await flush();
+
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("offers a fresh conversation in the same project from the chat header", async () => {
+    stubKernel();
+    const onNewSession = vi.fn();
+    root = createRoot(container);
+    act(() =>
+      root?.render(
+        <ChatScreen
+          connection={connection}
+          snapshot={snapshot()}
+          runtimeId="r1"
+          onBack={() => {}}
+          onNewSession={onNewSession}
+        />,
+      ),
+    );
+    await flush();
+
+    const plus = container.querySelector('button[aria-label="在当前项目新建会话"]');
+    act(() => (plus as HTMLButtonElement).click());
+
+    expect(onNewSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the model picker from the header chip and shows the switched model", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/rt/r1/models")) {
+        return Promise.resolve(
+          json({
+            current: "deepseek/deepseek-flash",
+            label: "Flash",
+            default: "deepseek/deepseek-pro",
+            models: [
+              { ref: "deepseek/deepseek-flash", provider: "deepseek", model: "deepseek-flash", active: true },
+              { ref: "deepseek/deepseek-pro", provider: "deepseek", model: "deepseek-pro", default: true },
+            ],
+          }),
+        );
+      }
+      if (url.endsWith("/rt/r1/model") && init?.method === "POST") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url.endsWith("/todos")) return Promise.resolve(json([]));
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    root = createRoot(container);
+    act(() =>
+      root?.render(
+        <ChatScreen connection={connection} snapshot={snapshot()} runtimeId="r1" onBack={() => {}} />,
+      ),
+    );
+    await flush();
+
+    const chip = container.querySelector('button[aria-label="切换模型"]');
+    expect(chip).toBeTruthy();
+    act(() => (chip as HTMLButtonElement).click());
+    await flush();
+
+    const sheet = container.querySelector('[aria-label="选择模型"]');
+    expect(sheet).toBeTruthy();
+
+    const row = Array.from(sheet?.querySelectorAll(".model-row") ?? []).find((candidate) =>
+      candidate.textContent?.includes("deepseek-pro"),
+    );
+    await act(async () => {
+      (row as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+    await flush();
+
+    // The sheet closes and the header now names the model that answered.
+    expect(container.querySelector('[aria-label="选择模型"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="切换模型"]')?.textContent).toBe("deepseek-pro");
+  });
+
+  it("uploads an image, inserts the kernel reference, and can remove it", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/rt/r1/attachments")) {
+        return Promise.resolve(
+          json({
+            path: ".reasonix/attachments/photo.png",
+            ref: "@.reasonix/attachments/photo.png",
+            image: true,
+          }),
+        );
+      }
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const preview = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:photo");
+
+    render(snapshot());
+    await flush();
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["image"], "photo.png", { type: "image/png" });
+    Object.defineProperty(input, "files", { value: [file], configurable: true });
+    act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await flush();
+    await flush();
+
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("");
+    expect(container.querySelector(".attachment img")?.getAttribute("src")).toBe("blob:photo");
+    expect(container.querySelector(".attachment")?.textContent).toContain("photo.png");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/rt/r1/attachments",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    act(() =>
+      (
+        container.querySelector('button[aria-label="移除附件 photo.png"]') as HTMLButtonElement
+      ).click(),
+    );
+
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("");
+    expect(container.querySelector(".attachment")).toBeNull();
+    expect(preview).toHaveBeenCalled();
+  });
+
+  it("opens a pending image at full size and closes the preview", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/rt/r1/attachments")) {
+          return Promise.resolve(
+            json({
+              path: ".reasonix/attachments/photo.png",
+              ref: "@.reasonix/attachments/photo.png",
+              image: true,
+            }),
+          );
+        }
+        return Promise.resolve(json([]));
+      }),
+    );
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:photo");
+
+    render(snapshot());
+    await flush();
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["image"], "photo.png", { type: "image/png" });
+    Object.defineProperty(input, "files", { value: [file], configurable: true });
+    act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await flush();
+    await flush();
+
+    const thumb = container.querySelector(
+      'button[aria-label="放大图片 photo.png"]',
+    ) as HTMLButtonElement;
+    act(() => thumb.click());
+
+    const dialog = container.querySelector('[role="dialog"][aria-label="图片预览"]');
+    expect(dialog?.querySelector("img")?.getAttribute("src")).toBe("blob:photo");
+
+    const close = dialog?.querySelector<HTMLButtonElement>('button[aria-label="关闭预览"]');
+    expect(close).not.toBeNull();
+    act(() => close?.click());
+    expect(container.querySelector('[aria-label="图片预览"]')).toBeNull();
+    // The chip is still staged after the preview closes.
+    expect(container.querySelector(".attachment")).not.toBeNull();
+  });
+
+  it("uploads a file and shows a file chip", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/rt/r1/attachments")) {
+        return Promise.resolve(
+          json({
+            path: ".reasonix/attachments/app.log",
+            ref: "@.reasonix/attachments/app.log",
+          }),
+        );
+      }
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(snapshot());
+    await flush();
+
+    const inputs = container.querySelectorAll('input[type="file"]');
+    const input = inputs[2] as HTMLInputElement;
+    const file = new File(["2026-11-02 log"], "app.log", { type: "text/plain" });
+    Object.defineProperty(input, "files", { value: [file], configurable: true });
+    act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await flush();
+    await flush();
+
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("");
+    expect(container.querySelector(".attachment-file")?.textContent).toBe("LOG");
+    expect(container.querySelector(".attachment img")).toBeNull();
+    const upload = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith("/rt/r1/attachments"),
+    );
+    const body = JSON.parse(String(upload?.[1]?.body)) as {
+      name: string;
+      mime: string;
+    };
+    expect(body.name).toBe("app.log");
+    expect(body.mime).toBe("text/plain");
+  });
+
+  it("accepts several images at once and keeps the ones that uploaded", async () => {
+    let call = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/rt/r1/attachments")) {
+        call += 1;
+        // The second upload is refused: one bad file must not sink the rest.
+        if (call === 2) {
+          return Promise.resolve(json({ code: "attachment.too_large" }, 413));
+        }
+        return Promise.resolve(
+          json({
+            path: `.reasonix/attachments/p${call}.png`,
+            ref: `@.reasonix/attachments/p${call}.png`,
+            image: true,
+          }),
+        );
+      }
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    let blob = 0;
+    vi.spyOn(URL, "createObjectURL").mockImplementation(() => `blob:${++blob}`);
+
+    render(snapshot());
+    await flush();
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input.multiple).toBe(true);
+
+    const files = [
+      new File(["a"], "one.png", { type: "image/png" }),
+      new File(["b"], "two.png", { type: "image/png" }),
+      new File(["c"], "three.png", { type: "image/png" }),
+    ];
+    Object.defineProperty(input, "files", { value: files, configurable: true });
+    act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await flush();
+    await flush();
+    await flush();
+
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("");
+    expect(container.querySelectorAll(".attachment")).toHaveLength(2);
+    expect(container.textContent).toContain("two.png");
+    expect(container.textContent).toContain("图片太大");
+  });
+
+  it("appends a second pick instead of replacing the first", async () => {
+    let call = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/rt/r1/attachments")) {
+        call += 1;
+        return Promise.resolve(
+          json({ path: `p${call}.png`, ref: `@p${call}.png`, image: true }),
+        );
+      }
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:one");
+
+    render(snapshot());
+    await flush();
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+    Object.defineProperty(input, "files", {
+      value: [new File(["a"], "one.png", { type: "image/png" })],
+      configurable: true,
+    });
+    act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await flush();
+    await flush();
+
+    // The attach control stays usable with an image already waiting.
+    const attach = container.querySelector('button[aria-label="添加图片或计划"]') as HTMLButtonElement;
+    expect(attach.disabled).toBe(false);
+
+    Object.defineProperty(input, "files", {
+      value: [new File(["b"], "two.png", { type: "image/png" })],
+      configurable: true,
+    });
+    act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await flush();
+    await flush();
+
+    expect(container.querySelectorAll(".attachment")).toHaveLength(2);
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("sends the uploaded reference as the turn input", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/rt/r1/attachments")) {
+        return Promise.resolve(json({ path: "p.png", ref: "@p.png", image: true }));
+      }
+      if (url.endsWith("/submit")) return Promise.resolve(json({}));
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:photo");
+
+    render(snapshot());
+    await flush();
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["image"], "photo.png", { type: "image/png" });
+    Object.defineProperty(input, "files", { value: [file], configurable: true });
+    act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await flush();
+    await flush();
+
+    act(() => sendButton().click());
+    await flush();
+    await flush();
+
+    const submitCall = fetchMock.mock.calls.find(([value]) => String(value).endsWith("/submit"));
+    expect(submitCall).toBeTruthy();
+    expect(JSON.parse(String(submitCall?.[1]?.body))).toEqual({ input: "@p.png" });
+  });
+});
+
+describe("ChatScreen interject", () => {
+  /** A kernel that accepts one inbox item and reports the given disposition. */
+  function inboxKernel(disposition: string, extra: Record<string, unknown> = {}) {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/inbox/items")) {
+        return Promise.resolve(
+          json({ itemId: "i1", disposition, position: 1, paused: false, ...extra }),
+        );
+      }
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  function inboxCalls(fetchMock: ReturnType<typeof vi.fn>) {
+    return fetchMock.mock.calls.filter(([value]) => String(value).endsWith("/inbox/items"));
+  }
+
+  /** Put the screen into a running turn with text in the composer. */
+  async function runningWithDraft(text: string): Promise<void> {
+    render(snapshot({ kind: "turn_started" }));
+    await flush();
+    typeDraft(text);
+  }
+
+  it("offers both ways only while a turn is running", async () => {
+    stubKernel();
+    render(snapshot());
+    await flush();
+    typeDraft("等一下");
+
+    // Idle: the send button is the way out, and there is nothing to steer.
+    expect(container.querySelector('[aria-label="发送到运行中的回合"]')).toBeNull();
+
+    render(snapshot({ kind: "turn_started" }));
+    await flush();
+
+    const group = container.querySelector('[aria-label="发送到运行中的回合"]');
+    expect(group).toBeTruthy();
+    expect(group?.textContent).toContain("排队");
+    expect(group?.textContent).toContain("插话");
+  });
+
+  it("queues a message without touching the running turn", async () => {
+    const fetchMock = inboxKernel("queued_followup");
+    await runningWithDraft("查完日志再说");
+
+    await act(async () => {
+      (Array.from(container.querySelectorAll(".interject button")).find(
+        (b) => b.textContent === "排队",
+      ) as HTMLButtonElement).click();
+    });
+    await flush();
+
+    const calls = inboxCalls(fetchMock);
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(String(calls[0]?.[1]?.body))).toEqual({
+      input: "查完日志再说",
+      intent: "followup",
+    });
+    // The receipt says what actually happened, including its place in line.
+    expect(container.textContent).toContain("已排队");
+    // A queued message is held by the kernel, so the composer is free again.
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("steers into the running turn and says so", async () => {
+    const fetchMock = inboxKernel("steer_accepted");
+    await runningWithDraft("停，先看这个");
+
+    await act(async () => {
+      (Array.from(container.querySelectorAll(".interject button")).find(
+        (b) => b.textContent === "插话",
+      ) as HTMLButtonElement).click();
+    });
+    await flush();
+
+    const calls = inboxCalls(fetchMock);
+    expect(JSON.parse(String(calls[0]?.[1]?.body))).toEqual({
+      input: "停，先看这个",
+      intent: "steer",
+    });
+    expect(container.textContent).toContain("这一轮会看到");
+  });
+
+  it("reports a steer the kernel queued instead, rather than claiming it landed", async () => {
+    // The kernel may decide a steer cannot join the turn; the receipt is the
+    // only place that shows, and saying "已插话" would be a lie.
+    inboxKernel("queued_followup");
+    await runningWithDraft("改一下");
+
+    await act(async () => {
+      (Array.from(container.querySelectorAll(".interject button")).find(
+        (b) => b.textContent === "插话",
+      ) as HTMLButtonElement).click();
+    });
+    await flush();
+
+    expect(container.textContent).toContain("已排队");
+    expect(container.textContent).not.toContain("这一轮会看到");
+  });
+
+  it("keeps the draft when the kernel refuses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/inbox/items")) {
+          return Promise.resolve(json({ code: "inbox.capacity_items" }, 409));
+        }
+        return Promise.resolve(json([]));
+      }),
+    );
+    await runningWithDraft("这条会被拒");
+
+    await act(async () => {
+      (Array.from(container.querySelectorAll(".interject button")).find(
+        (b) => b.textContent === "排队",
+      ) as HTMLButtonElement).click();
+    });
+    await flush();
+
+    expect(container.textContent).toContain("队列满了");
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("这条会被拒");
+  });
+
+  it("keeps the draft when a 200 receipt says the kernel rejected the message", async () => {
+    // A `rejected_*` disposition rides an HTTP 200: the kernel took nothing,
+    // so clearing the composer would lose the message — the receipt's own
+    // wording is the error the person needs to see.
+    inboxKernel("rejected_busy");
+    await runningWithDraft("稍等再发的这条");
+
+    await act(async () => {
+      (Array.from(container.querySelectorAll(".interject button")).find(
+        (b) => b.textContent === "插话",
+      ) as HTMLButtonElement).click();
+    });
+    await flush();
+
+    expect(container.textContent).toContain("稍等再试");
+    expect(container.textContent).not.toContain("已发送");
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("稍等再发的这条");
+  });
+
+  it("does not offer to interject into a read-only pane", async () => {
+    stubKernel();
+    render(
+      snapshot({ kind: "turn_started" }, [
+        { id: "r1", base: "/rt/r1", root: "/w", name: "w", readOnly: true },
+      ]),
+    );
+    await flush();
+    typeDraft("只读也不能发");
+
+    expect(container.querySelector('[aria-label="发送到运行中的回合"]')).toBeNull();
+  });
+});
+
+describe("ChatScreen structured asks", () => {
+  it("draws a surface question as a form and answers with Value, not Selected", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/answer") && init?.method === "POST") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url.endsWith("/todos")) return Promise.resolve(json([]));
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      snapshot({
+        kind: "ask_request",
+        ask: {
+          id: "ask-9",
+          questions: [
+            {
+              id: "q1",
+              header: "配置",
+              prompt: "选一下",
+              options: [],
+              surface: {
+                spec_version: 1,
+                body: [
+                  {
+                    kind: "choice_card",
+                    key: "mode",
+                    label: "模式",
+                    field: {
+                      type: "choice",
+                      required: true,
+                      options: [
+                        { value: "fast", label: "快速" },
+                        { value: "full", label: "完整" },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+    );
+    await flush();
+
+    // The option path would have said "这个问题没有可选项"; a form is drawn.
+    expect(container.textContent).not.toContain("没有可选项");
+    expect(container.querySelector(".surface")).toBeTruthy();
+
+    const pick = Array.from(container.querySelectorAll("button")).find((candidate) =>
+      candidate.textContent?.includes("完整"),
+    ) as HTMLButtonElement;
+    act(() => pick.click());
+
+    const confirm = Array.from(container.querySelectorAll("button")).find(
+      (candidate) => candidate.textContent?.trim() === "确认",
+    ) as HTMLButtonElement;
+    await act(async () => {
+      confirm.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await flush();
+
+    const call = fetchMock.mock.calls.find(([value]) => String(value).endsWith("/answer"));
+    expect(call).toBeTruthy();
+    const body = JSON.parse(String(call?.[1]?.body)) as {
+      id: string;
+      answers: { QuestionID: string; Selected: string[]; Value?: Record<string, unknown> }[];
+    };
+    expect(body.id).toBe("ask-9");
+    // The kernel's surface validation refuses a label here: the answer is the
+    // field values, with `Selected` empty.
+    expect(body.answers).toEqual([{ QuestionID: "q1", Selected: [], Value: { mode: "full" } }]);
+  });
+
+  it("falls back to options for a question without a surface", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/answer") && init?.method === "POST") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      snapshot({
+        kind: "ask_request",
+        ask: {
+          id: "ask-8",
+          questions: [
+            { id: "q1", prompt: "要茶吗", options: [{ label: "要" }, { label: "不要" }] },
+          ],
+        },
+      }),
+    );
+    await flush();
+
+    expect(container.querySelector(".surface")).toBeNull();
+    const pick = Array.from(container.querySelectorAll("button")).find((candidate) =>
+      candidate.textContent?.includes("要"),
+    ) as HTMLButtonElement;
+    act(() => pick.click());
+    const confirm = Array.from(container.querySelectorAll("button")).find(
+      (candidate) => candidate.textContent?.trim() === "确认",
+    ) as HTMLButtonElement;
+    await act(async () => {
+      confirm.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await flush();
+
+    const call = fetchMock.mock.calls.find(([value]) => String(value).endsWith("/answer"));
+    const body = JSON.parse(String(call?.[1]?.body)) as {
+      answers: { QuestionID: string; Selected: string[] }[];
+    };
+    expect(body.answers).toEqual([{ QuestionID: "q1", Selected: ["要"] }]);
+  });
+});
+
+describe("ChatScreen stop", () => {
+  it("offers a labelled stop for a turn that was already running when it opened", async () => {
+    const fetchMock = stubKernel({ status: { running: true, busy: true, decisions: [] } });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    const stop = container.querySelector('[aria-label="停止"]') as HTMLButtonElement;
+    expect(stop).toBeTruthy();
+    expect(stop.textContent).toContain("停止");
+
+    await act(async () => {
+      stop.click();
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/rt/r1/cancel",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("keeps the send button when the kernel reports no turn", async () => {
+    stubKernel({ status: { running: false, busy: false, decisions: [] } });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    expect(container.querySelector('[aria-label="发送"]')).toBeTruthy();
+    expect(container.querySelector('[aria-label="停止"]')).toBeNull();
+  });
+});
+
+describe("ChatScreen activity", () => {
+  it("draws live steps, then collapses the finished run", async () => {
+    stubKernel();
+    render(snapshot({ kind: "turn_started" }));
+    await flush();
+    render(
+      snapshot({
+        kind: "tool_dispatch",
+        tool: { id: "c1", name: "bash", args: '{"command":"ls"}' },
+      }),
+    );
+    await flush();
+    render(
+      snapshot({
+        kind: "tool_dispatch",
+        tool: { id: "c2", name: "read_file", args: '{"path":"a"}' },
+      }),
+    );
+    await flush();
+
+    // Still in flight: the steps are individually readable.
+    expect(container.querySelectorAll(".activity-row")).toHaveLength(2);
+
+    render(snapshot({ kind: "turn_done" }));
+    await flush();
+
+    const summary = container.querySelector(".process-row");
+    expect(summary?.textContent).toContain("执行命令");
+    expect(summary?.textContent).toContain("读取");
+    expect(summary?.textContent).toContain("2 个操作");
+    expect(container.querySelectorAll(".activity-row")).toHaveLength(0);
+
+    act(() => (summary as HTMLButtonElement).click());
+    const sheet = container.querySelector(".process-sheet");
+    expect(sheet?.textContent).toContain("执行命令");
+    expect(sheet?.textContent).toContain("读取文件");
+  });
+
+  it("summarises a running step in compact mode and keeps thinking a fold away", async () => {
+    localStorage.setItem("reasonix.folding.v1", "compact");
+    stubKernel();
+    render(snapshot({ kind: "turn_started" }));
+    await flush();
+    render(snapshot({ kind: "reasoning", reasoning: "先看目录" }));
+    await flush();
+
+    expect(container.querySelector(".activity-row")).toBeNull();
+    const thought = container.querySelector<HTMLButtonElement>(".thought-row");
+    expect(thought?.textContent).toContain("思考中");
+    expect(container.querySelector(".thought-body")).toBeNull();
+
+    render(
+      snapshot({
+        kind: "tool_dispatch",
+        tool: { id: "c1", name: "bash", args: '{"command":"ls"}' },
+      }),
+    );
+    await flush();
+
+    expect(container.querySelector(".activity-row")).toBeNull();
+    const summary = container.querySelector(".process-row");
+    expect(summary?.textContent).toContain("1 个操作");
+    expect(container.querySelector(".activity-icon.running")).not.toBeNull();
+
+    // The small window opens in place, and the folded record carries the
+    // thought as a step of its own.
+    act(() => (container.querySelector(".thought-row") as HTMLButtonElement).click());
+    expect(container.querySelector(".thought-body")?.textContent).toContain("先看目录");
+    act(() => (summary as HTMLButtonElement).click());
+    expect(container.querySelector(".process-sheet")?.textContent).toContain("深度思考");
+  });
+
+  it("gives a compact answer its own thought fold", async () => {
+    localStorage.setItem("reasonix.folding.v1", "compact");
+    stubKernel();
+    render(snapshot({ kind: "turn_started" }));
+    await flush();
+    render(snapshot({ kind: "message", text: "答案", reasoning: "想过了", thoughtMs: 2400 }));
+    await flush();
+    render(snapshot({ kind: "turn_done" }));
+    await flush();
+
+    const thought = container.querySelector<HTMLButtonElement>(".thought-row");
+    expect(thought?.textContent).toContain("思考了 2 秒");
+    expect(container.querySelector(".thought-body")).toBeNull();
+    act(() => thought?.click());
+    expect(container.querySelector(".thought-body")?.textContent).toContain("想过了");
+  });
+
+  it("keeps each step in full mode after the turn ends", async () => {
+    localStorage.setItem("reasonix.folding.v1", "full");
+    stubKernel();
+    render(snapshot({ kind: "turn_started" }));
+    await flush();
+    render(
+      snapshot({ kind: "tool_dispatch", tool: { id: "c1", name: "bash", args: '{"command":"ls"}' } }),
+    );
+    await flush();
+    render(
+      snapshot({ kind: "tool_dispatch", tool: { id: "c2", name: "read_file", args: '{"path":"a"}' } }),
+    );
+    await flush();
+    render(snapshot({ kind: "turn_done" }));
+    await flush();
+
+    expect(container.querySelectorAll(".activity-row")).toHaveLength(2);
+    expect(container.querySelector(".process-row")).toBeNull();
+  });
+
+  it("lifts a thought into its own row", async () => {
+    stubKernel();
+    render(snapshot({ kind: "turn_started" }));
+    await flush();
+    render(snapshot({ kind: "reasoning", reasoning: "先看目录" }));
+    await flush();
+
+    const row = container.querySelector(".activity-row");
+    expect(row?.textContent).toContain("深度思考");
+
+    act(() => (row as HTMLButtonElement).click());
+    expect(container.querySelector(".reasoning-text")?.textContent).toBe("先看目录");
+  });
+});
+
+describe("ChatScreen tool posture", () => {
+  it("changes this conversation's posture from the head menu", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/todos")) return Promise.resolve(json([]));
+      if (url.endsWith("/tool-approval-mode")) return Promise.resolve(new Response(null, { status: 204 }));
+      if (url.endsWith("/status")) {
+        return Promise.resolve(
+          json({ running: false, busy: false, decisions: [], toolApprovalMode: "ask" }),
+        );
+      }
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(snapshot());
+    await flush();
+
+    act(() => (container.querySelector('button[aria-label="更多"]') as HTMLButtonElement).click());
+
+    const approvalRow = Array.from(container.querySelectorAll(".head-menu button")).find((node) =>
+      node.textContent?.includes("工具批准"),
+    ) as HTMLButtonElement | undefined;
+    expect(approvalRow?.textContent).toContain("逐次询问");
+
+    act(() => approvalRow?.click());
+    expect(container.querySelector(".approval-sheet")).not.toBeNull();
+
+    const auto = Array.from(container.querySelectorAll(".approval-choices button")).find((node) =>
+      node.textContent?.includes("自动"),
+    ) as HTMLButtonElement | undefined;
+    await act(async () => {
+      auto?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/rt/r1/tool-approval-mode",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ mode: "auto" }) }),
+    );
+    expect(container.querySelector(".approval-sheet")).toBeNull();
+  });
+});
+
+describe("ChatScreen composer extras", () => {
+  it("shows the model /status names when the history carries none", async () => {
+    stubKernel({
+      status: {
+        running: false,
+        busy: false,
+        decisions: [],
+        modelRef: "deepseek/deepseek-flash",
+      },
+    });
+    render(snapshot());
+    await flush();
+
+    expect(container.querySelector('button[aria-label="切换模型"]')?.textContent).toBe(
+      "deepseek-flash",
+    );
+  });
+
+  it("opens a plus sheet with camera, image and plan", async () => {
+    const fetchMock = stubKernel();
+    render(snapshot());
+    await flush();
+
+    act(() =>
+      (
+        container.querySelector('button[aria-label="添加图片或计划"]') as HTMLButtonElement
+      ).click(),
+    );
+    const sheet = container.querySelector(".attach-sheet");
+    expect(sheet?.textContent).toContain("相机");
+    expect(sheet?.textContent).toContain("图片");
+    expect(sheet?.textContent).toContain("计划");
+
+    const plan = Array.from(sheet?.querySelectorAll("button") ?? []).find((candidate) =>
+      candidate.textContent?.includes("计划"),
+    ) as HTMLButtonElement;
+    await act(async () => {
+      plan.click();
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/rt/r1/plan",
+      expect.objectContaining({ body: JSON.stringify({ on: true }) }),
+    );
+  });
+
+  it("keeps reload and model behind the header's more button", async () => {
+    stubKernel();
+    render(snapshot());
+    await flush();
+
+    act(() => (container.querySelector('button[aria-label="更多"]') as HTMLButtonElement).click());
+    const sheet = container.querySelector(".head-menu");
+    expect(sheet?.textContent).toContain("重新加载历史");
+    expect(sheet?.textContent).toContain("选择模型");
+  });
+});
+
+
+describe("ChatScreen reading position", () => {
+  function stubScroll(): { top: () => number; restore: () => void } {
+    let value = 0;
+    const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+    const saved = {
+      scrollTop: Object.getOwnPropertyDescriptor(proto, "scrollTop"),
+      scrollHeight: Object.getOwnPropertyDescriptor(proto, "scrollHeight"),
+      clientHeight: Object.getOwnPropertyDescriptor(proto, "clientHeight"),
+    };
+    Object.defineProperty(proto, "scrollHeight", { configurable: true, get: () => 1000 });
+    Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => 400 });
+    Object.defineProperty(proto, "scrollTop", {
+      configurable: true,
+      get: () => value,
+      set: (next: number) => {
+        value = next;
+      },
+    });
+    return {
+      top: () => value,
+      restore: () => {
+        for (const [name, descriptor] of Object.entries(saved)) {
+          if (descriptor) Object.defineProperty(proto, name, descriptor);
+          else delete proto[name];
+        }
+      },
+    };
+  }
+
+  it("returns to the place a conversation was left", async () => {
+    const scroll = stubScroll();
+    try {
+      saveReading("r1", { top: 240, atBottom: false });
+      stubKernel({
+        history: [
+          { role: "user", content: "old question", msgIndex: 1 },
+          { role: "assistant", content: "old answer", msgIndex: 2 },
+        ],
+      });
+
+      render(snapshot());
+      await flush();
+      await flush();
+
+      expect(scroll.top()).toBe(240);
+      // Studio's pair: up once there is more above, down once there is more
+      // below. Both ride over the record with the composer, so the last row
+      // can pass under them; the chevron is the whole control, named for
+      // speech.
+      act(() => (container.querySelector(".transcript") as HTMLElement).dispatchEvent(new Event("scroll")));
+      const transcript = container.querySelector(".transcript") as HTMLElement;
+      const up = container.querySelector('[aria-label="回到会话顶部"]') as HTMLButtonElement;
+      const down = container.querySelector('[aria-label="跳到最新"]') as HTMLButtonElement;
+      expect(up).toBeTruthy();
+      expect(down.closest(".chat-dock")).toBeTruthy();
+      expect(down.textContent?.trim()).toBe("");
+
+      // The up half goes first; the down half stays because the end is still
+      // out of view.
+      act(() => up.click());
+      expect(container.querySelector('[aria-label="回到会话顶部"]')).toBeNull();
+      expect(container.querySelector('[aria-label="跳到最新"]')).toBeTruthy();
+
+      // The control goes when the scroller reports the end; a jump that could
+      // not reach it keeps its way back.
+      act(() => (container.querySelector('[aria-label="跳到最新"]') as HTMLButtonElement).click());
+      expect(container.querySelector('[aria-label="跳到最新"]')).toBeTruthy();
+      act(() => {
+        transcript.scrollTop = 600;
+        transcript.dispatchEvent(new Event("scroll"));
+      });
+      expect(container.querySelector(".jump-latest")).toBeNull();
+    } finally {
+      scroll.restore();
+    }
+  });
+
+  it("follows the newest row when the last visit was at the bottom", async () => {
+    const scroll = stubScroll();
+    try {
+      saveReading("r1", { top: 0, atBottom: true });
+      stubKernel({
+        history: [
+          { role: "user", content: "old question", msgIndex: 1 },
+          { role: "assistant", content: "old answer", msgIndex: 2 },
+        ],
+      });
+
+      render(snapshot());
+      await flush();
+      await flush();
+
+      expect(scroll.top()).toBe(1000);
+      // The pair marks being away from the end; at the end there is nothing to
+      // offer, in either direction.
+      expect(container.querySelector(".jump-latest")).toBeNull();
+    } finally {
+      scroll.restore();
+    }
+  });
+});
+
+describe("ChatScreen transcript windowing", () => {
+  /**
+   * A long session read whole puts thousands of nodes into the DOM at once,
+   * and every streaming delta re-renders all of them — the stutter a phone
+   * shows flicking through an old pane. The window draws the tail and grows
+   * as the reader scrolls up, so the DOM stays proportional to what is on
+   * screen, not to how long the conversation is.
+   */
+
+  function longHistory(count: number): unknown[] {
+    return Array.from({ length: count }, (_, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: `消息 ${i}`,
+      msgIndex: i + 1,
+    }));
+  }
+
+  it("draws the newest entries first and leaves the rest off the DOM", async () => {
+    stubKernel({ history: longHistory(120) });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("消息 119");
+    expect(text).toContain("消息 91");
+    // Window is 30 entries: the first ~90 stay unpainted...
+    expect(text).not.toContain("消息 60");
+    // ...until the reader asks for them via the top affordance.
+    expect(container.querySelector(".window-gap")).toBeTruthy();
+  });
+
+  it("grows the window when the reader scrolls toward the top", async () => {
+    stubKernel({ history: longHistory(120) });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    const list = container.querySelector('[aria-label="对话记录"]') as HTMLElement;
+    const before = container.textContent ?? "";
+
+    act(() => {
+      list.scrollTop = 10; // near the top → onScroll widens the window
+      list.dispatchEvent(new Event("scroll"));
+    });
+
+    const after = container.textContent ?? "";
+    expect(after).not.toBe(before);
+    expect(after).toContain("消息 60");
+    // The spacer stays as long as entries remain above the window.
+    expect(container.querySelector(".window-gap")).toBeTruthy();
+  });
+
+  it("removes the spacer once the window covers the whole conversation", async () => {
+    stubKernel({ history: longHistory(60) });
+
+    render(snapshot());
+    await flush();
+    await flush();
+    expect(container.querySelector(".window-gap")).toBeTruthy();
+
+    act(() => {
+      const list = container.querySelector('[aria-label="对话记录"]') as HTMLElement;
+      list.scrollTop = 10;
+      list.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(container.querySelector(".window-gap")).toBeNull();
+    expect(container.textContent ?? "").toContain("消息 0");
+  });
+
+  it("keeps a short conversation unwindowed", async () => {
+    stubKernel({
+      history: [
+        { role: "user", content: "only question", msgIndex: 1 },
+        { role: "assistant", content: "only answer", msgIndex: 2 },
+      ],
+    });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    expect(container.querySelector(".window-gap")).toBeNull();
+    expect(container.textContent ?? "").toContain("only answer");
+  });
+
+  it("starts a new pane's window fresh when switching conversations", async () => {
+    stubKernel({ history: longHistory(120) });
+    render(snapshot());
+    await flush();
+    await flush();
+
+    // Widen this pane's window.
+    act(() => {
+      const list = container.querySelector('[aria-label="对话记录"]') as HTMLElement;
+      list.scrollTop = 10;
+      list.dispatchEvent(new Event("scroll"));
+    });
+    expect(container.textContent ?? "").toContain("消息 60");
+
+    // The other pane opens with its own tail window, not the widened one.
+    render(snapshot(undefined, [other]), "r2");
+    await flush();
+    await flush();
+
+    expect(container.textContent ?? "").not.toContain("消息 0");
+  });
+
+  it("never fires the previous conversation's cursor after a switch", async () => {
+    // Pane A is paged and holds a cursor. Switching to pane B resets it: the
+    // cursor belonged to A's newest page, and a read against it would prepend
+    // A's messages onto B — most visibly when B's own history read fails and
+    // nothing arrives to overwrite them.
+    const fetchMock = stubKernel({
+      history: {
+        messages: longHistory(60),
+        total: 130,
+        hasMoreBefore: true,
+        nextCursor: "c-old",
+      },
+      olderPage: {
+        messages: [{ role: "user", content: "A 的旧消息", msgIndex: 1 }],
+        total: 130,
+        hasMoreBefore: false,
+      },
+    });
+
+    render(snapshot());
+    await flush();
+    await flush();
+    expect(container.textContent ?? "").toContain("消息 59");
+
+    // B's history read fails outright: nothing will land to mask a stray
+    // cursor read.
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/history/page") && !url.includes("cursor=")) {
+        return Promise.resolve(new Response(null, { status: 500 }));
+      }
+      if (url.includes("/history")) {
+        return Promise.resolve(new Response(null, { status: 500 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ running: false, busy: false, decisions: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }));
+    });
+
+    render(snapshot(undefined, [other]), "r2");
+    await flush();
+    await flush();
+
+    // Push B to the top exactly as a reader would; the cursor from A is dead
+    // and no older-page request may go out.
+    act(() => {
+      const list = container.querySelector('[aria-label="对话记录"]') as HTMLElement;
+      list.scrollTop = 10;
+      list.dispatchEvent(new Event("scroll"));
+    });
+    await flush();
+    await flush();
+
+    const cursorCalls = fetchMock.mock.calls.filter(([input]) =>
+      String(input).includes("cursor="),
+    );
+    expect(cursorCalls).toHaveLength(0);
+    expect(container.textContent ?? "").not.toContain("A 的旧消息");
+    expect(container.textContent ?? "").toContain("没读到历史");
+  });
+
+  it("fetches an older page when the window reaches the top of a paged conversation", async () => {
+    // The newest page holds 60 of 130 messages: growing into the spacer is
+    // also the moment to ask the kernel for the page before this one. The
+    // older rows must land above the ones on screen, in order.
+    const older = Array.from({ length: 70 }, (_, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: `旧消息 ${i}`,
+      msgIndex: i + 1,
+    }));
+    const fetchMock = stubKernel({
+      history: {
+        messages: longHistory(60),
+        total: 130,
+        hasMoreBefore: true,
+        nextCursor: "c-old",
+      },
+      olderPage: {
+        messages: older,
+        total: 130,
+        hasMoreBefore: false,
+      },
+    });
+
+    render(snapshot());
+    await flush();
+    await flush();
+    expect(container.textContent ?? "").toContain("消息 59");
+    expect(container.textContent ?? "").not.toContain("旧消息 69");
+
+    // Near the top with the whole page drawn: the cursor read fires.
+    act(() => {
+      const list = container.querySelector('[aria-label="对话记录"]') as HTMLElement;
+      list.scrollTop = 10;
+      list.dispatchEvent(new Event("scroll"));
+    });
+    await flush();
+    await flush();
+
+    expect(container.textContent ?? "").toContain("旧消息 69");
+    expect(container.textContent ?? "").toContain("消息 59");
+    const pageCalls = fetchMock.mock.calls.filter(([input]) =>
+      String(input).includes("cursor=c-old"),
+    );
+    expect(pageCalls).toHaveLength(1);
+  });
+
+  it("stops asking for older pages once the kernel says there are none", async () => {
+    stubKernel({
+      history: {
+        messages: longHistory(60),
+        total: 60,
+        hasMoreBefore: false,
+      },
+    });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    act(() => {
+      const list = container.querySelector('[aria-label="对话记录"]') as HTMLElement;
+      list.scrollTop = 10;
+      list.dispatchEvent(new Event("scroll"));
+    });
+    await flush();
+
+    // The spacer is gone with the window covering everything, and no cursor
+    // request was ever made: /history/page without hasMoreBefore is terminal.
+    expect(container.querySelector(".window-gap")).toBeNull();
+  });
+});
+
+describe("ChatScreen studio entry", () => {
+  it("opens Studio from the header", async () => {
+    const openStudio = vi.fn(async () => ({ kind: "native" as const }));
+    render(snapshot(), "r1", { onOpenStudio: openStudio });
+    await flush();
+
+    const button = container.querySelector(
+      'button[aria-label="打开 Studio"]',
+    ) as HTMLButtonElement | null;
+    expect(button).toBeTruthy();
+    await act(async () => {
+      button?.click();
+      await Promise.resolve();
+    });
+
+    expect(openStudio).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the entry available on a read-only conversation", async () => {
+    const openStudio = vi.fn(async () => ({ kind: "native" as const }));
+    render(snapshot(undefined, [{ ...runtime, readOnly: true }]), "r1", {
+      onOpenStudio: openStudio,
+    });
+    await flush();
+
+    const button = container.querySelector(
+      'button[aria-label="打开 Studio"]',
+    ) as HTMLButtonElement | null;
+    expect(button?.disabled).toBe(false);
+  });
+
+  it("renders no entry where the shell cannot carry one", async () => {
+    render(snapshot());
+    await flush();
+
+    expect(container.querySelector('button[aria-label="打开 Studio"]')).toBeNull();
+  });
+
+  it("says so when there is no Studio address", async () => {
+    const openStudio = vi.fn(async () => ({ kind: "none" as const }));
+    render(snapshot(), "r1", { onOpenStudio: openStudio });
+    await flush();
+
+    const button = container.querySelector(
+      'button[aria-label="打开 Studio"]',
+    ) as HTMLButtonElement | null;
+    await act(async () => {
+      button?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("读不到这台电脑的 Studio 地址。");
+  });
+
+  it("says so when Studio cannot be opened", async () => {
+    const openStudio = vi.fn(async () => ({ kind: "failed" as const, error: new Error("x") }));
+    render(snapshot(), "r1", { onOpenStudio: openStudio });
+    await flush();
+
+    const button = container.querySelector(
+      'button[aria-label="打开 Studio"]',
+    ) as HTMLButtonElement | null;
+    await act(async () => {
+      button?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("打不开 Studio。");
+  });
+});

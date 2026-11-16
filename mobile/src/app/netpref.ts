@@ -1,0 +1,48 @@
+/**
+ * How the loopback proxy reaches a LAN computer while a VPN is active.
+ *
+ * The native proxy already re-routes private addresses over the non-VPN
+ * Wi-Fi and bypasses system HTTP proxies for them; "auto" is that behaviour.
+ * The other two answers exist for the phones where the automatic guess is
+ * wrong: "bypass" never puts a private address through the system HTTP proxy,
+ * VPN or not (the socket still follows whichever route owns it), and "system"
+ * leaves every connection on the default route for people whose proxy must
+ * see LAN traffic too.
+ *
+ * The choice lives on this phone, like the theme: the proxy reads its own
+ * preference store, and the value here keeps the segmented control honest
+ * across cold starts. When the proxy has not adopted the choice yet (a fresh
+ * install, an old native build), the stored value is still what the screen
+ * shows — the native side is the authority, this is the last answer given.
+ */
+
+import {
+  readChoice,
+  writeChoice,
+  SETTINGS_KEYS,
+  SETTINGS_DEFAULTS,
+  type NetPolicy,
+} from "./settings";
+
+export type { NetPolicy };
+
+export const NET_POLICY_CHOICES: ReadonlyArray<{ value: NetPolicy; label: string }> = [
+  { value: "auto", label: "自动" },
+  { value: "bypass", label: "绕过代理" },
+  { value: "system", label: "跟随系统" },
+];
+
+export const NET_POLICY_NOTE =
+  "自动：连局域网电脑时优先绕开 VPN；绕过代理：私有地址不走系统 HTTP 代理（开着 VPN 也一样）；跟随系统：按系统路由走。";
+
+export function isNetPolicy(value: unknown): value is NetPolicy {
+  return value === "auto" || value === "bypass" || value === "system";
+}
+
+export function loadNetPolicy(): NetPolicy {
+  return readChoice(SETTINGS_KEYS.netPolicy, ["auto", "bypass", "system"], SETTINGS_DEFAULTS.netPolicy);
+}
+
+export function saveNetPolicy(policy: NetPolicy): void {
+  writeChoice(SETTINGS_KEYS.netPolicy, policy, SETTINGS_DEFAULTS.netPolicy);
+}

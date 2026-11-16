@@ -1,0 +1,26 @@
+node_modules/
+dist/
+coverage/
+*.local
+.DS_Store
+.vite/
+
+# Capacitor's Android project is checked in: it holds the loopback proxy and
+# the MainActivity that starts it. Build outputs are ignored by android/.gitignore.
+# iOS is still a generated product with no native code of ours.
+ios/
+
+# Incremental build output from `tsc -b`: a cache, not a source file.
+*.tsbuildinfo
+
+# Release signing material never leaves the machine.
+keystore.properties
+*.jks
+*.keystore
+$TMPDIR/
+/shots/
+
+# 本机部署记录与网络探测结果不进仓库：含家庭网络形态、运营商、出口地址与
+# 端口判定，属于"这台机器的事实"，不是"这个项目的事实"。
+docs/RELAY_DESIGN.md
+docs/*.local.md

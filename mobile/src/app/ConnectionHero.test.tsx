@@ -1,0 +1,170 @@
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ConnectionHero } from "./ConnectionHero";
+import { idleLink } from "../net/link";
+import type { LinkState } from "../net/link";
+
+let container: HTMLDivElement;
+let root: Root | null = null;
+
+function render(props: Parameters<typeof ConnectionHero>[0]): HTMLElement {
+  act(() => root?.unmount());
+  root = createRoot(container);
+  act(() => {
+    root?.render(<ConnectionHero {...props} />);
+  });
+  return container;
+}
+
+function link(overrides: Partial<LinkState>): LinkState {
+  return { ...idleLink, ...overrides };
+}
+
+beforeEach(() => {
+  container = document.createElement("div");
+  document.body.appendChild(container);
+});
+
+afterEach(() => {
+  act(() => root?.unmount());
+  root = null;
+  container.remove();
+});
+
+describe("ConnectionHero", () => {
+  it("draws the computer mark and the idle detail", () => {
+    const hero = render({ name: "192.168.5.2:56789", detail: "局域网直连", link: idleLink });
+
+    expect(hero.querySelector(".hero-monitor")).toBeTruthy();
+    expect(hero.querySelector(".hero-monitor rect")).toBeTruthy();
+    expect(hero.querySelector(".link-hero-title")?.textContent).toBe("192.168.5.2:56789");
+    expect(hero.querySelector(".link-hero-sub")?.textContent).toBe("局域网直连");
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-live")).toBeNull();
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-tone")).toBe("idle");
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-compact")).toBe("true");
+    expect(hero.querySelector(".link-steps")).toBeNull();
+  });
+
+  it("lights up while connecting and names the stage", () => {
+    const hero = render({
+      name: "工作站",
+      detail: "",
+      link: link({ phase: "connecting", step: "switch", completed: ["probe"] }),
+    });
+
+    const section = hero.querySelector(".link-hero");
+    expect(section?.getAttribute("data-live")).toBe("true");
+    expect(section?.getAttribute("data-tone")).toBe("busy");
+    expect(section?.getAttribute("data-compact")).toBeNull();
+    expect(hero.querySelector(".link-hero-sub")?.textContent).toBe("正在切换连接…");
+
+    const steps = Array.from(hero.querySelectorAll(".link-steps li"));
+    expect(steps.map((step) => step.textContent)).toEqual([
+      "正在查找电脑",
+      "正在切换连接",
+      "正在读取会话",
+    ]);
+    expect(steps.map((step) => step.getAttribute("data-state"))).toEqual([
+      "done",
+      "active",
+      "pending",
+    ]);
+  });
+
+  it("keeps tracing during a reconnecting attempt and says which one", () => {
+    const hero = render({
+      name: "工作站",
+      detail: "",
+      link: link({ phase: "reconnecting", attempt: 2, nextRetryAt: Date.now() + 5_000 }),
+    });
+
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-tone")).toBe("warn");
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-live")).toBe("true");
+    expect(hero.querySelector(".link-hero-sub")?.textContent).toBe("正在重连（第 2 次）");
+  });
+
+  it("rests on the failure sentence instead of animating", () => {
+    const hero = render({
+      name: "工作站",
+      detail: "",
+      link: link({
+        phase: "failed",
+        error: { code: "client.offline", message: "到不了这台电脑。", retryable: true },
+      }),
+    });
+
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-tone")).toBe("bad");
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-live")).toBeNull();
+    expect(hero.querySelector(".link-hero-sub")?.textContent).toBe("到不了这台电脑。");
+  });
+
+  it("shows a live manual attempt in the link machine's words", () => {
+    const hero = render({
+      name: "工作站",
+      detail: "",
+      link: link({ phase: "connecting", step: "switch" }),
+      busy: "正在连接云端",
+    });
+
+    expect(hero.querySelector(".link-hero-sub")?.textContent).toBe("正在连接云端…");
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-live")).toBe("true");
+    // A manual attempt is one action, not the machine's three stages.
+    expect(hero.querySelector(".link-steps")).toBeNull();
+  });
+
+  it("falls back to the detail when the machine has not started", () => {
+    const hero = render({ name: "连接你的电脑", detail: "扫码、粘贴链接，或登录账号" });
+    expect(hero.querySelector(".link-hero-sub")?.textContent).toBe("扫码、粘贴链接，或登录账号");
+  });
+});
+
+describe("ConnectionHero stale pairing", () => {
+  const failed = (code: string): LinkState =>
+    link({ phase: "failed", error: { code, message: "凭据已失效。", retryable: false } });
+
+  it("offers a fresh scan for a dead credential, not a retry", () => {
+    const onRepair = vi.fn();
+    const hero = render({ name: "工作站", detail: "", link: failed("device.unauthorized"), onRepair });
+
+    const button = hero.querySelector<HTMLButtonElement>(".link-hero-repair");
+    expect(button?.textContent).toBe("重新扫码配对");
+    // Not a one-line resting card: the failure needs room for its own action.
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-compact")).toBeNull();
+    act(() => button?.click());
+    expect(onRepair).toHaveBeenCalledTimes(1);
+  });
+
+  it("also covers a raw 401 or 403 from the kernel", () => {
+    for (const code of ["http.401", "http.403"]) {
+      const hero = render({ name: "工作站", detail: "", link: failed(code), onRepair: vi.fn() });
+      expect(hero.querySelector(".link-hero-repair")).not.toBeNull();
+    }
+  });
+
+  it("keeps a network failure as a plain sentence", () => {
+    const hero = render({
+      name: "工作站",
+      detail: "",
+      link: failed("client.offline"),
+      onRepair: vi.fn(),
+    });
+    expect(hero.querySelector(".link-hero-repair")).toBeNull();
+    expect(hero.querySelector(".link-hero")?.getAttribute("data-compact")).toBe("true");
+  });
+
+  it("stays quiet while an attempt is running, and with no repair handler", () => {
+    const busy = render({
+      name: "工作站",
+      detail: "",
+      link: failed("device.unauthorized"),
+      busy: "正在连接",
+      onRepair: vi.fn(),
+    });
+    expect(busy.querySelector(".link-hero-repair")).toBeNull();
+
+    const noHandler = render({ name: "工作站", detail: "", link: failed("device.unauthorized") });
+    expect(noHandler.querySelector(".link-hero-repair")).toBeNull();
+  });
+});
