@@ -58,6 +58,10 @@ type deviceDoor struct {
 	// secure is whether this door is reached over TLS, which is what a
 	// credential minted here should be marked with.
 	secure bool
+	// proxy marks the door a reverse proxy answers for, rather than the name
+	// this listener bound. Only a proxy in front rewrites the Host it forwards,
+	// so only this door may be named by an Origin while the Host names another.
+	proxy bool
 }
 
 // deviceDoors is every name this gate answers for. The zero case is the
@@ -104,17 +108,18 @@ func NewDeviceGate(next http.Handler, opts DeviceGateOptions) http.Handler {
 			refuse(w, http.StatusForbidden, codeDeviceHost, "this listener does not answer for that host", nil)
 			return
 		}
-		if !deviceOriginAllowed(r, door.origin) {
+		origin, ok := deviceOriginDoor(r, door, doors)
+		if !ok {
 			refuse(w, http.StatusForbidden, codeDeviceOrigin, "that origin may not reach this listener", nil)
 			return
 		}
 		if r.URL.Path == PairPath {
-			pairDevice(w, r, reg, door.secure)
+			pairDevice(w, r, reg, origin.secure)
 			return
 		}
 		if c, err := r.Cookie(DeviceCookie); err == nil {
 			if id, ok := reg.Authenticate(c.Value); ok {
-				serveDevice(w, r, next, reg, id, opts.Machine, door.secure)
+				serveDevice(w, r, next, reg, id, opts.Machine, origin.secure)
 				return
 			}
 		}
@@ -146,29 +151,85 @@ func deviceDoorsOf(opts DeviceGateOptions) (deviceDoors, bool) {
 	if !ok {
 		return nil, false
 	}
+	public.proxy = true
 	return append(doors, public), true
 }
 
-// deviceOriginAllowed splits the rule by what the request can do. A read may
-// arrive without an origin — a top-level navigation sends none — but anything
-// that changes state must name this door rather than lean on the cookie. The
-// name is compared the same way the Host was, so a browser that omits the
-// default port and one that spells it both name the door they came through.
-func deviceOriginAllowed(r *http.Request, want string) bool {
+// deviceOriginDoor reports the door a state change named. A read may arrive
+// without an origin — a top-level navigation sends none — but anything that
+// changes state has to name a door this machine answers for rather than lean on
+// the cookie. The name is compared the same way the Host was, so a browser that
+// omits the default port and one that spells it both name the door they came
+// through.
+//
+// The door named is usually the one the Host matched, with one asymmetry: a
+// proxy's name is accepted even when the Host is something else. A proxy in
+// front of this machine forwards under a name of its own choosing — a tunnel
+// that dials 127.0.0.1 hands the door that address — while the page the phone
+// loaded still knows itself by the proxy's name, so demanding the two agree
+// refuses every state change a phone makes through such a tunnel. Only the
+// proxy door gets this treatment, because only a proxy rewrites the Host;
+// naming the LAN door from behind the proxy's name is still refused, which is
+// what keeps a page served over plain HTTP elsewhere from changing state here.
+//
+// It answers with that door rather than a bare yes, because the door decides
+// whether the credential minted here is marked Secure: a phone that arrived
+// through a TLS proxy is on TLS even though the listener behind it is plain
+// HTTP.
+func deviceOriginDoor(r *http.Request, door deviceDoor, doors deviceDoors) (deviceDoor, bool) {
 	sent := r.Header.Get("Origin")
 	if sent == "" {
-		return r.Method == http.MethodGet || r.Method == http.MethodHead
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			return door, true
+		}
+		return deviceDoor{}, false
 	}
 	u, err := url.Parse(sent)
 	if err != nil || u.Host == "" {
-		return false
+		return deviceDoor{}, false
 	}
 	scheme := strings.ToLower(u.Scheme)
 	authority, ok := deviceAuthority(u.Host, scheme)
 	if !ok {
-		return false
+		return deviceDoor{}, false
 	}
-	return scheme+"://"+authority == want
+	named := scheme + "://" + authority
+	if named == door.origin {
+		return door, true
+	}
+	for _, d := range doors {
+		if d.proxy && named == d.origin {
+			return d, true
+		}
+	}
+	// A proxy terminates the phone's TLS and forwards in the clear, so the page
+	// and the listener behind it do not agree on a scheme. Some proxies rewrite
+	// the authority an Origin names along with the Host — both become the
+	// address the proxy dials — while keeping the scheme the page was served
+	// with, so a phone on https://agent.example.com arrives as
+	// https://127.0.0.1:10086: the door the Host matched, tightened to TLS.
+	//
+	// That reading is admitted only when it cannot name a door of its own: the
+	// authority must still be the one the Host matched, the scheme may only be
+	// tightened rather than loosened, the matched door must be the plain one the
+	// proxy forwards to, and there must be a proxy to have done the tightening.
+	// A page served anywhere else names another authority, and one that reaches
+	// this listener directly has no proxy in front to vouch for it.
+	if scheme == "https" && !door.secure && authority == door.authority && anyProxyDoor(doors) {
+		return deviceDoor{scheme: scheme, origin: named, authority: authority, secure: true}, true
+	}
+	return deviceDoor{}, false
+}
+
+// anyProxyDoor reports whether a proxy answers for this gate. Only then can a
+// request arrive over TLS while the listener behind it is plain HTTP.
+func anyProxyDoor(doors deviceDoors) bool {
+	for _, d := range doors {
+		if d.proxy {
+			return true
+		}
+	}
+	return false
 }
 
 // serveDevice answers a paired device: its own two routes here, everything

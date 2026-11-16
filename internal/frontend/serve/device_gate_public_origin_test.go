@@ -160,3 +160,82 @@ func TestNoProxyNameMeansOnlyTheListenersOwnDoor(t *testing.T) {
 		t.Fatalf("a name nobody configured = %d %s, want 403 %s", code, reason.Code, codeDeviceHost)
 	}
 }
+
+// A tunnel in front of this machine forwards under the address it dials, not
+// under the name the phone typed: the Host arrives as 127.0.0.1:10086 while the
+// page the phone loaded still knows itself by the proxy's name. Demanding the two
+// name the same door refused every state change a phone made through such a
+// tunnel — pairing included — so the proxy's name is admitted beside whichever
+// door the Host matched.
+func TestTheProxyNameIsAdmittedWhenTheHostWasRewritten(t *testing.T) {
+	gate, cookie, reached := publicGate(t, "https://agent.example.com")
+	// The listener's own door, reached through a tunnel that rewrote the Host.
+	want := []struct{ name, host string }{
+		{"the listener's own address", "192.168.1.5:9000"},
+		{"loopback, as a tunnel dials it", "127.0.0.1:10086"},
+	}
+	for _, c := range want {
+		// The second case needs a door for that address; add it as the listener.
+		g, ck, r := gate, cookie, reached
+		if c.host == "127.0.0.1:10086" {
+			reg := NewDeviceRegistry()
+			code, _ := reg.Offer()
+			cred, _, err := reg.Redeem(code, "phone")
+			if err != nil {
+				t.Fatal(err)
+			}
+			n := 0
+			g = NewDeviceGate(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { n++ }), DeviceGateOptions{
+				Registry:     reg,
+				Origin:       "http://127.0.0.1:10086",
+				PublicOrigin: "https://agent.example.com",
+			})
+			ck, r = &http.Cookie{Name: DeviceCookie, Value: cred}, &n
+		}
+		code, reason := callGate(g, c.host, "https://agent.example.com", "/sessions", ck)
+		if code != http.StatusOK || *r != 1 {
+			t.Fatalf("%s: %d %s, reached %d, want 200", c.name, code, reason.Code, *r)
+		}
+	}
+}
+
+// Some proxies rewrite the authority an Origin names as well as the Host: both
+// become the address the proxy dials, while the scheme the page was served with
+// is kept. A phone on https://agent.example.com then arrives addressed to the
+// LAN door and naming https://192.168.1.5:9000 — the door the Host matched,
+// tightened to TLS. Refusing that refused every state change a phone made
+// through such a proxy, pairing included.
+func TestTheProxyNameIsAdmittedWhenTheOriginWasRewrittenToo(t *testing.T) {
+	gate, cookie, reached := publicGate(t, "https://agent.example.com")
+	code, reason := callGate(gate, "192.168.1.5:9000", "https://192.168.1.5:9000", "/sessions", cookie)
+	if code != http.StatusOK || *reached != 1 {
+		t.Fatalf("through the rewriting proxy = %d %s, reached %d, want 200", code, reason.Code, *reached)
+	}
+}
+
+// Tightening an origin to TLS is only readable when a proxy is in front to have
+// terminated it. Without one, https:// to a plain listener is a page from
+// somewhere else, and it stays refused.
+func TestATightenedOriginNeedsAProxyInFront(t *testing.T) {
+	gate, cookie, reached := publicGate(t, "")
+	code, reason := callGate(gate, "192.168.1.5:9000", "https://192.168.1.5:9000", "/sessions", cookie)
+	if code != http.StatusForbidden || reason.Code != codeDeviceOrigin {
+		t.Fatalf("a tightened origin with no proxy = %d %s, want 403 %s", code, reason.Code, codeDeviceOrigin)
+	}
+	if *reached != 0 {
+		t.Fatalf("a refused request reached the kernel %d times", *reached)
+	}
+}
+
+// Tightening keeps the authority the Host matched: it is not a licence to name
+// some other host over TLS.
+func TestATightenedOriginCannotNameAnotherHost(t *testing.T) {
+	gate, cookie, reached := publicGate(t, "https://agent.example.com")
+	code, reason := callGate(gate, "192.168.1.5:9000", "https://evil.example.com", "/sessions", cookie)
+	if code != http.StatusForbidden || reason.Code != codeDeviceOrigin {
+		t.Fatalf("another host over TLS = %d %s, want 403 %s", code, reason.Code, codeDeviceOrigin)
+	}
+	if *reached != 0 {
+		t.Fatalf("a refused request reached the kernel %d times", *reached)
+	}
+}
