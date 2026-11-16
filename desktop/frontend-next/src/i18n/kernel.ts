@@ -312,6 +312,7 @@ const SAID: Record<string, string> = {
   "share.port_in_use": "kernel.port_port_is_already_in",
   "share.port_out_of_range": "kernel.the_port_must_be_between",
   "share.port_save_failed": "kernel.could_not_save_the_port",
+  "share.public_origin_save_failed": "kernel.could_not_save_the_reverse",
   "share.remember_save_failed": "kernel.could_not_save_the_paired",
   "share.device_unknown": "kernel.no_paired_device_has_that",
   "picker.unsupported": "kernel.this_system_has_no_folder",

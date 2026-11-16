@@ -122,6 +122,7 @@ export const KERNEL: Messages = {
   "kernel.could_not_remove_the_skill": { zh: "卸载技能失败：{detail}", en: "Could not remove the skill: {detail}" },
   "kernel.could_not_save_the_paired": { zh: "无法保存配对记忆设置：{error}", en: "Could not save the paired-phones setting: {error}" },
   "kernel.could_not_save_the_port": { zh: "无法保存端口设置：{error}", en: "Could not save the port setting: {error}" },
+  "kernel.could_not_save_the_reverse": { zh: "无法保存反代地址：{error}", en: "Could not save the reverse proxy address: {error}" },
   "kernel.could_not_start_that_program": { zh: "无法启动这个程序：{error}", en: "Could not start that program: {error}" },
   "kernel.could_not_take_over_this": { zh: "接管该会话失败，请重新打开窗口", en: "Could not take over this session; reopen the window" },
   "kernel.could_not_take_the_most": { zh: "没能取出这个会话最近的内容", en: "Could not take the most recent part of this conversation" },
