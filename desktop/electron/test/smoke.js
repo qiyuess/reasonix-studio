@@ -6,6 +6,16 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { app, BrowserWindow, Menu } = require("electron");
 
+// A smoke run drives a real shell, and a shell claims the platform lock of the
+// data home it opens. Left on the default home, that lock is the one a Studio
+// already on screen is holding: this run loses it, leaves, and raises that
+// window on its way out — and because no assertion ever starts, the exit status
+// still reads as success. A run given no home of its own therefore gets a
+// throwaway one, whose identity, profile and lock nothing else holds. A home
+// passed in explicitly is the caller's, and is used as it stands.
+const scratchHome = process.env.REASONIX_HOME ? null : fs.mkdtempSync(path.join(os.tmpdir(), "rx-smoke-home-"));
+if (scratchHome) process.env.REASONIX_HOME = scratchHome;
+
 // The window these judgements are about is the workbench. A data home with no
 // model configured in it opens on the onboarding card instead, where none of
 // that window exists — and the drag-region check then fails saying "no .chrome",
@@ -84,7 +94,7 @@ async function run() {
     placed: typeof window.reasonixHost?.pathForFile(new File(['x'], 'x.txt')),
   }))()`);
 
-  const verbs = ["answerBrowserLogin", "captureWindow", "closeWindow", "controlBrowserView", "freezeBrowserView", "globalShortcut", "graphics", "hideBrowserView", "isWindowMaximised", "minimiseWindow", "navigateBrowserView", "onBrowserLoadState", "onBrowserLogin", "openExternal", "openFile", "openWorkspace", "pathForFile", "pickFolder", "platform", "processMemory", "revealLogs", "revealPath", "revealWorkspace", "saveBytes", "saveText", "setGlobalShortcut", "setUnreadBadge", "shell", "showBrowserView", "showTextContextMenu", "syncTheme", "titleBar", "toggleMaximiseWindow", "trustBrowserCertificate"];
+  const verbs = ["answerBrowserLogin", "cancelBrowserPick", "captureWindow", "closeWindow", "controlBrowserView", "freezeBrowserView", "globalShortcut", "graphics", "hideBrowserView", "isWindowMaximised", "minimiseWindow", "navigateBrowserView", "onBrowserLoadState", "onBrowserLogin", "onBrowserPickShortcut", "openExternal", "openFile", "openWorkspace", "pathForFile", "pickBrowserElement", "pickFolder", "platform", "processMemory", "revealLogs", "revealPath", "revealWorkspace", "saveBytes", "saveText", "setGlobalShortcut", "setUnreadBadge", "shell", "showBrowserView", "showTextContextMenu", "syncTheme", "titleBar", "toggleMaximiseWindow", "trustBrowserCertificate", "verifyBrowserElement"];
   check("the bridge exposes verbs and nothing else", JSON.stringify(seen.bridge) === JSON.stringify(verbs), seen.bridge);
   check("the credential never reaches the page", !seen.cookie.includes("reasonix_token"), seen.cookie);
   check("the renderer has no node of its own", seen.globals.every((t) => t === "undefined"), seen.globals);
@@ -136,10 +146,23 @@ async function run() {
   check("webview tags are off", prefs.webviewTag !== true);
   check("web security is on", prefs.webSecurity !== false);
 
-  const bounds = win.getBounds();
+  // A frameless window carries an invisible resize border that the platform
+  // adds on top of what was asked for, so its frame can sit a pixel or two
+  // outside the work area while every pixel of content is still on screen.
+  // What has to fit is the content, at a place the person can reach it.
+  const content = win.getContentBounds();
+  const area = require("electron").screen.getPrimaryDisplay().workArea;
+  check(
+    "the window's content fits the display it opened on",
+    content.width <= area.width &&
+      content.height <= area.height &&
+      content.x >= area.x &&
+      content.y >= area.y &&
+      content.x + content.width <= area.x + area.width &&
+      content.y + content.height <= area.y + area.height,
+    { content, area, frame: win.getBounds() },
+  );
   const [minWidth, minHeight] = win.getMinimumSize();
-  const area = require("electron").screen.getPrimaryDisplay().workAreaSize;
-  check("the window fits the display it opened on", bounds.width <= area.width && bounds.height <= area.height, { bounds, area });
   check("the window cannot be shrunk past its layout", minWidth === 760 && minHeight === 480, { minWidth, minHeight });
 
   // A window that cannot be navigated away from, and cannot open another.
