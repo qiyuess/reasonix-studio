@@ -105,7 +105,6 @@ export const WORKBENCH: Messages = {
   "workbench.reading_this_files_changes": { zh: "正在读这个文件的改动…", en: "Reading this file's changes…" },
   "workbench.reading_what_would_be_pushed": { zh: "读取要推送的内容…", en: "Reading what would be pushed…" },
   "workbench.reasonix_built_in_browser": { zh: "Reasonix 内置 Browser", en: "Reasonix built-in Browser" },
-  "workbench.recently_opened": { zh: "最近打开", en: "Recently opened" },
   "workbench.recorded_locally_only_nothing_is": { zh: "只在本地提交，不会推送", en: "Recorded locally only; nothing is pushed" },
   "workbench.redo": { zh: "重做", en: "Redo" },
   "workbench.redraft": { zh: "重新起草", en: "Redraft" },

@@ -57,6 +57,10 @@ export function WorkbenchTabPicker({ tabs, active, onPick }: {
         onClick={() => setOpen((v) => !v)}
       >
         <StudioIcon name="list" />
+        {/* How many tabs the strip holds, said here rather than at the end of
+            the strip: this is the control that reaches all of them, including
+            the ones a narrow strip has scrolled out of sight. */}
+        <span className="workbench-picker-count">{tabs.length}</span>
       </TooltipButton>
       {open && createPortal(
         <div className="workbench-picker-menu" role="menu" aria-label={t("workbench.open_tabs")} ref={menu}

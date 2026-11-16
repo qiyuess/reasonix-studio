@@ -16,8 +16,7 @@ import { WorkbenchStatus } from "./WorkbenchStatus";
 import { WorkbenchFileTree } from "./WorkbenchFileTree";
 import { WorkbenchChangesPage } from "./WorkbenchChangesPage";
 import { UnifiedDiff } from "./UnifiedDiff";
-import { leave, useEnteringTabs, useOpenSlide, useOverflowTabs, useSwitchFade } from "./workbench_motion";
-import { WorkbenchTabOverflow } from "./WorkbenchTabOverflow";
+import { leave, useEnteringTabs, useOpenSlide, useSwitchFade, useTabStrip } from "./workbench_motion";
 import { WorkbenchTabPicker } from "./WorkbenchTabPicker";
 import { WorkbenchCloseAsk } from "./WorkbenchCloseAsk";
 import { WorkbenchState } from "./WorkbenchState";
@@ -57,11 +56,10 @@ const DocumentPreview = lazy(() => import("./document/DocumentPreview"));
 // The editor and its grammars load with the first file opened, not with Studio.
 const CodeEditor = lazy(() => import("./CodeEditor"));
 
-import { treeRows } from "./workbench_tree";
+import { foldersOf, treeRows } from "./workbench_tree";
 import { AgentRunView } from "./AgentRunView";
 import { JobRunView } from "./JobRunView";
 import { useAgentTabs, type AgentRequest } from "./useAgentTabs";
-import { readRecentFiles, rememberFile } from "./recentFiles";
 
 export function WorkbenchPanel({
   port,
@@ -80,7 +78,6 @@ export function WorkbenchPanel({
   revealFiles = 0,
   toggleFiles = 0,
   onCloseManual,
-  onSurfaces,
   onActiveFile,
   onExternal,
   onAddToChat,
@@ -119,8 +116,6 @@ export function WorkbenchPanel({
   /** A press on the Files button: opens the explorer, or folds it when it is the open one. */
   toggleFiles?: number;
   onCloseManual: () => void;
-  // How many surfaces the strip holds, for the pane's own tab to count.
-  onSurfaces: (n: number) => void;
   onActiveFile?: (path: string | undefined) => void;
   onExternal: (url: string) => void;
   onAddToChat?: (reference: string) => void;
@@ -254,9 +249,20 @@ export function WorkbenchPanel({
         }
         if (!live) return;
         listedScope.current = scope;
-        setFiles([...new Set(files)]);
-        setDirectories([...new Set(dirs)]);
-        setCollapsed(query ? new Set() : new Set(dirs.filter((path) => !open.has(path))));
+        const nextFiles = [...new Set(files)];
+        const nextDirs = [...new Set(dirs)];
+        setFiles(nextFiles);
+        setDirectories(nextDirs);
+        // Every folder the tree will actually draw, not just the ones the
+        // listing named: a folder known only from a file's path is drawn too,
+        // and leaving it out of this set is what let it open itself on the
+        // first read. A search opens everything, because its rows are matches
+        // and a match inside a closed folder would be invisible.
+        setCollapsed(
+          query
+            ? new Set()
+            : new Set(foldersOf(nextFiles, nextDirs).filter((path) => !open.has(path))),
+        );
         setListFailed("");
       } catch (e) {
         if (live) setListFailed(reason(e));
@@ -376,7 +382,6 @@ export function WorkbenchPanel({
     () => treeRows(files, directories, query, collapsed),
     [files, directories, query, collapsed],
   );
-  useEffect(() => onSurfaces(surfaces.length), [onSurfaces, surfaces.length]);
   // A strip wider than the column scrolls, and the tab being shown is always
   // brought into it: a selected tab nobody can see reads as a tab that closed.
   const canvas = useRef<HTMLDivElement>(null);
@@ -411,9 +416,9 @@ export function WorkbenchPanel({
   }, [docked]);
   const dockHead = docked && !stacked ? slot : null;
   // The strip's DOM is replaced whenever it changes home — docked or not,
-  // stacked or not — so the overflow measurement and the scroll-into-view both
-  // have to re-run on that, not merely on the dock's own state.
-  const [strip, overflow] = useOverflowTabs(tabKeys, !!dockHead);
+  // stacked or not — so the scroll-into-view has to re-run on that, not merely
+  // on the dock's own state.
+  const strip = useTabStrip();
   useSwitchFade(canvas, launcher ? "launcher" : active ? keyOf(active) : "");
   const activeKey = active ? keyOf(active) : "";
   // The strip's DOM is replaced whenever it changes home — docked or not,
@@ -424,9 +429,7 @@ export function WorkbenchPanel({
   }, [activeKey, surfaces.length, !!dockHead]);
   // Picking a file is asking to read it. Docked, the list and the file share one
   // column, so the list steps aside; side by side it stays where it is.
-  const [recentFiles, setRecentFiles] = useState(() => readRecentFiles(workspaceRoot ?? ""));
   const openFile = useCallback((path: string) => {
-    setRecentFiles(rememberFile(workspaceRoot ?? "", path));
     setOpenFiles((v) => (v.includes(path) ? v : [...v, path]));
     setDismissed((v) => {
       const n = new Set(v);
@@ -437,7 +440,7 @@ export function WorkbenchPanel({
     // rather than closed, so closing this file comes back to the list.
     fromExplorer.current = showFiles ? path : "";
     pick(`file:${path}`);
-  }, [pick, showFiles, workspaceRoot]);
+  }, [pick, showFiles]);
   useEffect(() => { if (fileRequest) { openFile(fileRequest.path); fileRequest.consumed?.(); } }, [fileRequest, openFile]);
   // A rendered document's own links open beside it and its images load from the
   // tree. Held stable per document, so typing re-renders the text alone.
@@ -640,7 +643,6 @@ export function WorkbenchPanel({
           </div>
         )}
         </div>
-        <WorkbenchTabOverflow count={overflow.length} />
         <TooltipButton
           className="workbench-new"
           data-action="workbench.new"
@@ -693,7 +695,6 @@ export function WorkbenchPanel({
               changes={changes.length}
               onFiles={chooseFiles}
               onBrowser={() => void addBrowser()} onTerminal={() => void terminals.open()}
-              recent={recentFiles} onOpenFile={openFile}
             />
           )}
           <div className="workbench-content" ref={canvas} hidden={launcher || !active} data-action-contextmenu="workbench.quote-selection" {...textMenu.readerProps}>

@@ -19,6 +19,20 @@ function before(a: TreeRow, b: TreeRow): number {
   return x.length - y.length;
 }
 
+/** Every folder the tree will draw, from both the listing and the paths of the
+ *  files in it. `treeRows` derives the folders a file path implies so a nested
+ *  file still hangs under its parents; that means the set of folders on screen
+ *  is not the same as the listing's own `directories`, and anything deciding
+ *  which folders are closed has to read this rather than the listing — a folder
+ *  only the paths knew about was never closed, so it opened itself. */
+export function foldersOf(files: string[], directories: string[]): string[] {
+  const folders = new Set<string>(directories);
+  for (const path of files)
+    for (let i = 1, bits = path.split("/"); i < bits.length; i++)
+      folders.add(bits.slice(0, i).join("/"));
+  return [...folders];
+}
+
 export function treeRows(
   files: string[],
   directories: string[],
@@ -30,10 +44,7 @@ export function treeRows(
         path.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
       )
     : files;
-  const folders = new Set<string>(directories);
-  for (const path of matches)
-    for (let i = 1, bits = path.split("/"); i < bits.length; i++)
-      folders.add(bits.slice(0, i).join("/"));
+  const folders = new Set<string>(foldersOf(matches, directories));
   const hidden = (path: string) =>
     [...closed].some(
       (folder) => path === folder || path.startsWith(`${folder}/`),

@@ -1,7 +1,7 @@
 import { t } from "../i18n";
 import { StudioIcon } from "./StudioIcon";
 
-export function WorkbenchLauncher({ changes, focus = false, onFiles, onBrowser, onTerminal, recent = [], onOpenFile }: { changes: number; focus?: boolean; onFiles: () => void; onBrowser: () => void; onTerminal?: () => void; recent?: string[]; onOpenFile?: (path: string) => void }) {
+export function WorkbenchLauncher({ changes, focus = false, onFiles, onBrowser, onTerminal }: { changes: number; focus?: boolean; onFiles: () => void; onBrowser: () => void; onTerminal?: () => void }) {
   return (
     <div className="workbench-launcher" role="group" aria-label={t("common.start")}>
       <button autoFocus={focus} aria-label={t("workbench.explorer")} data-action="workbench.launch-files" onClick={onFiles}>
@@ -17,18 +17,6 @@ export function WorkbenchLauncher({ changes, focus = false, onFiles, onBrowser, 
           <StudioIcon name="terminal" />
           <span><b>{t("terminal.name")}</b><i>{t("terminal.launch_hint")}</i></span>
         </button>
-      )}
-      {recent.length > 0 && onOpenFile && (
-        <div className="workbench-launcher-recent" role="group" aria-label={t("workbench.recently_opened")}>
-          <p>{t("workbench.recently_opened")}</p>
-          {recent.map((path) => (
-            <button key={path} data-action="workbench.launch-recent" data-target={path} title={path} onClick={() => onOpenFile(path)}>
-              <StudioIcon name="file" />
-              <span>{path.slice(path.lastIndexOf("/") + 1)}</span>
-              <i>{path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : ""}</i>
-            </button>
-          ))}
-        </div>
       )}
     </div>
   );

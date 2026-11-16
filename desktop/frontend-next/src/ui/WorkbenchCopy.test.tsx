@@ -8,9 +8,23 @@ import { boot, STORAGE } from "../i18n";
 
 const props = (port = new MockPort(), workspaceRoot = "/work/project") => ({
   port, workspaceRoot, tabs: [], manual: false, shown: true, scheme: "light" as const,
-  changes: [], onCloseManual: vi.fn(), onSurfaces: vi.fn(), onExternal: vi.fn(),
+  changes: [], onCloseManual: vi.fn(), onExternal: vi.fn(),
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+/** The listing the kernel actually returns: one level at a time. A file whose
+ *  path runs deeper arrives only after its folder has been opened — which is
+ *  also what puts its row on screen, because the tree draws a folder from the
+ *  paths under it and starts every folder closed. */
+function oneLevelAtATime(path: string, folder: boolean) {
+  const parent = folder ? "" : path.split("/").slice(0, -1).join("/");
+  return async (at = "") => {
+    if (folder) return at === "" ? { files: [], directories: [path] } : { files: [], directories: [] };
+    if (at === parent) return { files: [path], directories: [] };
+    if (parent === "") return { files: [], directories: [] };
+    return at === "" ? { files: [], directories: [parent] } : { files: [], directories: [] };
+  };
+}
 
 it.each([
   ["/work/project", "src/你好 [draft].ts", false, "/work/project/src/你好 [draft].ts", "@src/你好\\ [draft].ts"],
@@ -23,11 +37,16 @@ it.each([
   const user = userEvent.setup();
   const write = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
   const port = new MockPort();
-  vi.spyOn(port, "workspaceFiles").mockResolvedValue({ files: folder ? [] : [path], directories: folder ? [path] : [] });
+  vi.spyOn(port, "workspaceFiles").mockImplementation(oneLevelAtATime(path, folder));
   const read = vi.spyOn(port, "workspaceFile"), submit = vi.spyOn(port, "submit"), drop = vi.spyOn(port, "dropRefs");
   const mcp = vi.spyOn(port, "mcp");
   render(<WorkbenchPanel {...props(port, root)} />);
-  const row = await screen.findByRole("button", { name: (name) => name.trim().replace(/\s+/g, " ") === path.split("/").at(-1)?.trim().replace(/\s+/g, " ") });
+  const name = (n: string) => n.trim().replace(/\s+/g, " ") === path.split("/").at(-1)?.trim().replace(/\s+/g, " ");
+  if (!folder && path.includes("/")) {
+    // A nested file lives behind its folder, exactly as the kernel lists it.
+    await user.click(await screen.findByRole("button", { name: path.split("/").slice(0, -1).join("/") }));
+  }
+  const row = await screen.findByRole("button", { name });
   for (const [label, text] of [["复制路径", absolute], ["复制引用", reference]]) {
     fireEvent.contextMenu(row);
     await user.click(screen.getByRole("menuitem", { name: label }));
@@ -186,9 +205,12 @@ it.each([
   const user = userEvent.setup();
   const write = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
   const port = new MockPort();
-  vi.spyOn(port, "workspaceFiles").mockResolvedValue({ files: folder ? [] : [path], directories: folder ? [path] : [] });
+  vi.spyOn(port, "workspaceFiles").mockImplementation(oneLevelAtATime(path, folder));
   const read = vi.spyOn(port, "workspaceFile"), submit = vi.spyOn(port, "submit"), drop = vi.spyOn(port, "dropRefs"), mcp = vi.spyOn(port, "mcp");
   render(<WorkbenchPanel {...props(port, "/work")} remote={remote} />);
+  if (!folder && path.includes("/")) {
+    await user.click(await screen.findByRole("button", { name: path.split("/").slice(0, -1).join("/") }));
+  }
   fireEvent.contextMenu(await screen.findByRole("button", { name: path.split("/").at(-1) }));
   const reference = screen.getByRole("menuitem", { name: "复制引用" }) as HTMLButtonElement;
   expect(reference.disabled).toBe(true);
