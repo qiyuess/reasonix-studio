@@ -1079,6 +1079,21 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --notes-file "$notes"
             gh release upload "$TAG" "${assets[@]}" --clobber
+            # Re-pushing a tag turns its release into a draft GitHub names
+            # untagged-*, and `gh release edit` neither undrafts it nor drops an
+            # asset this release no longer builds. Both are repaired here, so a
+            # rerun of the same tag publishes exactly what this run produced.
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ]; then
+              gh release edit "$TAG" --draft=false
+            fi
+            keep="$(printf '%s\n' "${assets[@]}" | xargs -n1 basename | sort)"
+            gh release view "$TAG" --json assets --jq '.assets[].name' | sort | while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if ! printf '%s\n' "$keep" | grep -Fxq -- "$name"; then
+                echo "removing $name: this release does not build it"
+                gh release delete-asset "$TAG" "$name" --yes
+              fi
+            done
           else
             decided="$(git tag -l 'studio-v*' | bash scripts/studio-release-flags.sh "$TAG" "$CANDIDATE")"
             mapfile -t flags <<<"$decided"
