@@ -96,3 +96,8 @@ scripts/official-theme-art/__pycache__/
 *.exe
 *.exe~
 /relayfake
+
+# APKs built here are artifacts, not sources: mobile/dist-apk is where a local
+# build leaves them, and a 36MB binary in the history is not something the tree
+# can take back.
+/mobile/dist-apk/

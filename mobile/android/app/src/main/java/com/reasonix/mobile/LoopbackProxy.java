@@ -474,11 +474,9 @@ public final class LoopbackProxy {
             // stored one belongs to whichever origin was active before, and a
             // probe that reused it would call a reachable relay unauthorised.
             applyToken(conn, origin, request.optString("token", "").trim());
-            String web = ProxyCookies.webCookie(origin.endsWith("/") ? origin : origin + "/");
-            if (!web.isEmpty()) {
-                conn.setRequestProperty("Cookie", web);
-            } else {
-                cookies.apply(conn, uri);
+            String cookie = cookies.forOrigin(origin);
+            if (!cookie.isEmpty()) {
+                conn.setRequestProperty("Cookie", cookie);
             }
             int status = ProxyPaths.deviceStatus(conn.getResponseCode());
             if (status == 401) {
@@ -696,8 +694,7 @@ public final class LoopbackProxy {
             if (!value.isEmpty() && directlyReachable(value)) direct.put(value);
         }
         out.put("direct", direct);
-        out.put("paired", !origin.isEmpty()
-                && (cookies.has(origin) || !ProxyCookies.webCookie(origin.endsWith("/") ? origin : origin + "/").isEmpty()));
+        out.put("paired", !origin.isEmpty() && !cookies.forOrigin(origin).isEmpty());
         // Whether this upstream authenticates by token instead of by cookie.
         // The value itself never travels back to the page.
         out.put("hasToken", !activeToken(origin).isEmpty());
@@ -806,11 +803,9 @@ public final class LoopbackProxy {
             conn.setConnectTimeout(3000);
             conn.setReadTimeout(3000);
             applyToken(conn, origin, "");
-            String web = ProxyCookies.webCookie(origin.endsWith("/") ? origin : origin + "/");
-            if (!web.isEmpty()) {
-                conn.setRequestProperty("Cookie", web);
-            } else {
-                cookies.apply(conn, uri);
+            String cookie = cookies.forOrigin(origin);
+            if (!cookie.isEmpty()) {
+                conn.setRequestProperty("Cookie", cookie);
             }
             int status = conn.getResponseCode();
             return status == 200 || status == 401 || status == 403 ? status : -1;
@@ -925,13 +920,12 @@ public final class LoopbackProxy {
             // this; the proxy speaks as the kernel's own client.
             conn.setRequestProperty("Origin", origin);
             conn.setRequestProperty("Referer", origin + "/");
-            String web = ProxyCookies.webCookie(origin.endsWith("/") ? origin : origin + "/");
-            if (!web.isEmpty()) {
-                // The Studio page was paired in this app's WebView; its cookie is
-                // the device credential the kernel actually minted.
-                conn.setRequestProperty("Cookie", web);
-            } else {
-                cookies.apply(conn, uri);
+            // Both jars, merged: a code scanned into the pairing WebView lands in
+            // one and a code handed to this proxy lands in the other, and picking
+            // one while ignoring the other sends no credential at all.
+            String cookie = cookies.forOrigin(origin);
+            if (!cookie.isEmpty()) {
+                conn.setRequestProperty("Cookie", cookie);
             }
             // The kernel behind a relay authenticates every request by token
             // rather than by cookie. A page that already speaks for itself wins:
