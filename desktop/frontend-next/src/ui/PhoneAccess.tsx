@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
 import type { HubPort } from "../port/hub";
 import type { OfferChannel, ShareOffer, ShareStatus } from "../port/share";
@@ -37,6 +37,17 @@ export function doorAddress(st: ShareStatus | null): string {
 
 export type Share = ReturnType<typeof useShare>;
 
+/** The door a code can actually be issued on. A local door opened on loopback is
+ *  one no phone can dial — loopback is what a proxy on this machine reaches — so
+ *  with no reachable address the local channel has nothing to hand out. A proxy
+ *  named on such a machine still answers, which makes it the only door with a
+ *  code to give; without one, neither channel can issue and the panel says so. */
+export function issuableDoor(st: ShareStatus | null, want: OfferChannel): OfferChannel {
+  if (want === "proxy" || !st) return want;
+  if (st.addresses.some((a) => a.kind !== "loopback")) return want;
+  return st.publicOrigin ? "proxy" : want;
+}
+
 /** The window's door for phones, as one state both the settings block and the
  *  chrome's card draw from. `watch` is whether this surface is on screen: only
  *  then is the device list worth reading on a timer. */
@@ -48,6 +59,18 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   // or the reverse proxy's name. Only the code and the address follow it — the
   // door itself answers on both, so switching this moves nothing.
   const [channel, setChannel] = useState<OfferChannel>("lan");
+  // The door on screen, readable from a callback that started before the last
+  // switch: a code is minted per door and only one of them belongs on screen, so
+  // an answer for the door that has since been left is dropped rather than drawn.
+  const shownDoor = useRef<OfferChannel>("lan");
+  // How many mints have been asked for. A door name alone cannot tell two asks
+  // apart, and each mint retires the previous screen code in the kernel, so the
+  // one that must land is the last one asked for — not the last one answered.
+  const mintSeq = useRef(0);
+  // The status as the last read left it, for the callbacks below: a mint has to
+  // know which door can actually issue before it asks, and reading the state
+  // through a dependency would rebuild every handler on each poll.
+  const latest = useRef<ShareStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [remember, setRemember] = useState<boolean | null>(null);
@@ -55,6 +78,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   const read = useCallback(
     () =>
       hub.shareStatus().then((now) => {
+        latest.current = now;
         setSt(now);
         return now;
       }),
@@ -107,23 +131,53 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   // needs the link in hand — copying one, say — does not have to wait a render.
   const mint = useCallback(
     async (which: OfferChannel) => {
-      const next = await hub.offerShare(which);
+      // A local door opened on loopback has no code to give: loopback is what a
+      // proxy on this machine reaches, never what a phone does. Asking anyway
+      // would be refused and leave the panel with nothing to show, so the door
+      // that can issue is the one asked — and when that is not the door on
+      // screen, the panel moves to it rather than showing one it cannot serve.
+      const door = issuableDoor(latest.current, which);
+      if (door !== which) {
+        shownDoor.current = door;
+        setChannel(door);
+      }
+      const seq = ++mintSeq.current;
+      const next = await hub.offerShare(door);
       const now = await hub.shareStatus();
+      latest.current = now;
       setSt(now);
-      setOffer(next);
+      // The kernel names the door it answered for. A kernel too old to name one
+      // is read as having answered the door it was asked about; one that names
+      // another door is a mismatch worth saying out loud, because the picture
+      // would otherwise be about something nobody asked for and nothing would
+      // explain it.
+      const answered = next.channel ?? door;
+      if (answered !== door) {
+        onError(new Error(`the share answered for ${answered} when asked for ${door}`));
+        return next;
+      }
+      // One picture at a time, and each mint retires the last screen code in the
+      // kernel: only the most recently asked for may land, and only while the
+      // panel is still on its door.
+      if (seq === mintSeq.current && door === shownDoor.current) setOffer(next);
       return next;
     },
-    [hub],
+    [hub, onError],
   );
 
-  // The link worth copying: the address plus the one-shot code the picture
-  // carries. A bare address only leads a browser that has already paired to the
-  // window — a fresh one stops at "this device is not paired", which is exactly
-  // what a code is for. The code in hand is reused; when none is, one is minted.
+  // The link worth copying: the address plus a one-shot code. A bare address
+  // only leads a browser that has already paired to the window — a fresh one
+  // stops at "this device is not paired", which is exactly what a code is for.
+  //
+  // The code is minted as a link code, not lifted off the picture. Screen code
+  // and link code are separate credentials: minting the link's leaves the symbol
+  // beside it scannable, so handing a link to someone who cannot scan no longer
+  // spends the code the camera is meant to read. The status is left untouched —
+  // the symbol on screen is still the one it was.
   const pairingLink = useCallback(async (): Promise<string> => {
-    const live = offer ?? (await mint(channel));
-    return live.url;
-  }, [offer, mint, channel]);
+    const next = await hub.offerShare(issuableDoor(latest.current, channel), true);
+    return next.url;
+  }, [hub, channel]);
 
   const newCode = useCallback(() => run(async () => { await mint(channel); }), [run, mint, channel]);
 
@@ -132,6 +186,7 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
   // moves — the door answers on both addresses at once.
   const chooseChannel = (next: OfferChannel) => {
     if (next === channel) return;
+    shownDoor.current = next;
     setChannel(next);
     setOffer(null);
     if (!st?.open) return;
@@ -188,15 +243,18 @@ export function useShare(hub: HubPort, onError: (e: unknown) => void, watch = tr
 
 /** The switch, the network, the code and the paired phones. */
 export function ShareBody({ share }: { share: Share }) {
-  const { st, ip, pick, savePort, savePublicOrigin, offer, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember } = share;
+  const { st, ip, pick, savePort, savePublicOrigin, offer, busy, confirm, setConfirm, newCode, toggle, revoke, remember, saveRemember, pairingLink } = share;
   const [copied, setCopied] = useState<"" | "done" | "failed">("");
   const [portDraft, setPortDraft] = useState<string | null>(null);
   const [publicDraft, setPublicDraft] = useState<string | null>(null);
   if (!st) return null;
-  // The link the code draws, for a device that cannot scan: the same one-time
-  // credential, so it is copied on request and never shown as text.
-  const copyLink = (url: string) =>
-    copyText(url)
+  // The link for a device that cannot scan: dial the address with a one-shot
+  // code of its own. Taking the code off the picture instead would spend the
+  // credential the camera beside it is meant to read, so it is minted here and
+  // the symbol on screen stays scannable.
+  const copyLink = () =>
+    pairingLink()
+      .then(copyText)
       .then(() => setCopied("done"))
       .catch(() => setCopied("failed"))
       .finally(() => window.setTimeout(() => setCopied(""), 1600));
@@ -314,7 +372,7 @@ export function ShareBody({ share }: { share: Share }) {
                 <span className="lb">{t("remote.scan_with_your_phones_camera")}</span>
                 <span className="ds">{t("remote.the_code_pairs_one_phone", { time: clock(offer.expires) })}</span>
                 <code dir="ltr">{st.origin}</code>
-                <button className="rmtlnk sharecopy" data-action="share.copy" onClick={() => void copyLink(offer.url)}>
+                <button className="rmtlnk sharecopy" data-action="share.copy" onClick={() => void copyLink()}>
                   {copied === "done" ? t("common.copied") : copied === "failed" ? t("remote.copy_blocked") : t("remote.copy_pairing_link")}
                 </button>
               </div>

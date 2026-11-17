@@ -680,8 +680,11 @@ export class SseHub implements HubPort {
     return this.post<ShareStatus>("/share/public-origin", { origin });
   }
 
-  offerShare(channel?: OfferChannel) {
-    return this.post<ShareOffer>("/share/offer", channel ? { channel } : {});
+  offerShare(channel?: OfferChannel, link?: boolean) {
+    const body: { channel?: OfferChannel; link?: boolean } = {};
+    if (channel) body.channel = channel;
+    if (link) body.link = true;
+    return this.post<ShareOffer>("/share/offer", body);
   }
 
   offerCloudShare() {

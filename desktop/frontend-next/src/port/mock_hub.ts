@@ -3,6 +3,7 @@ import type { HistorySearch, HubPort, RuntimeView, TreeSession, TreeWindow, Tree
 import type { RemoteHost, RemoteListing, RemoteProbe } from "./remote";
 import type { OfferChannel, PhoneAction, PhoneList, PhoneView, ShareStatus } from "./share";
 import { MockPort } from "./mock";
+import { HttpError } from "./http_error";
 
 // MockHub is the fixture's answer to a window that drives several panes. Each
 // pane gets its own scripted session, so the split view can be worked on
@@ -425,16 +426,37 @@ export class MockHub implements HubPort {
   }
 
   closeShare() {
-    this.share = { ...this.share, open: false, origin: undefined, devices: [], offerExpires: undefined };
+    // A shut share has no doors, so it has no proxy channel either: the kernel
+    // reports the proxy's address only while the door it names is up. Leaving
+    // the name behind made a shut share look like one with a proxy still
+    // answering on it.
+    this.share = { ...this.share, open: false, origin: undefined, proxyOrigin: undefined, devices: [], offerExpires: undefined };
     return Promise.resolve({ ...this.share });
   }
 
-  offerShare(channel: OfferChannel = "lan") {
+  offerShare(channel: OfferChannel = "lan", link = false) {
+    // The three refusals the kernel makes, so a fixture cannot show a door this
+    // machine does not have: a shut share has no door at all, a proxy's door
+    // exists only once a name is configured, and a local door opened on loopback
+    // is one no phone dials. The last one used to be missing here, so a fixture
+    // on a machine with no reachable adapter still handed out a working-looking
+    // link the kernel would refuse.
+    if (!this.share.open) {
+      return Promise.reject(new HttpError(409, "sharing is off", { code: "share.closed" }));
+    }
+    if (channel === "proxy" && !this.share.proxyOrigin) {
+      return Promise.reject(new HttpError(409, "this share has no door by that name", { code: "share.channel_unknown" }));
+    }
+    if (channel !== "proxy" && !this.share.addresses.some((a) => a.kind !== "loopback")) {
+      return Promise.reject(new HttpError(409, "this share has no door by that name", { code: "share.channel_unknown" }));
+    }
     const expires = new Date(Date.now() + 5 * 60_000).toISOString();
-    this.share = { ...this.share, offerExpires: expires };
+    // A link code lives beside the symbol rather than replacing it, so it leaves
+    // the status — and the picture the status says is on offer — alone.
+    if (!link) this.share = { ...this.share, offerExpires: expires };
     const qr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29"><rect width="29" height="29" fill="#fff"/><path fill="#000" d="M4 4h7v7h-7zM18 4h7v7h-7zM4 18h7v7h-7zM13 13h3v3h-3z"/></svg>`;
     const base = channel === "proxy" ? this.share.proxyOrigin : this.share.origin;
-    return Promise.resolve({ channel, url: `${base}/#pair=mock-code`, qr, expires });
+    return Promise.resolve({ channel, url: `${base}/#pair=${link ? "mock-link-code" : "mock-code"}`, qr, expires });
   }
 
   offerCloudShare() {

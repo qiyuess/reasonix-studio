@@ -290,6 +290,7 @@ export const KERNEL: Messages = {
   "kernel.that_answer_was_meant_for": { zh: "该回答对应上一次启动的内核，请重新连接", en: "That answer was meant for an earlier run of the kernel — connect again" },
   "kernel.that_audio_format_is_not": { zh: "不支持该音频格式", en: "That audio format is not supported" },
   "kernel.that_is_not_a_door": { zh: "这台机器上没有那个入口，请换一个。", en: "This machine has no such door; pick another." },
+  "kernel.that_is_not_a_channel": { zh: "这个入口名不是可选项，请求本身有问题。", en: "That is not a doorway this can be asked for; the request itself is wrong." },
   "kernel.that_background_job_is_no": { zh: "这个后台任务已经不在运行了", en: "That background job is no longer running" },
   "kernel.that_backup_no_longer_exists": { zh: "这份备份已不存在", en: "That backup no longer exists" },
   "kernel.that_balance_format_is_not": { zh: "这个余额格式不在可选范围内", en: "That balance format is not one of the available ones" },

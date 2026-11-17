@@ -6,7 +6,7 @@ import "./testkit";
 import { PhonePop } from "./PhonePop";
 import { HttpError } from "../port/http_error";
 import type { HubPort } from "../port/hub";
-import type { ShareStatus } from "../port/share";
+import type { ShareStatus, OfferChannel } from "../port/share";
 
 afterEach(() => {
   cleanup();
@@ -82,7 +82,8 @@ it("puts the LAN pairing code above its expiry, with one way to get a new one", 
   // drops an offer the status has not heard of, as one the kernel withdrew.
   const expires = new Date(Date.now() + 60_000).toISOString();
   const remote = { ...status(true), origin: "http://10.0.0.2:41234", offerExpires: expires };
-  const offerShare = vi.fn(async () => ({
+  const offerShare = vi.fn(async (channel: OfferChannel = "lan") => ({
+    channel,
     url: "http://10.0.0.2:41234/?code=abc",
     qr: '<svg xmlns="http://www.w3.org/2000/svg"/>',
     expires,
@@ -129,7 +130,7 @@ it("shows the address a phone types in, and copies the pairing link", async () =
   const remote = { ...status(true), origin };
   const hub = {
     shareStatus: vi.fn(async () => remote),
-    offerShare: vi.fn(async () => ({ url: link, qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
+    offerShare: vi.fn(async (channel: OfferChannel = "lan") => ({ channel, url: link, qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
     shareRemember: vi.fn(async () => ({ remember: false })),
   } as unknown as HubPort;
   const writeText = vi.fn(() => Promise.resolve());
@@ -174,7 +175,7 @@ it("leaves the door switch to settings and offers the two channels", async () =>
   const remote = { ...status(true), origin: "http://10.0.0.2:41234" };
   const hub = {
     shareStatus: vi.fn(async () => remote),
-    offerShare: vi.fn(async () => ({ url: "", qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
+    offerShare: vi.fn(async (channel: OfferChannel = "lan") => ({ channel, url: "", qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
     shareRemember: vi.fn(async () => ({ remember: false })),
   } as unknown as HubPort;
   render(<PhonePop hub={hub} />);
@@ -192,7 +193,7 @@ it("switches the address and asks the proxy for its own code", async () => {
   const proxyOrigin = "https://agent.example.com";
   const expires = new Date(Date.now() + 60_000).toISOString();
   const remote = { ...status(true), origin, proxyOrigin, publicOrigin: proxyOrigin, offerExpires: expires };
-  const offerShare = vi.fn(async (channel?: string) => ({
+  const offerShare = vi.fn(async (channel: OfferChannel = "lan") => ({
     channel,
     url: `${channel === "proxy" ? proxyOrigin : origin}/#pair=abc`,
     qr: "<svg/>",
@@ -228,4 +229,83 @@ it("keeps the proxy channel shut when no proxy is named", async () => {
   const proxy = screen.getByRole("tab", { name: "代理网络" }) as HTMLButtonElement;
   expect(proxy.disabled).toBe(true);
   expect((screen.getByRole("tab", { name: "局域网络" }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+// A proxy named on an open share whose own door could not be raised is not the
+// same machine as one with no proxy named. The proxy tab is unusable in both,
+// so anything said from that tab would never be read: the difference is about
+// the share, and it is said beside it — otherwise a port held by another
+// program reads as a field the person forgot to fill in.
+it("says the proxy's door stayed shut when a name is set but has no door", async () => {
+  const remote = {
+    ...status(true),
+    origin: "http://10.0.0.2:41234",
+    publicOrigin: "https://agent.example.com",
+    appliedPublicOrigin: "https://agent.example.com",
+    proxyDoorError: "listen tcp 127.0.0.1:41234: bind: address already in use",
+  };
+  const hub = {
+    shareStatus: vi.fn(async () => remote),
+    offerShare: vi.fn(),
+    shareRemember: vi.fn(async () => ({ remember: false })),
+  } as unknown as HubPort;
+  render(<PhonePop hub={hub} />);
+  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
+  await waitFor(() => expect(screen.getByText(/反代地址已经填好/)).toBeTruthy());
+  // And it is not the other message: the field is filled in, so pointing at it
+  // would send someone to redo what they already did.
+  expect(screen.queryByText(/先在设置里填上反代地址/)).toBeNull();
+});
+
+// Without that reason the panel has nothing better to say than the old line, so
+// the two states stay distinguishable rather than collapsing into one.
+it("still points at the empty field when no proxy door was ever expected", async () => {
+  const remote = { ...status(true), origin: "http://10.0.0.2:41234" };
+  const hub = {
+    shareStatus: vi.fn(async () => remote),
+    offerShare: vi.fn(),
+    shareRemember: vi.fn(async () => ({ remember: false })),
+  } as unknown as HubPort;
+  render(<PhonePop hub={hub} />);
+  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
+  // The proxy tab is unusable either way — with no name there is no door to
+  // name — so the difference has to be in what the card says, not in a click.
+  expect((screen.getByRole("tab", { name: "代理网络" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByText(/反代地址已经填好/)).toBeNull();
+});
+
+// The pairing strip is a tablist, and a tablist that does not answer the arrow
+// keys is one in name only — this app has a second tablist and the two must not
+// behave differently. Moving the arrow moves the door, not just the ring.
+it("walks the pairing doors with the arrow keys", async () => {
+  const origin = "http://10.0.0.2:41234";
+  const proxyOrigin = "https://agent.example.com";
+  const expires = new Date(Date.now() + 60_000).toISOString();
+  const remote = { ...status(true), origin, proxyOrigin, publicOrigin: proxyOrigin, offerExpires: expires };
+  const offerShare = vi.fn(async (channel: OfferChannel = "lan") => ({
+    channel,
+    url: `${channel === "proxy" ? proxyOrigin : origin}/#pair=abc`,
+    qr: "<svg/>",
+    expires,
+  }));
+  const hub = {
+    shareStatus: vi.fn(async () => remote),
+    offerShare,
+    shareRemember: vi.fn(async () => ({ remember: false })),
+  } as unknown as HubPort;
+  render(<PhonePop hub={hub} />);
+  await userEvent.click(await screen.findByRole("button", { name: "设备访问" }));
+
+  const lan = screen.getByRole("tab", { name: "局域网络" });
+  const proxy = screen.getByRole("tab", { name: "代理网络" });
+  // One tab is in the Tab order and the other is reached by arrow: that is what
+  // makes the strip one stop rather than two.
+  expect(lan.getAttribute("tabindex")).toBe("0");
+  expect(proxy.getAttribute("tabindex")).toBe("-1");
+
+  lan.focus();
+  await userEvent.keyboard("{ArrowRight}");
+  await waitFor(() => expect(document.activeElement).toBe(proxy));
+  await waitFor(() => expect(document.querySelector(".pc-origin code")?.textContent).toBe(proxyOrigin));
+  expect(offerShare).toHaveBeenCalledWith("proxy");
 });

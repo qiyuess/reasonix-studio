@@ -5,6 +5,7 @@ import { reason } from "../i18n/kernel";
 import type { HubPort } from "../port/hub";
 import type { CloudDevice, PairedDevice } from "../port/share";
 import { copyText } from "./CopyButton";
+import { arrowTabs } from "./tablist";
 import { useDismiss } from "./dismiss";
 import { clock, deviceLabel, doorAddress, type Share, useShare } from "./PhoneAccess";
 import { TooltipButton } from "./TooltipButton";
@@ -170,6 +171,11 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
   // The proxy tab has nothing to show until a name is configured, and neither
   // tab has anything until the door is switched on in settings.
   const blocked = !st.open ? "off" : onProxy && !hasProxy ? "no-proxy" : "";
+  // A proxy named while its door stayed shut is not the same as no proxy named,
+  // and it cannot be said from the proxy tab: that tab is unusable in both
+  // cases, so nothing on it would ever be read. It is a fact about the share
+  // rather than about either tab, so it is said beside the share.
+  const proxyMissed = st.open && !hasProxy && Boolean(st.proxyDoorError);
 
   // One press either copies or says it could not. The press is remembered for as
   // long as the word is readable, and the timer is cleared on the next press so
@@ -247,7 +253,7 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
             <div className="pc-dev" key={d.id} data-online={d.online ? "" : undefined}>
               <i aria-hidden="true" />
               <span title={d.name}>{deviceLabel(i)}</span>
-              <small>{t("remote.same_wifi")} · {d.online ? t("remote.online") : t("remote.last_seen_time", { time: clock(d.lastSeen) })}</small>
+              <small>{d.door === "proxy" ? t("remote.proxy_network") : t("remote.local_network")} · {d.online ? t("remote.online") : t("remote.last_seen_time", { time: clock(d.lastSeen) })}</small>
               <button
                 data-action={arming === d.id ? "share.revoke" : "share.ask-revoke"}
                 data-target={d.id}
@@ -273,10 +279,11 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
             door for its own code — the picture on screen carries a one-shot
             credential, and a link minted for one door is spent nowhere on the
             other. Nothing moves: the share answers on both at once. */}
-        <div className="pc-tabs" role="tablist" aria-label={t("remote.device_access")}>
+        <div className="pc-tabs" role="tablist" aria-label={t("remote.pairing_door")} onKeyDown={arrowTabs}>
           <button
             role="tab"
             aria-selected={!onProxy}
+            tabIndex={onProxy ? -1 : 0}
             data-action="share.channel"
             data-channel="lan"
             disabled={busy}
@@ -287,6 +294,7 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
           <button
             role="tab"
             aria-selected={onProxy}
+            tabIndex={onProxy ? 0 : -1}
             data-action="share.channel"
             data-channel="proxy"
             disabled={busy || !hasProxy}
@@ -313,6 +321,7 @@ function PhoneCard({ share, failure }: { share: Share; failure: string }) {
 
         {blocked === "off" && <p className="pc-when">{t("remote.turn_on_access_in_settings")}</p>}
         {blocked === "no-proxy" && <p className="pc-when">{t("remote.no_proxy_configured")}</p>}
+        {proxyMissed && <p className="pc-when">{t("remote.proxy_door_could_not_open")}</p>}
 
         {st.open && !blocked && (
           <div className="pc-code">

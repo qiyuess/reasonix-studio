@@ -22,6 +22,10 @@ export interface PairedDevice {
   lastSeen: string;
   // Holding an event stream open now: a page on screen.
   online: boolean;
+  // How this device last reached the share: the address a phone on this network
+  // dials, or the proxy's name. Absent in a status read from a kernel that
+  // predates it, which the card reads as the local door.
+  door?: OfferChannel;
 }
 
 export interface CloudDevice {
@@ -65,6 +69,11 @@ export interface ShareStatus {
   // a change that has not been applied yet, so the panel can say "next time the
   // door opens" without showing a stale value in the field just typed into.
   appliedPublicOrigin?: string;
+  // Why a named proxy has no door beside the phone's, when it could not be
+  // raised. A name applied to an open share whose proxy channel is missing
+  // reads as a feature that should work and does not; this says which half is
+  // missing. Absent when the proxy's door is open or no proxy is named.
+  proxyDoorError?: string;
   addresses: ShareAddress[];
   devices: PairedDevice[];
   cloudDevices: CloudDevice[];
@@ -77,8 +86,10 @@ export interface ShareStatus {
 export type OfferChannel = "lan" | "proxy";
 
 export interface ShareOffer {
-  // Which door the link below points at.
-  channel?: OfferChannel;
+  // Which door the link below points at. The kernel always names it — a code is
+  // minted for one door and is spent nowhere on the other — so a reader can tell
+  // which door the picture on screen belongs to instead of trusting the tab.
+  channel: OfferChannel;
   url: string;
   // An SVG document, drawn dark on light whatever the theme so it scans.
   qr: string;
@@ -131,7 +142,11 @@ export interface SharePort {
   // A pairing code for one door. The channel names which: the local address a
   // phone on this network dials, or the reverse proxy's name for machines that
   // are elsewhere. Omitting it asks for the local one.
-  offerShare(channel?: OfferChannel): Promise<ShareOffer>;
+  //
+  // link asks for a code to ride a copied link rather than the symbol drawn on
+  // screen. The two are separate one-shot credentials: minting the link's leaves
+  // the symbol scannable, so "copy the link" no longer cancels the picture.
+  offerShare(channel?: OfferChannel, link?: boolean): Promise<ShareOffer>;
   offerCloudShare(): Promise<CloudShareOffer>;
   revokeDevice(id: string): Promise<ShareStatus>;
   // The devices enrolled against this Studio at the account service. Null where

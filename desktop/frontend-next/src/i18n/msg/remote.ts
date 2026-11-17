@@ -39,6 +39,7 @@ export const REMOTE: Messages = {
   "remote.default_connection_directory_path": { zh: "默认连接目录：{path}", en: "Default connection directory: {path}" },
   "remote.delivered_to_to_it_is": { zh: "已送到「{to}」，对方的模型会直接读到（派发开关关着时需对方用户批准）。", en: "Delivered to “{to}”; its model reads it directly (it waits for its user only if the dispatch switch is off)." },
   "remote.device_access": { zh: "设备访问", en: "Device access" },
+  "remote.pairing_door": { zh: "配对入口", en: "Pairing door" },
   "remote.device_access_n_online": { zh: "设备访问 · {n} 台在线", en: "Device access · {n} online" },
   "remote.device_n": { zh: "设备 {n}", en: "Device {n}" },
   "remote.device_n_connected": { zh: "设备 {n} 已连接", en: "Device {n} connected" },
@@ -230,15 +231,14 @@ export const REMOTE: Messages = {
   "remote.youre_offline": { zh: "网络已断开", en: "You're offline" },
   "remote.use_studio_on_your_phone": { zh: "在手机上用 Studio", en: "Use Studio on your phone" },
   "remote.n_phones_connected": { zh: "{n} 台手机已连接", en: "{n} phone(s) connected" },
-  "remote.same_wifi": { zh: "同一个 Wi-Fi", en: "Same Wi-Fi" },
-  // The two doors a code can point at. The local one is the address a phone on
-  // this network dials; the proxy one is the reverse proxy's name, for phones
-  // that are not on this network at all.
+  // The two doors a code can point at, and the two a paired phone can arrive
+  // through: the address a phone on this network dials, or the proxy's name.
   "remote.local_network": { zh: "局域网络", en: "Local network" },
   "remote.proxy_network": { zh: "代理网络", en: "Proxy network" },
   "remote.local_pairing_until": { zh: "局域网配对 · {time} 前有效", en: "Local pairing · valid until {time}" },
   "remote.proxy_pairing_until": { zh: "代理配对 · {time} 前有效", en: "Proxy pairing · valid until {time}" },
   "remote.no_proxy_configured": { zh: "先在设置里填上反代地址，这一页才有内容。", en: "Fill in the reverse proxy address in settings first." },
+  "remote.proxy_door_could_not_open": { zh: "反代地址已经填好，但本机给反代留的那个入口没能打开，通常是端口被别的程序占着。", en: "The reverse proxy address is set, but the door reserved for it could not open — usually another program holds that port." },
   "remote.turn_on_access_in_settings": { zh: "手机访问已关闭。到「设置 → 远程」里打开它，这里就会出现二维码。", en: "Phone access is off. Turn it on under Settings → Remote and the code appears here." },
   "remote.proxy_reaches_this_machine_at": { zh: "反代的地址，外面的手机从这里进来", en: "The proxy's address, where a phone elsewhere comes in" },
   "remote.this_machines_address_on_this": { zh: "本机在这个网络里的地址", en: "This machine's address on this network" },

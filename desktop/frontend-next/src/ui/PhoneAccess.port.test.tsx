@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import "./testkit";
 import { PhoneAccess } from "./PhoneAccess";
 import type { HubPort } from "../port/hub";
-import type { ShareStatus } from "../port/share";
+import type { ShareStatus, OfferChannel } from "../port/share";
 
 afterEach(cleanup);
 
@@ -19,7 +19,7 @@ function rig(initial: ShareStatus) {
     shareStatus: vi.fn(async () => st),
     setSharePort: vi.fn(async (port: number) => (st = { ...st, port: port || undefined })),
     openShare: vi.fn(async (ip: string) => (st = { ...st, open: true, origin: `http://${ip}:${st.port ?? 50000}` })),
-    offerShare: vi.fn(async () => ({ url: "", qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
+    offerShare: vi.fn(async (channel: OfferChannel = "lan") => ({ channel, url: "", qr: "<svg/>", expires: new Date(Date.now() + 60_000).toISOString() })),
     shareRemember: vi.fn(async () => ({ remember: false })),
     setSharePublicOrigin: vi.fn(async (origin: string) => (st = { ...st, publicOrigin: origin || undefined })),
   };
