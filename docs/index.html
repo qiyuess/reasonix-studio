@@ -93,15 +93,6 @@
   .undertext code{font-family:var(--mono);font-size:13px;background:var(--paper);border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:var(--ink)}
   .undertext a{color:var(--accent)}
 
-  .dls{margin-top:24px;border-top:1px solid var(--line)}
-  .dl{display:flex;align-items:center;gap:18px;padding:18px 6px;border-bottom:1px solid var(--line);transition:.15s}
-  .dl:hover{background:var(--paper)}
-  .dl .os{font-weight:600;color:var(--ink);min-width:84px;font-size:15.5px}
-  .dl .fn{font-family:var(--mono);font-size:13.5px;color:var(--body);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .dl .ar{font-size:13px;color:var(--faint);white-space:nowrap}
-  .dl .go{color:var(--accent);font-family:var(--mono);font-size:14px}
-  @media(max-width:600px){.dl .ar{display:none}.dl .fn{font-size:12px}}
-
   /* features */
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line)}
   @media(max-width:820px){.grid{grid-template-columns:repeat(2,1fr)}}
@@ -191,7 +182,6 @@
   <div class="tabs">
     <button class="tab on" data-tab="npm">npm</button>
     <button class="tab" data-tab="brew">Homebrew</button>
-    <button class="tab" data-tab="desk"><span data-en>Desktop</span><span data-zh>桌面端</span></button>
   </div>
   <div class="panel on" data-panel="npm">
     <div class="block"><button class="cp" data-copy="npm i -g reasonix
@@ -204,20 +194,6 @@ reasonix"><span data-en>Copy</span><span data-zh>复制</span></button><pre><spa
   <div class="panel" data-panel="brew">
     <div class="block"><button class="cp" data-copy="brew install esengine/reasonix/reasonix"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> brew install esengine/reasonix/reasonix</pre></div>
     <p class="undertext"><span data-en>macOS. The cask pulls the archive from the latest release.</span><span data-zh>macOS。cask 从最新 release 拉取归档。</span></p>
-  </div>
-  <div class="panel" data-panel="desk">
-    <div class="dls">
-      <a class="dl" href="https://dl.reasonix.io/latest/Reasonix-darwin-arm64.zip" download>
-        <span class="os">macOS</span><span class="fn">Reasonix-darwin-arm64.zip</span><span class="ar" data-en>universal · Intel + Apple Silicon</span><span class="ar" data-zh>通用 · Intel + Apple Silicon</span><span class="go">↓</span>
-      </a>
-      <a class="dl" href="https://dl.reasonix.io/latest/Reasonix-windows-amd64-installer.exe" download>
-        <span class="os">Windows</span><span class="fn">Reasonix-windows-amd64-installer.exe</span><span class="ar" data-en>installer · x64</span><span class="ar" data-zh>安装器 · x64</span><span class="go">↓</span>
-      </a>
-      <a class="dl" href="https://dl.reasonix.io/latest/Reasonix-linux-amd64.tar.gz" download>
-        <span class="os">Linux</span><span class="fn">Reasonix-linux-amd64.tar.gz</span><span class="ar" data-en>x64</span><span class="ar" data-zh>x64</span><span class="go">↓</span>
-      </a>
-    </div>
-    <p class="undertext"><span data-en>Served from the R2 CDN (fast worldwide). Or browse <a href="https://github.com/esengine/DeepSeek-Reasonix/releases">all releases on GitHub</a>.</span><span data-zh>经 R2 CDN 分发(全球加速)。或在 <a href="https://github.com/esengine/DeepSeek-Reasonix/releases">GitHub releases</a> 浏览全部。</span></p>
   </div>
 </section>
 
