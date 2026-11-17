@@ -187,7 +187,6 @@ export const EN: Record<string, string> = {
   "这个提交没有改动文件": "This commit changed no files",
   "没有可显示的文本改动": "There is no text change to show",
   "只显示前面的文件": "Only the first files are shown",
-  "推送…": "Push…",
   "推送": "Push",
   "读取要推送的内容…": "Reading what would be pushed…",
   "已把 {branch} 推送到 {host}，远端新建了这个分支": "Pushed {branch} to {host}; the branch is new on the remote",
@@ -1858,8 +1857,6 @@ export const EN: Record<string, string> = {
     "The model returned nothing; try again",
   "优化请求格式不正确":
     "The refine request was malformed",
-  "提交…":
-    "Commit…",
   "当前会话没有可用的模型，不能起草。请手动填写提交说明。": "This session has no model to draft with. Write the commit message yourself.",
   "起草超时了。请手动填写提交说明，或重新起草。": "Drafting timed out. Write the commit message yourself, or draft again.",
   "模型没有给出提交说明。请手动填写，或重新起草。": "The model gave no commit message. Write it yourself, or draft again.",
