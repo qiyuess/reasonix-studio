@@ -15,7 +15,7 @@ func publicGate(t *testing.T, public string) (http.Handler, *http.Cookie, *int) 
 	t.Helper()
 	reg := NewDeviceRegistry()
 	code, _ := reg.Offer()
-	cred, _, err := reg.Redeem(code, "phone")
+	cred, _, err := reg.Redeem(code, "phone", OfferLAN)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func TestTheProxyNameIsAdmittedWhenTheHostWasRewritten(t *testing.T) {
 		if c.host == "127.0.0.1:10086" {
 			reg := NewDeviceRegistry()
 			code, _ := reg.Offer()
-			cred, _, err := reg.Redeem(code, "phone")
+			cred, _, err := reg.Redeem(code, "phone", OfferLAN)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -237,5 +237,107 @@ func TestATightenedOriginCannotNameAnotherHost(t *testing.T) {
 	}
 	if *reached != 0 {
 		t.Fatalf("a refused request reached the kernel %d times", *reached)
+	}
+}
+
+// The door a device arrived through is kept with it, so a window can say how
+// that phone reaches this machine rather than repeating "the same Wi-Fi" at a
+// phone that is nowhere near it. The proxy's own name and the rewritten Host a
+// tunnel forwards under both count as the proxy.
+func TestTheDoorADeviceCameThroughIsKept(t *testing.T) {
+	for _, c := range []struct {
+		name, host, origin string
+		want               OfferChannel
+	}{
+		{"the phone's own address", "192.168.1.5:9000", "http://192.168.1.5:9000", OfferLAN},
+		{"the proxy's name", "agent.example.com", "https://agent.example.com", OfferProxy},
+		{"a tunnel that rewrote the Host", "192.168.1.5:9000", "https://agent.example.com", OfferProxy},
+	} {
+		reg := NewDeviceRegistry()
+		code, _ := reg.Offer()
+		gate := NewDeviceGate(http.NotFoundHandler(), DeviceGateOptions{
+			Registry:     reg,
+			Origin:       "http://192.168.1.5:9000",
+			PublicOrigin: "https://agent.example.com",
+		})
+		req := httptest.NewRequest(http.MethodPost, "http://"+c.host+PairPath, strings.NewReader(`{"code":"`+code+`"}`))
+		req.Host = c.host
+		req.Header.Set("Origin", c.origin)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		gate.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: pair = %d", c.name, rec.Code)
+		}
+		var got OfferChannel
+		for _, d := range reg.Devices() {
+			got = d.Door
+		}
+		if got != c.want {
+			t.Fatalf("%s: door = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// A phone that changes how it reaches this machine says so: the door is recorded
+// again on every authenticated request, not frozen at pairing.
+func TestADevicesDoorFollowsTheRequestItComesInOn(t *testing.T) {
+	reg := NewDeviceRegistry()
+	code, _ := reg.Offer()
+	cred, view, err := reg.Redeem(code, "phone", OfferLAN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Door != OfferLAN {
+		t.Fatalf("door at pairing = %q, want %q", view.Door, OfferLAN)
+	}
+	if _, ok := reg.Authenticate(cred, OfferProxy); !ok {
+		t.Fatal("the credential it was given no longer authenticates")
+	}
+	for _, d := range reg.Devices() {
+		if d.ID == view.ID && d.Door != OfferProxy {
+			t.Fatalf("door after a proxy request = %q, want %q", d.Door, OfferProxy)
+		}
+	}
+}
+
+// A door on one scheme's own port and a page served on the other scheme's own
+// port are two different sockets, however alike the two authorities read once
+// each is folded by its own scheme: http://host folds to "host" meaning 80, and
+// https://host folds to "host" meaning 443. Tightening exists so a proxy can
+// hand over the socket it dialled, so it must not also hand over the port next
+// door — a page served on 443 has no business changing state on 80.
+func TestTighteningCannotReachTheOtherSchemesOwnPort(t *testing.T) {
+	reg := NewDeviceRegistry()
+	code, _ := reg.Offer()
+	cred, _, err := reg.Redeem(code, "phone", OfferLAN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reached := 0
+	gate := NewDeviceGate(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached++ }), DeviceGateOptions{
+		Registry:     reg,
+		Origin:       "http://192.168.1.20",
+		PublicOrigin: "https://agent.example.com",
+	})
+	cookie := &http.Cookie{Name: DeviceCookie, Value: cred}
+	for _, origin := range []string{"https://192.168.1.20", "https://192.168.1.20:443"} {
+		code, reason := callGate(gate, "192.168.1.20", origin, "/sessions", cookie)
+		if code != http.StatusForbidden || reason.Code != codeDeviceOrigin {
+			t.Fatalf("Origin %s on a plain :80 door = %d %s, want 403 %s", origin, code, reason.Code, codeDeviceOrigin)
+		}
+	}
+	if reached != 0 {
+		t.Fatalf("a refused request reached the kernel %d times", reached)
+	}
+}
+
+// The same door tightened to TLS is still admitted: the port the proxy dialled
+// and the port the origin names are one socket, which is what the rule is for.
+func TestTighteningKeepsTheSameSocket(t *testing.T) {
+	gate, cookie, reached := publicGate(t, "https://agent.example.com")
+	code, reason := callGate(gate, "192.168.1.5:9000", "https://192.168.1.5:9000", "/sessions", cookie)
+	if code != http.StatusOK || *reached != 1 {
+		t.Fatalf("the same port over TLS = %d %s, reached %d, want 200", code, reason.Code, *reached)
 	}
 }

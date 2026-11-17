@@ -1,11 +1,13 @@
 package serve
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -227,7 +229,8 @@ func TestAnUnproxiedDoorKeepsTheRememberedAddress(t *testing.T) {
 
 // TestLoopbackIsOfferedLast keeps the two ways of choosing an address agreeing.
 // A phone cannot dial loopback, so it must never be what "the first address"
-// means; only a proxy makes it the right one, and that is decided by name.
+// means; a proxy naming this machine is what makes loopback the right door, and
+// that one is opened beside the phone's rather than chosen here.
 func TestLoopbackIsOfferedLast(t *testing.T) {
 	list := []ShareAddress{
 		{IP: "127.0.0.1", Kind: AddressLoopback},
@@ -241,10 +244,110 @@ func TestLoopbackIsOfferedLast(t *testing.T) {
 	if list[len(list)-1].Kind != AddressLoopback {
 		t.Fatalf("last address is %q (%s), want loopback", list[len(list)-1].IP, list[len(list)-1].Kind)
 	}
-	if a, ok := proxyAddress(list); !ok || a.IP != "127.0.0.1" {
-		t.Fatalf("proxyAddress = %+v, %v; want the loopback entry", a, ok)
+	// The chooser a phone's door goes through skips loopback and takes the same
+	// address the sort put first.
+	a, ok := phoneAddress(list)
+	if !ok || a.IP != "192.168.1.20" {
+		t.Fatalf("phoneAddress = %+v, %v; want the LAN entry", a, ok)
 	}
-	if _, ok := proxyAddress([]ShareAddress{{IP: "192.168.1.20", Kind: AddressLAN}}); ok {
-		t.Fatal("proxyAddress found a loopback entry in a list that has none")
+	if _, ok := phoneAddress([]ShareAddress{{IP: "127.0.0.1", Kind: AddressLoopback}}); ok {
+		t.Fatal("phoneAddress offered a loopback entry as a phone's door")
+	}
+}
+
+// A proxy named on an open share whose own door could not be raised is a state
+// the panel has to be able to tell apart from "no proxy configured": the name
+// is applied to a gate that accepts it while the channel that name belongs to is
+// not there. That pair used to be unreadable — a missing channel and an applied
+// name, with nothing saying which one was wrong — so the failure is reported.
+func TestAProxyDoorThatCannotBindSaysWhy(t *testing.T) {
+	// Hold the port on loopback: the phone's door can still take it on another
+	// address, while the proxy's door has nowhere to bind.
+	held, err := net.Listen("tcp", net.JoinHostPort(loopbackIP, "0"))
+	if err != nil {
+		t.Fatalf("hold a loopback port: %v", err)
+	}
+	defer held.Close()
+	_, portText, err := net.SplitHostPort(held.Addr().String())
+	if err != nil {
+		t.Fatalf("held address: %v", err)
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		t.Fatalf("held port %q: %v", portText, err)
+	}
+
+	share := NewDeviceShare(nil)
+	share.Attach(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	share.RestorePort(port)
+	share.RestorePublicOrigin(proxyName)
+	share.addresses = func() []ShareAddress {
+		return []ShareAddress{
+			{Interface: "en0", IP: "127.0.0.2", Kind: AddressLAN},
+			{Interface: "lo", IP: loopbackIP, Kind: AddressLoopback},
+		}
+	}
+	t.Cleanup(share.Close)
+
+	st, err := share.Open("127.0.0.2")
+	if err != nil {
+		t.Fatalf("opening with the proxy's port held elsewhere: %v", err)
+	}
+	if !st.Open || st.Origin == "" {
+		t.Fatalf("the phone's door is what the person asked for and must be open, got %+v", st)
+	}
+	if st.AppliedPublicOrigin != proxyName {
+		t.Fatalf("applied proxy name = %q, want %q", st.AppliedPublicOrigin, proxyName)
+	}
+	if st.ProxyOrigin != "" {
+		t.Fatalf("proxy channel = %q, want none while its door is shut", st.ProxyOrigin)
+	}
+	if st.ProxyDoorError == "" {
+		t.Fatal("a proxy named on an open share with no proxy door must say why")
+	}
+	// The phone's door is real: the gate answers on the address it named.
+	if code := readDoor(t, "127.0.0.2", portText); code != http.StatusUnauthorized {
+		t.Fatalf("the phone's door answered %d, want the gate's 401", code)
+	}
+}
+
+// A share opened on loopback has a door only this machine's own tunnel can
+// dial. Serving it as the local channel's address would hand out a link no
+// phone can open — the same dead end the proxy channel already refuses to hand
+// out when no proxy is named. Both channels answer alike.
+func TestALocalDoorOnLoopbackHandsOutNoLink(t *testing.T) {
+	share := NewDeviceShare(nil)
+	share.Attach(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	share.addresses = func() []ShareAddress {
+		return []ShareAddress{{Interface: "lo", IP: loopbackIP, Kind: AddressLoopback}}
+	}
+	t.Cleanup(share.Close)
+	if _, err := share.Open(loopbackIP); err != nil {
+		t.Fatalf("open on loopback: %v", err)
+	}
+	if _, err := share.Offer(OfferLAN); !errors.Is(err, ErrShareChannel) {
+		t.Fatalf("a local code on a loopback door = %v, want ErrShareChannel", err)
+	}
+}
+
+// And the same share still answers the proxy channel when a proxy is named:
+// loopback is exactly the door a proxy on this machine dials.
+func TestALoopbackDoorStillServesTheProxyChannel(t *testing.T) {
+	share := NewDeviceShare(nil)
+	share.Attach(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	share.RestorePublicOrigin(proxyName)
+	share.addresses = func() []ShareAddress {
+		return []ShareAddress{{Interface: "lo", IP: loopbackIP, Kind: AddressLoopback}}
+	}
+	t.Cleanup(share.Close)
+	if _, err := share.Open(loopbackIP); err != nil {
+		t.Fatalf("open on loopback with a proxy named: %v", err)
+	}
+	offer, err := share.Offer(OfferProxy)
+	if err != nil {
+		t.Fatalf("a proxy code on a loopback door: %v", err)
+	}
+	if !strings.HasPrefix(offer.URL, proxyName+"/#pair=") {
+		t.Fatalf("proxy link = %q, want one on the proxy's name", offer.URL)
 	}
 }

@@ -18,14 +18,14 @@ import (
 func TestPairingCodePairsOnce(t *testing.T) {
 	reg := NewDeviceRegistry()
 	code, _ := reg.Offer()
-	cred, view, err := reg.Redeem(code, "Mozilla/5.0 (iPhone)")
+	cred, view, err := reg.Redeem(code, "Mozilla/5.0 (iPhone)", OfferLAN)
 	if err != nil {
 		t.Fatalf("first redeem: %v", err)
 	}
-	if id, ok := reg.Authenticate(cred); !ok || id != view.ID {
+	if id, ok := reg.Authenticate(cred, OfferLAN); !ok || id != view.ID {
 		t.Fatalf("Authenticate = %q %v, want %q", id, ok, view.ID)
 	}
-	if _, _, err := reg.Redeem(code, "second"); !errors.Is(err, ErrPairingInvalid) {
+	if _, _, err := reg.Redeem(code, "second", OfferLAN); !errors.Is(err, ErrPairingInvalid) {
 		t.Fatalf("second redeem err = %v, want ErrPairingInvalid", err)
 	}
 	if _, ok := reg.OfferExpires(); ok {
@@ -38,20 +38,123 @@ func TestPairingCodeLapses(t *testing.T) {
 	reg := newDeviceRegistryAt(func() time.Time { return now })
 	code, _ := reg.Offer()
 	now = now.Add(pairingTTL)
-	if _, _, err := reg.Redeem(code, ""); !errors.Is(err, ErrPairingInvalid) {
+	if _, _, err := reg.Redeem(code, "", OfferLAN); !errors.Is(err, ErrPairingInvalid) {
 		t.Fatalf("redeem at expiry err = %v, want ErrPairingInvalid", err)
 	}
 }
 
-func TestANewOfferRetiresTheOldCode(t *testing.T) {
+// The code drawn on screen and the code riding a copied link are two
+// credentials. Minting the link's must not retire the symbol's — that is what
+// made pressing "copy the link" cancel the picture beside it — and spending
+// either leaves the other worth using.
+func TestALinkCodeDoesNotRetireTheCodeOnScreen(t *testing.T) {
 	reg := NewDeviceRegistry()
-	old, _ := reg.Offer()
-	fresh, _ := reg.Offer()
-	if _, _, err := reg.Redeem(old, ""); !errors.Is(err, ErrPairingInvalid) {
-		t.Fatalf("superseded code err = %v, want ErrPairingInvalid", err)
+	screen, _ := reg.Offer()
+	copied, _ := reg.OfferLink()
+	if screen == copied {
+		t.Fatal("the link was minted with the code already on screen")
 	}
-	if _, _, err := reg.Redeem(fresh, ""); err != nil {
-		t.Fatalf("current code: %v", err)
+	if _, _, err := reg.Redeem(screen, "", OfferLAN); err != nil {
+		t.Fatalf("the code on screen: %v", err)
+	}
+	if _, _, err := reg.Redeem(copied, "", OfferLAN); err != nil {
+		t.Fatalf("the copied code, after the symbol's was spent: %v", err)
+	}
+}
+
+// Whichever of the two is spent first, the other still pairs: the test above
+// fixes one order, and a window hands them out in the other one too.
+func TestEitherTheScreenOrTheCopiedCodePairsFirst(t *testing.T) {
+	reg := NewDeviceRegistry()
+	screen, _ := reg.Offer()
+	copied, _ := reg.OfferLink()
+	if _, _, err := reg.Redeem(copied, "", OfferLAN); err != nil {
+		t.Fatalf("the copied code: %v", err)
+	}
+	if _, _, err := reg.Redeem(screen, "", OfferLAN); err != nil {
+		t.Fatalf("the screen's code, after the copied one was spent: %v", err)
+	}
+}
+
+// A window shows one symbol at a time, so a new one replaces the last: the
+// picture that is no longer on screen must not still pair a phone.
+func TestANewSymbolRetiresTheOneItReplaced(t *testing.T) {
+	reg := NewDeviceRegistry()
+	first, _ := reg.Offer()
+	second, _ := reg.Offer()
+	if _, _, err := reg.Redeem(first, "", OfferLAN); !errors.Is(err, ErrPairingInvalid) {
+		t.Fatalf("the replaced symbol err = %v, want ErrPairingInvalid", err)
+	}
+	if _, _, err := reg.Redeem(second, "", OfferLAN); err != nil {
+		t.Fatalf("the symbol now on screen: %v", err)
+	}
+}
+
+// One code pairs once even when others are on offer beside it: a spent code is
+// not revived by the presence of a live one.
+func TestASpentCodeStaysSpentBesideALiveOne(t *testing.T) {
+	reg := NewDeviceRegistry()
+	spent, _ := reg.Offer()
+	if _, _, err := reg.Redeem(spent, "", OfferLAN); err != nil {
+		t.Fatalf("first redeem: %v", err)
+	}
+	// A live code offered afterwards changes nothing about the spent one.
+	reg.OfferLink()
+	if _, _, err := reg.Redeem(spent, "", OfferLAN); !errors.Is(err, ErrPairingInvalid) {
+		t.Fatalf("re-redeeming a spent code = %v, want ErrPairingInvalid", err)
+	}
+}
+
+// OfferExpires answers about the symbol on screen alone: a window reads it to
+// decide whether the picture is still worth showing, and a link still unspent
+// somewhere is not a picture anybody is looking at.
+func TestTheSymbolsExpiryIsWhatTheWindowIsTold(t *testing.T) {
+	reg := NewDeviceRegistry()
+	screen, _ := reg.Offer()
+	if _, ok := reg.OfferExpires(); !ok {
+		t.Fatal("a symbol just minted is not reported as on offer")
+	}
+	reg.OfferLink()
+	if _, ok := reg.OfferExpires(); !ok {
+		t.Fatal("a link beside the symbol hid the symbol")
+	}
+	if _, _, err := reg.Redeem(screen, "", OfferLAN); err != nil {
+		t.Fatalf("the code on screen: %v", err)
+	}
+	if _, ok := reg.OfferExpires(); ok {
+		t.Fatal("a spent symbol is still reported as on offer because a link outlived it")
+	}
+}
+
+// WithdrawCode spends one code and leaves its neighbours alone: it is what a
+// caller that could not draw a symbol undoes.
+func TestWithdrawCodeSpendsOnlyThatCode(t *testing.T) {
+	reg := NewDeviceRegistry()
+	kept, _ := reg.Offer()
+	dropped, _ := reg.OfferLink()
+	reg.WithdrawCode(dropped)
+	if _, _, err := reg.Redeem(dropped, "", OfferLAN); !errors.Is(err, ErrPairingInvalid) {
+		t.Fatalf("withdrawn code err = %v, want ErrPairingInvalid", err)
+	}
+	if _, _, err := reg.Redeem(kept, "", OfferLAN); err != nil {
+		t.Fatalf("code that was not withdrawn: %v", err)
+	}
+}
+
+// The codes are capped so a process left running cannot pile them up, and the
+// ones dropped are the oldest: a link just handed out still works.
+func TestOnlyTheOldestCodesAreDroppedAtTheCap(t *testing.T) {
+	reg := NewDeviceRegistry()
+	first, _ := reg.OfferLink()
+	var last string
+	for i := 0; i < maxPendingCodes; i++ {
+		last, _ = reg.OfferLink()
+	}
+	if _, _, err := reg.Redeem(first, "", OfferLAN); !errors.Is(err, ErrPairingInvalid) {
+		t.Fatalf("the oldest code err = %v, want ErrPairingInvalid", err)
+	}
+	if _, _, err := reg.Redeem(last, "", OfferLAN); err != nil {
+		t.Fatalf("the newest code: %v", err)
 	}
 }
 
@@ -66,8 +169,14 @@ func TestShareRefusesAnAddressItDoesNotList(t *testing.T) {
 	}
 }
 
-// shareRig is a window's hub with the share open on loopback, which stands in
-// for the private address a real share binds.
+// rigLAN is the private address a test share binds. The product never offers
+// loopback as a phone's door — a proxy on this machine dials it, a phone does
+// not — so a rig that opened there would be a topology no machine has, and the
+// rules that depend on that distinction would go untested.
+const rigLAN = "127.0.0.2"
+
+// shareRig is a window's hub with the share open on a private address, which
+// stands in for the adapter address a real share binds.
 type shareRig struct {
 	hub    *Hub
 	share  *DeviceShare
@@ -92,7 +201,12 @@ func newProxiedShareRig(t *testing.T, public string) *shareRig {
 	}
 	share := NewDeviceShare(page)
 	share.RestorePublicOrigin(public)
-	share.addresses = func() []ShareAddress { return []ShareAddress{{Interface: "lo", IP: "127.0.0.1", Kind: AddressLAN}} }
+	// 127.0.0.2 stands in for the private address a real share binds: the product
+	// never offers loopback as a phone's door, so a rig that did would be a
+	// topology no machine has — and it would hide the rules that depend on that.
+	share.addresses = func() []ShareAddress {
+		return []ShareAddress{{Interface: "en0", IP: rigLAN, Kind: AddressLAN}}
+	}
 	h := NewHub(HubOptions{Page: page, Share: share, Grant: func(s *Server) { s.AllowProviderEdit() }})
 	hubRuntime(t, h, testenv.TempDir(t))
 	share.Attach(h.Handler())
@@ -102,7 +216,7 @@ func newProxiedShareRig(t *testing.T, public string) *shareRig {
 		share.Close()
 		h.Shutdown()
 	})
-	st, err := share.Open("127.0.0.1")
+	st, err := share.Open(rigLAN)
 	if err != nil {
 		t.Fatalf("open share: %v", err)
 	}
@@ -281,7 +395,7 @@ func TestClosingTheShareUnpairsEveryDevice(t *testing.T) {
 	rig := newShareRig(t)
 	cookie := rig.pair(t)
 	rig.share.Close()
-	st, err := rig.share.Open("127.0.0.1")
+	st, err := rig.share.Open(rigLAN)
 	if err != nil {
 		t.Fatal(err)
 	}

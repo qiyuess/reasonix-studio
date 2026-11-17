@@ -10,8 +10,12 @@ import (
 )
 
 const (
-	codeShareAddress      = "share.address_rejected"
-	codeShareChannel      = "share.channel_unknown"
+	codeShareAddress = "share.address_rejected"
+	codeShareChannel = "share.channel_unknown"
+	// codeShareChannelBad refuses a channel that is not one of the two names at
+	// all: a client bug rather than this machine lacking a door, and the reader
+	// can do nothing about it by "picking another door".
+	codeShareChannelBad   = "share.channel_rejected"
 	codeShareClosed       = "share.closed"
 	codeShareCloud        = "share.cloud_unavailable"
 	codeShareListen       = "share.listen_failed"
@@ -152,11 +156,16 @@ func (h *Hub) shareClose(w http.ResponseWriter, _ *http.Request) {
 // shareOffer mints a pairing code for one door. The channel names which: a
 // window drawing both the local and the proxy channel asks per channel, and the
 // default is the local one so a caller that predates the choice keeps working.
+// Link asks for a code that rides a copied link rather than the symbol on
+// screen: the two are separate credentials, so handing one out cannot spend the
+// other.
 func (h *Hub) shareOffer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	channel := OfferLAN
+	link := false
 	var body struct {
 		Channel string `json:"channel"`
+		Link    bool   `json:"link"`
 	}
 	if r.ContentLength > 0 {
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil {
@@ -170,10 +179,14 @@ func (h *Hub) shareOffer(w http.ResponseWriter, r *http.Request) {
 	case OfferProxy:
 		channel = OfferProxy
 	default:
-		refuse(w, http.StatusBadRequest, codeShareChannel, "that channel is not one this share has", map[string]any{"channel": body.Channel})
+		refuse(w, http.StatusBadRequest, codeShareChannelBad, "that channel is not one of the two this share offers", map[string]any{"channel": body.Channel})
 		return
 	}
+	link = body.Link
 	offer, err := h.opts.Share.Offer(channel)
+	if link {
+		offer, err = h.opts.Share.OfferLink(channel)
+	}
 	switch {
 	case errors.Is(err, ErrShareClosed):
 		refuse(w, http.StatusConflict, codeShareClosed, err.Error(), nil)

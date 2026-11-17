@@ -18,14 +18,14 @@ func TestDeviceTrustSurvivesARestart(t *testing.T) {
 	first.persist = func(devices []persistedDevice) { _ = saveDeviceTrust(path, devices) }
 
 	code, _ := first.Offer()
-	credential, view, err := first.Redeem(code, "phone")
+	credential, view, err := first.Redeem(code, "phone", OfferLAN)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	second := newDeviceRegistryAt(time.Now)
 	second.Restore(loadDeviceTrust(path))
-	id, ok := second.Authenticate(credential)
+	id, ok := second.Authenticate(credential, OfferLAN)
 	if !ok || id != view.ID {
 		t.Fatalf("a restarted registry refused the paired credential: id=%q ok=%v want %q", id, ok, view.ID)
 	}
@@ -43,7 +43,7 @@ func TestUnpairingForgetsTheDeviceOnDisk(t *testing.T) {
 	reg.persist = func(devices []persistedDevice) { _ = saveDeviceTrust(path, devices) }
 
 	code, _ := reg.Offer()
-	_, view, err := reg.Redeem(code, "phone")
+	_, view, err := reg.Redeem(code, "phone", OfferLAN)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestUnpairingForgetsTheDeviceOnDisk(t *testing.T) {
 	}
 
 	code, _ = reg.Offer()
-	if _, _, err := reg.Redeem(code, "phone"); err != nil {
+	if _, _, err := reg.Redeem(code, "phone", OfferLAN); err != nil {
 		t.Fatal(err)
 	}
 	reg.RevokeAll()
@@ -104,7 +104,7 @@ func TestShutdownKeepsTheDevicesCloseForgets(t *testing.T) {
 	share.registry.persist = func(devices []persistedDevice) { _ = saveDeviceTrust(path, devices) }
 
 	code, _ := share.registry.Offer()
-	credential, _, err := share.registry.Redeem(code, "phone")
+	credential, _, err := share.registry.Redeem(code, "phone", OfferLAN)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestShutdownKeepsTheDevicesCloseForgets(t *testing.T) {
 	}
 	next := newDeviceRegistryAt(time.Now)
 	next.Restore(loadDeviceTrust(path))
-	if _, ok := next.Authenticate(credential); !ok {
+	if _, ok := next.Authenticate(credential, OfferLAN); !ok {
 		t.Fatal("the next process did not accept the credential a shutdown left behind")
 	}
 
@@ -141,14 +141,14 @@ func TestReopeningAShareKeepsThePairedDevices(t *testing.T) {
 	t.Cleanup(share.Close)
 
 	code, _ := share.registry.Offer()
-	credential, _, err := share.registry.Redeem(code, "phone")
+	credential, _, err := share.registry.Redeem(code, "phone", OfferLAN)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := share.Open("127.0.0.1"); err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	if _, ok := share.registry.Authenticate(credential); !ok {
+	if _, ok := share.registry.Authenticate(credential, OfferLAN); !ok {
 		t.Fatal("reopening the share unpaired the phone that had scanned")
 	}
 	if _, err := os.Stat(path); err != nil {
@@ -165,7 +165,7 @@ func TestWithoutTheSwitchShutdownStillForgets(t *testing.T) {
 	share.registry.persist = func(devices []persistedDevice) { _ = saveDeviceTrust(path, devices) }
 
 	code, _ := share.registry.Offer()
-	if _, _, err := share.registry.Redeem(code, "phone"); err != nil {
+	if _, _, err := share.registry.Redeem(code, "phone", OfferLAN); err != nil {
 		t.Fatal(err)
 	}
 	share.Shutdown()

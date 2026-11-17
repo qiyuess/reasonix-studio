@@ -22,6 +22,10 @@ type persistedDevice struct {
 	Digest   string    `json:"digest"`
 	PairedAt time.Time `json:"pairedAt"`
 	LastSeen time.Time `json:"lastSeen"`
+	// Door is how this device last reached the share. Absent in files written
+	// before the field existed, which reads as the local door: those phones
+	// paired over Wi-Fi, the only door a share had then.
+	Door OfferChannel `json:"door,omitempty"`
 }
 
 // deviceTrustPath is where this machine keeps the devices it has paired. It
@@ -88,6 +92,7 @@ func (d *DeviceRegistry) snapshotLocked() []persistedDevice {
 			Digest:   hex.EncodeToString(dev.digest[:]),
 			PairedAt: dev.paired,
 			LastSeen: dev.seen,
+			Door:     dev.door,
 		})
 	}
 	return out
@@ -134,6 +139,7 @@ func (d *DeviceRegistry) Restore(saved []persistedDevice) {
 			digest:  sum,
 			paired:  one.PairedAt,
 			seen:    one.LastSeen,
+			door:    one.Door,
 			streams: map[*deviceStream]struct{}{},
 		}
 	}

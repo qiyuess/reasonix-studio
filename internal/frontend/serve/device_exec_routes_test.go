@@ -11,7 +11,7 @@ func pairedGate(t *testing.T, reached *int) (http.Handler, *http.Cookie) {
 	t.Helper()
 	reg := NewDeviceRegistry()
 	code, _ := reg.Offer()
-	cred, _, err := reg.Redeem(code, "phone")
+	cred, _, err := reg.Redeem(code, "phone", OfferLAN)
 	if err != nil {
 		t.Fatal(err)
 	}

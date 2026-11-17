@@ -116,7 +116,7 @@ func TestAChangedProxyNameWaitsForTheNextOpen(t *testing.T) {
 		resp.Body.Close()
 		t.Fatalf("GET /runtimes after an unapplied change = %d, want the standing gate", resp.StatusCode)
 	}
-	if _, err := rig.share.Open("127.0.0.1"); err != nil {
+	if _, err := rig.share.Open(rigLAN); err != nil {
 		t.Fatalf("reopen: %v", err)
 	}
 	rig.origin = rig.share.Status().Origin

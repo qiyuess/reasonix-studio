@@ -106,14 +106,14 @@ func TestTheSharePortRouteRefusesWithATypedCode(t *testing.T) {
 func TestTheShareOpenRouteNamesATakenPort(t *testing.T) {
 	rig := newShareRig(t)
 	rig.share.Close()
-	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	taken, err := net.Listen("tcp", net.JoinHostPort(rigLAN, "0"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer taken.Close()
 	port := taken.Addr().(*net.TCPAddr).Port
 	rig.share.RestorePort(port)
-	resp := postShareJSON(t, rig.window.URL+"/share/open", `{"ip":"127.0.0.1"}`)
+	resp := postShareJSON(t, rig.window.URL+"/share/open", `{"ip":"`+rigLAN+`"}`)
 	if code := deviceRefusal(t, resp); resp.StatusCode != http.StatusConflict || code != codeSharePortInUse {
 		t.Fatalf("open on a taken port = %d %q, want 409 %s", resp.StatusCode, code, codeSharePortInUse)
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -105,32 +106,73 @@ func NewDeviceGate(next http.Handler, opts DeviceGateOptions) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		door, ok := doors.match(r.Host)
 		if !ok {
+			// A phone that cannot pair or connect leaves nothing behind in the
+			// access log — this listener is not behind it — so a refusal says
+			// here which of the three rules fired. Without it the only symptom
+			// is "it does not work", and the three have nothing in common.
+			slog.Warn("serve/device: a request named a host this listener does not answer for",
+				"host", r.Host, "path", r.URL.Path, "doors", doors.names())
 			refuse(w, http.StatusForbidden, codeDeviceHost, "this listener does not answer for that host", nil)
 			return
 		}
 		origin, ok := deviceOriginDoor(r, door, doors)
 		if !ok {
+			slog.Warn("serve/device: a request named an origin no door answers for",
+				"host", r.Host, "origin", r.Header.Get("Origin"), "method", r.Method,
+				"path", r.URL.Path, "door", door.origin)
 			refuse(w, http.StatusForbidden, codeDeviceOrigin, "that origin may not reach this listener", nil)
 			return
 		}
 		if r.URL.Path == PairPath {
-			pairDevice(w, r, reg, origin.secure)
+			pairDevice(w, r, reg, origin.secure, origin.pairChannel())
 			return
 		}
+		credential, carried := "", false
 		if c, err := r.Cookie(DeviceCookie); err == nil {
-			if id, ok := reg.Authenticate(c.Value); ok {
+			credential, carried = c.Value, true
+			if id, ok := reg.Authenticate(credential, origin.pairChannel()); ok {
 				serveDevice(w, r, next, reg, id, opts.Machine, origin.secure)
 				return
 			}
 		}
 		if devicePublicPath(r, opts.Page) {
+			// A browser fetches a page's own files on requests of their own, and
+			// a font or a manifest never carries the credential the page around
+			// it did. That is a load working as designed, so it passes here —
+			// before the refusals below, which is what keeps the warning log
+			// about a phone that cannot get in rather than about every font it
+			// asks for.
+			//
 			// Still device reach: the shell a stranger loads must not come back
 			// holding anything the window's grants would add to it.
 			next.ServeHTTP(w, r.WithContext(withDeviceReach(r.Context(), "", 0)))
 			return
 		}
+		if carried {
+			// A credential arrived and matched nothing: it was revoked, spent by
+			// a restart that does not remember devices, or minted by another
+			// process. Never the value itself — that is the credential.
+			slog.Warn("serve/device: a presented credential matched no paired device",
+				"door", origin.pairChannel(), "path", r.URL.Path, "paired", len(reg.Devices()))
+		} else {
+			// No credential at all. The phone reached the door but brought
+			// nothing to it, which is a cookie the app never sent — a different
+			// problem from one the kernel refused.
+			slog.Warn("serve/device: a request carried no device credential",
+				"door", origin.pairChannel(), "path", r.URL.Path, "host", r.Host)
+		}
 		refuse(w, http.StatusUnauthorized, codeDeviceUnauthorized, "this device is not paired", nil)
 	})
+}
+
+// names spells the doors this gate answers for, for a refusal that has to say
+// what it would have accepted.
+func (ds deviceDoors) names() []string {
+	out := make([]string, 0, len(ds))
+	for _, d := range ds {
+		out = append(out, d.origin)
+	}
+	return out
 }
 
 // deviceDoorsOf reads the names one gate answers for. The listener's own origin
@@ -215,10 +257,48 @@ func deviceOriginDoor(r *http.Request, door deviceDoor, doors deviceDoors) (devi
 	// proxy forwards to, and there must be a proxy to have done the tightening.
 	// A page served anywhere else names another authority, and one that reaches
 	// this listener directly has no proxy in front to vouch for it.
-	if scheme == "https" && !door.secure && authority == door.authority && anyProxyDoor(doors) {
-		return deviceDoor{scheme: scheme, origin: named, authority: authority, secure: true}, true
+	//
+	// The ports have to be the same socket, not merely the same spelling. The
+	// two authorities above were folded by different rulers — the door's by its
+	// own scheme, the origin's by https — so http://host and https://host both
+	// read back as "host" while naming 80 and 443. Tightening must not become a
+	// way to reach one service from a page served by another.
+	doorPort, doorPortOK := deviceExplicitPort(door.authority, door.scheme)
+	originPort, originPortOK := deviceExplicitPort(authority, scheme)
+	if scheme == "https" && !door.secure && authority == door.authority && anyProxyDoor(doors) &&
+		doorPortOK && originPortOK && doorPort == originPort {
+		// The same door, reached over TLS: it is the proxy that terminated it, so
+		// this counts as the proxy's channel however the Host was spelled.
+		return deviceDoor{scheme: scheme, origin: named, authority: authority, secure: true, proxy: true}, true
 	}
 	return deviceDoor{}, false
+}
+
+// deviceExplicitPort reads the port a folded authority really dials, spelling
+// the scheme's own when the name leaves it off. Two authorities folded by
+// different schemes still name the same socket only when this agrees, which is
+// what stops http://host:80 and https://host:443 being read as one door.
+func deviceExplicitPort(authority, scheme string) (string, bool) {
+	if _, port, err := net.SplitHostPort(authority); err == nil && port != "" {
+		return port, true
+	}
+	switch strings.ToLower(scheme) {
+	case "http":
+		return "80", true
+	case "https":
+		return "443", true
+	}
+	return "", false
+}
+
+// pairChannel says how a request that arrived through this door reached the
+// machine: the address a phone on this network dials, or the proxy in front.
+// The proxy's own name and the door a proxy rewrote both count as the proxy.
+func (d deviceDoor) pairChannel() OfferChannel {
+	if d.proxy {
+		return OfferProxy
+	}
+	return OfferLAN
 }
 
 // anyProxyDoor reports whether a proxy answers for this gate. Only then can a
@@ -292,8 +372,10 @@ func devicePublicPath(r *http.Request, page fs.FS) bool {
 }
 
 // pairDevice spends a pairing code. The code rides a JSON body rather than the
-// URL, so it never reaches a request line, a log or a referrer.
-func pairDevice(w http.ResponseWriter, r *http.Request, reg *DeviceRegistry, secure bool) {
+// URL, so it never reaches a request line, a log or a referrer. The door it
+// arrived through is kept with the device so a window can say how that phone
+// reaches this machine.
+func pairDevice(w http.ResponseWriter, r *http.Request, reg *DeviceRegistry, secure bool, door OfferChannel) {
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method != http.MethodPost {
 		refuse(w, http.StatusMethodNotAllowed, "request.method_not_allowed", "that method is not accepted here", nil)
@@ -316,7 +398,7 @@ func pairDevice(w http.ResponseWriter, r *http.Request, reg *DeviceRegistry, sec
 		badBody(w)
 		return
 	}
-	credential, view, err := reg.Redeem(body.Code, r.UserAgent())
+	credential, view, err := reg.Redeem(body.Code, r.UserAgent(), door)
 	if err != nil {
 		refuse(w, http.StatusForbidden, codeDevicePairing, "that pairing code is not valid; show a new one and scan again", nil)
 		return
