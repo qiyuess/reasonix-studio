@@ -8,7 +8,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var windowsArchitectures = []string{"amd64", "arm64"}
+// Windows ships amd64 only: there is no arm64 Studio package to build, sign,
+// verify or publish. This is a standing decision, not a one-release gap, so the
+// architecture a Windows stage must cover is stated here once and every stage
+// below is held to it. Adding arm64 back means adding it to this list and to
+// each Windows job in release-studio.yml together.
+var windowsArchitectures = []string{"amd64"}
 
 func matrixArches(t *testing.T, job *yaml.Node) []string {
 	t.Helper()

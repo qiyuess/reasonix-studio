@@ -152,18 +152,15 @@ jobs:
         # goarch and unpacked belong to the Windows legs: the release
         # architecture the package is named for, and the directory
         # electron-builder leaves its bundle in (win-unpacked for x64 alone).
+        # Windows ships amd64 and nothing else. There is no arm64 leg here on
+        # purpose, so the Windows jobs below have no arm64 package to sign,
+        # verify or publish; bringing one back means adding it in all of them.
         include:
           - platform: windows/amd64
             runner: windows-latest
             goarch: amd64
             unpacked: win-unpacked
             artifact: studio-build-windows-amd64
-          - platform: windows/arm64
-            runner: windows-11-arm
-            ebarch: arm64
-            goarch: arm64
-            unpacked: win-arm64-unpacked
-            artifact: studio-build-windows-arm64
           - platform: darwin/amd64
             runner: macos-latest
             ebarch: x64
@@ -463,8 +460,9 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 1
+      # amd64 only, following the build matrix: no arm64 Windows package exists.
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64]
     environment: studio-release
     permissions:
       contents: read
@@ -477,7 +475,6 @@ jobs:
     # installer signing job refuses a payload artifact that no longer hashes to it.
     outputs:
       payload-digest-amd64: ${{ matrix.arch == 'amd64' && steps.verify.outputs.digest || '' }}
-      payload-digest-arm64: ${{ matrix.arch == 'arm64' && steps.verify.outputs.digest || '' }}
     steps:
       # Only the workflow's own commit is checked out: these jobs run the signer
       # and its checks, never anything the release tag builds.
@@ -592,9 +589,6 @@ jobs:
           - arch: amd64
             ebarch: x64
             unpacked: win-unpacked
-          - arch: arm64
-            ebarch: arm64
-            unpacked: win-arm64-unpacked
     permissions:
       contents: read
     steps:
@@ -672,14 +666,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64]
     permissions:
       contents: read
     outputs:
       installer-sha256-amd64: ${{ matrix.arch == 'amd64' && steps.check.outputs.installer-sha256 || '' }}
-      installer-sha256-arm64: ${{ matrix.arch == 'arm64' && steps.check.outputs.installer-sha256 || '' }}
       archive-sha256-amd64: ${{ matrix.arch == 'amd64' && steps.check.outputs.archive-sha256 || '' }}
-      archive-sha256-arm64: ${{ matrix.arch == 'arm64' && steps.check.outputs.archive-sha256 || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -720,7 +712,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64]
     environment: studio-release
     permissions:
       contents: read
@@ -730,7 +722,6 @@ jobs:
     # The signed installer's hash, which publish requires of what it downloads.
     outputs:
       installer-sha256-amd64: ${{ matrix.arch == 'amd64' && steps.signed.outputs.installer-sha256 || '' }}
-      installer-sha256-arm64: ${{ matrix.arch == 'arm64' && steps.signed.outputs.installer-sha256 || '' }}
     steps:
       # Only the workflow's own commit is checked out: these jobs run the signer
       # and its checks, never anything the release tag builds.
@@ -861,8 +852,6 @@ jobs:
         include:
           - arch: amd64
             runner: windows-latest
-          - arch: arm64
-            runner: windows-11-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -938,7 +927,9 @@ jobs:
           mkdir -p dist
           built="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           pkg=reasonix/internal/tools/productdocs
-          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+          # Windows ships amd64 and nothing else: no reasonix-windows-arm64.zip
+          # is built, and requiredCLIAssets no longer expects one.
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64; do
             os="${target%/*}"; arch="${target#*/}"; ext=""
             [ "$os" = windows ] && ext=".exe"
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath \
@@ -1043,12 +1034,6 @@ jobs:
           name: studio-windows-signed-amd64
           path: staging/studio-windows-amd64
 
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: needs.windows-sign-installer.result == 'success'
-        with:
-          name: studio-windows-signed-arm64
-          path: staging/studio-windows-arm64
-
       # Any job can upload an artifact, so the signed Windows packages are
       # taken only if they are the bytes the signing jobs recorded: each
       # installer as signed, each zip as windows-verify-package checked it.
@@ -1057,8 +1042,6 @@ jobs:
         env:
           INSTALLER_SHA256_AMD64: ${{ needs.windows-sign-installer.outputs[format('installer-sha256-{0}', 'amd64')] }}
           ARCHIVE_SHA256_AMD64: ${{ needs.windows-verify-package.outputs[format('archive-sha256-{0}', 'amd64')] }}
-          INSTALLER_SHA256_ARM64: ${{ needs.windows-sign-installer.outputs[format('installer-sha256-{0}', 'arm64')] }}
-          ARCHIVE_SHA256_ARM64: ${{ needs.windows-verify-package.outputs[format('archive-sha256-{0}', 'arm64')] }}
         run: |
           check() {
             local file="$1/$2" want="$3" got
@@ -1072,7 +1055,9 @@ jobs:
               return 1
             fi
           }
-          for arch in amd64 arm64; do
+          # Windows is amd64 only, so one directory to check. The loop stays a
+          # loop so re-adding an architecture is a one-line change here too.
+          for arch in amd64; do
             dir="staging/studio-windows-$arch"
             files="$(cd "$dir" && find . -type f | sed 's|^\./||' | LC_ALL=C sort | tr '\n' ' ')"
             if [ "$files" != "ReasonixStudio-windows-$arch-installer.exe ReasonixStudio-windows-$arch.zip " ]; then
@@ -1091,12 +1076,6 @@ jobs:
         with:
           name: studio-build-windows-amd64
           path: staging/studio-windows-amd64
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: needs.windows-sign-installer.result != 'success'
-        with:
-          name: studio-build-windows-arm64
-          path: staging/studio-windows-arm64
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -1187,16 +1166,20 @@ jobs:
             echo "::error::no $version_notes; every Studio release requires user-visible notes"
             exit 1
           fi
+          # An earlier Studio tag is what lets GitHub generate the change list.
+          # This repository's first release has none: the version notes and the
+          # standing text below are the whole body, so the generated list is
+          # skipped rather than the release refused.
           previous_tag="$(git tag --merged "${{ needs.resolve.outputs.sha }}" --sort=-version:refname 'studio-v*' | grep -Fxv "$TAG" | head -n 1)"
-          if [ -z "$previous_tag" ]; then
-            echo "::error::cannot resolve the previous Studio tag for $TAG"
-            exit 1
+          if [ -n "$previous_tag" ]; then
+            gh api -X POST "repos/${{ github.repository }}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              -f previous_tag_name="$previous_tag" \
+              --jq '.body' >> "$notes"
+            printf '\n\n' >> "$notes"
+          else
+            echo "::notice::no earlier studio tag; this release's notes carry no generated change list"
           fi
-          gh api -X POST "repos/${{ github.repository }}/releases/generate-notes" \
-            -f tag_name="$TAG" \
-            -f previous_tag_name="$previous_tag" \
-            --jq '.body' >> "$notes"
-          printf '\n\n' >> "$notes"
           # The Windows sentence follows the job that signed, not the switch
           # that asked for it: a constant here tells users to click through
           # SmartScreen for a signed package, or the reverse.

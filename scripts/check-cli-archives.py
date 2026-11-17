@@ -14,7 +14,7 @@ import zipfile
 WANT = [
     "reasonix-darwin-amd64.tar.gz", "reasonix-darwin-arm64.tar.gz",
     "reasonix-linux-amd64.tar.gz", "reasonix-linux-arm64.tar.gz",
-    "reasonix-windows-amd64.zip", "reasonix-windows-arm64.zip", "SHA256SUMS",
+    "reasonix-windows-amd64.zip", "SHA256SUMS",
 ]
 
 

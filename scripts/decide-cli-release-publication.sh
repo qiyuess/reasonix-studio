@@ -58,7 +58,6 @@ required_assets='[
   "reasonix-linux-amd64.tar.gz",
   "reasonix-linux-arm64.tar.gz",
   "reasonix-windows-amd64.zip",
-  "reasonix-windows-arm64.zip",
   "SHA256SUMS"
 ]'
 
@@ -107,7 +106,7 @@ if ! awk '
 		valid = 0
 	}
 	{ print }
-	END { if (NR != 6 || !valid) exit 1 }
+	END { if (NR != 5 || !valid) exit 1 }
 ' "$checksums" | LC_ALL=C sort >"$actual_checksums"; then
 	echo "existing CLI SHA256SUMS is malformed or incomplete" >&2
 	exit 1

@@ -61,13 +61,17 @@ const (
 
 var (
 	stableCLITagPattern = regexp.MustCompile(`^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$`)
-	requiredCLIAssets   = [...]string{
+	// Windows ships amd64 and nothing else. A release that carried no
+	// reasonix-windows-arm64.zip is complete, and this list is what decides
+	// that: `reasonix upgrade` on an arm64 Windows box resolves its own name
+	// from runtime.GOARCH and reports a missing asset, rather than the release
+	// being judged incomplete for every other platform too.
+	requiredCLIAssets = [...]string{
 		"reasonix-darwin-amd64.tar.gz",
 		"reasonix-darwin-arm64.tar.gz",
 		"reasonix-linux-amd64.tar.gz",
 		"reasonix-linux-arm64.tar.gz",
 		"reasonix-windows-amd64.zip",
-		"reasonix-windows-arm64.zip",
 		"SHA256SUMS",
 	}
 )
