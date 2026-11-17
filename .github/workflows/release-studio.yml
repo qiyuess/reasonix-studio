@@ -1035,8 +1035,11 @@ jobs:
           notes="$RUNNER_TEMP/release-notes.md"
           : > "$notes"
           if [ -f "$version_notes" ]; then
-            cat "$RUNNER_TEMP/version-notes.md" >> "$notes"
-            printf '\n' >> "$notes"
+            # The GitHub page is read in Chinese only: it has no language
+            # switch, so the English half would double its length. The mirror
+            # object keeps both halves below, because the Versions panel
+            # switches language on the <!-- lang:en --> marker.
+            node scripts/studio-notes-zh.mjs "$RUNNER_TEMP/version-notes.md" "$notes"
           else
             echo "::error::no $version_notes; every Studio release requires user-visible notes"
             exit 1
