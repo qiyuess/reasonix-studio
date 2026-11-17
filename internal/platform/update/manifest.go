@@ -43,10 +43,12 @@ type Delta struct {
 // <tag>/<file>" for whichever repository publishes it. That flat shape is why
 // nothing here hangs off it.
 //
-// It still names upstream's mirror, which no longer answers: keeping the
-// semantics honest until this line runs its own bucket. Publishing there means
-// changing this one constant, and nothing else in the updater moves with it.
-const StudioPublish = "https://dl.reasonix.io"
+// This repository's Pages site serves those nested paths, published by the
+// release workflow itself so a version's catalog object and its notes land in
+// the same run that publishes its artifacts. It named upstream's mirror before,
+// which answered nothing here: a client asking it for a catalog got a host that
+// does not resolve, so no installed build could ever discover an update.
+const StudioPublish = "https://qiyuess.github.io/reasonix-studio"
 
 // StudioChunks is the one chunk store every Studio release shares.
 const StudioChunks = StudioPublish + "/studio/chunks"

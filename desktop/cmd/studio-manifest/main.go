@@ -31,8 +31,10 @@ func main() {
 	if len(os.Args) == 5 {
 		deltaDir = os.Args[4]
 	}
-	// HAS_R2 is the release workflow's own gate on uploading the mirror, so the
-	// manifest names mirror addresses exactly when that upload will run.
+	// HAS_R2 gated the mirror upload this workflow used to run. Nothing uploads
+	// there any more — the catalog, notes and signatures live on the Pages site,
+	// and the artifacts on the release — so a manifest names the release for
+	// what a person downloads and the site for the signature beside it.
 	mirrored := os.Getenv("HAS_R2") == "true"
 	if err := run(os.Args[1], os.Args[2], os.Args[3], deltaDir, mirrored); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -120,18 +122,21 @@ func run(dir, version, tag, deltaDir string, mirrored bool) error {
 	return os.WriteFile(filepath.Join(dir, "latest.json"), append(b, '\n'), 0o644)
 }
 
-// releaseAsset addresses one artifact. The mirror serves it first when there is
-// one: GitHub's release CDN is what a CN route reaches slowest, and it stays as
-// the fallback for a mirror that is down.
+// releaseAsset addresses one artifact. The artifact itself stays a GitHub
+// release asset, because that is where a person downloads it. Its signature is
+// published beside the catalog on the site instead: a reader never opens a
+// .minisig, so the release page carries only what someone takes, while the
+// client still has a signature to check the artifact against.
 func releaseAsset(repo, tag, name string, mirrored bool) update.Asset {
 	github := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", repo, tag, name)
+	sig := fmt.Sprintf("%s/%s/%s.minisig", update.StudioPublish, tag, name)
 	if !mirrored {
-		return update.Asset{URL: github, Sig: github + ".minisig"}
+		return update.Asset{URL: github, Sig: sig}
 	}
 	mirror := fmt.Sprintf("%s/%s/%s", update.StudioPublish, tag, name)
 	return update.Asset{
-		URL: mirror, Sig: mirror + ".minisig",
-		Fallback: github, FallbackSig: github + ".minisig",
+		URL: mirror, Sig: sig,
+		Fallback: github, FallbackSig: sig,
 	}
 }
 

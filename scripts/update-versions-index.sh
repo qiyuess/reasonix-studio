@@ -36,9 +36,9 @@ for value in "$version" "$tag" "$channel" "$published_at"; do
   fi
 done
 case "$notes" in
-  ''|https://dl.reasonix.io/studio/notes/*.md) ;;
+  ''|https://qiyuess.github.io/reasonix-studio/studio/notes/*.md) ;;
   *)
-    echo "::error::notes-url must be an object under https://dl.reasonix.io/studio/notes/, got $notes" >&2
+    echo "::error::notes-url must be an object under https://qiyuess.github.io/reasonix-studio/studio/notes/, got $notes" >&2
     exit 1
     ;;
 esac
@@ -88,7 +88,7 @@ printf '%s' "$base" | jq \
           tag: $tag,
           channel: $channel,
           publishedAt: $publishedAt,
-          manifest: ("https://dl.reasonix.io/" + $tag + "/latest.json"),
+          manifest: ("https://qiyuess.github.io/reasonix-studio/" + $tag + "/latest.json"),
         } + (if $notes == "" then {} else {notes: $notes} end)]
       # Existing entries win: unique_by keeps the first of each group, so a
       # rerun cannot rewrite what was already published under that version.

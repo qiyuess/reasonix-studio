@@ -11,53 +11,39 @@ import (
 	"reasonix/internal/base/testenv"
 )
 
-func TestLinuxReleaseBuildsAndCollectsBothNativeArchitectures(t *testing.T) {
+// This line publishes Windows and the phone app. The Linux legs are gone from
+// the build matrix rather than skipped, so the guard is the other way round: a
+// Linux leg that reappeared would ship a package nothing signs, verifies or
+// publishes, and the acceptance steps that used to gate it are gone with it.
+func TestReleaseBuildsNoLinuxLeg(t *testing.T) {
 	root := parseWorkflowFile(t, "../../.github/workflows/release-studio.yml")
 	jobs := jobsOf(t, root)
-	build := mappingValue(jobs, "build")
-	entries := mappingValue(mappingValue(mappingValue(build, "strategy"), "matrix"), "include")
-	want := map[string]string{"amd64": "ubuntu-22.04", "arm64": "ubuntu-22.04-arm"}
-	seen := map[string]bool{}
+	entries := mappingValue(mappingValue(mappingValue(mappingValue(jobs, "build"), "strategy"), "matrix"), "include")
 	for _, entry := range entries.Content {
-		platform := mappingScalar(entry, "platform")
-		if !strings.HasPrefix(platform, "linux/") {
-			continue
+		if platform := mappingScalar(entry, "platform"); strings.HasPrefix(platform, "linux/") {
+			t.Errorf("the build matrix still carries %q", platform)
 		}
-		arch := strings.TrimPrefix(platform, "linux/")
-		if seen[arch] || mappingScalar(entry, "runner") != want[arch] {
-			t.Fatalf("Linux %s does not have one native runner", arch)
-		}
-		seen[arch] = true
-		artifact := mappingScalar(entry, "artifact")
-		if artifact != "studio-build-linux-"+arch {
-			t.Fatalf("unexpected Linux artifact %q", artifact)
-		}
-		downloaded := false
-		for _, step := range mappingValue(mappingValue(jobs, "publish"), "steps").Content {
-			if mappingScalar(mappingValue(step, "with"), "name") == artifact {
-				downloaded = true
-			}
-		}
-		if !downloaded {
-			t.Errorf("publish never downloads %s", artifact)
+		if artifact := mappingScalar(entry, "artifact"); strings.Contains(artifact, "linux") {
+			t.Errorf("the build matrix still produces %q", artifact)
 		}
 	}
-	if len(seen) != len(want) {
-		t.Fatalf("Linux release architectures = %v, want amd64 and arm64", seen)
-	}
-	step := stepNamed(t, build, "Use a native fpm on ARM64 Linux")
-	if mappingScalar(step, "if") != "runner.os == 'Linux' && runner.arch == 'ARM64'" || !strings.Contains(mappingScalar(step, "run"), "USE_SYSTEM_FPM=true") {
-		t.Fatal("Linux ARM64 must retain the upstream native FPM setup")
-	}
-	for _, name := range []string{"Verify both Linux package formats", "Accept the installed Linux package"} {
-		step := stepNamed(t, build, name)
-		if mappingScalar(step, "if") != "runner.os == 'Linux'" || mappingScalar(step, "continue-on-error") == "true" {
-			t.Errorf("%s must gate every Linux build", name)
+	build := mappingValue(jobs, "build")
+	for _, name := range []string{
+		"Install Linux packaging deps",
+		"Use a native fpm on ARM64 Linux",
+		"Stage the Linux package payload",
+		"Verify both Linux package formats",
+		"Accept the installed Linux package",
+		"Verify the AppImage",
+	} {
+		if nodeContains(build, name) {
+			t.Errorf("the build job still runs %q", name)
 		}
 	}
-	collect := mappingScalar(stepNamed(t, mappingValue(jobs, "publish"), "Collect artifacts"), "run")
-	if !strings.Contains(collect, "bash scripts/verify-studio-artifacts.sh dist") {
-		t.Fatal("publication does not require the complete platform artifact set")
+	for _, step := range mappingValue(mappingValue(jobs, "publish"), "steps").Content {
+		if name := mappingScalar(mappingValue(step, "with"), "name"); strings.Contains(name, "linux") {
+			t.Errorf("publish still downloads the Linux artifact %q", name)
+		}
 	}
 }
 

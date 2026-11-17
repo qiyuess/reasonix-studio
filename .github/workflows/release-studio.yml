@@ -3,14 +3,14 @@ run-name: Release Studio ${{ inputs.tag || github.ref_name }}
 
 # The only release line this branch publishes. It has its own tag namespace
 # (studio-v*), its own environment gate, and its own rollback catalog at
-# dl.reasonix.io/studio/versions.json.
+# qiyuess.github.io/reasonix-studio/studio/versions.json.
 #
-# What it must never touch: the root dl.reasonix.io/versions.json, which is the
-# desktop line's catalog. Studio artifacts land under the tag prefix, which
-# cannot collide because the tag name itself differs. The highest stable tag
-# is the repository's GitHub latest and a candidate is a prerelease; the GitHub
-# release carries no root latest.json, because the 1.x updaters' last-resort
-# URL is releases/latest/download/latest.json and must keep answering 404.
+# What it must never touch: the ROOT versions.json, which is the desktop line's
+# catalog. Studio artifacts land under the tag prefix, which cannot collide
+# because the tag name itself differs. The highest stable tag is the
+# repository's GitHub latest and a candidate is a prerelease; the release
+# carries no latest.json asset, because the flat 1.x name would collide with
+# the catalog that this line's own updaters read.
 #
 # Windows artifacts are Authenticode-signed with a Certum SimplySign cloud
 # certificate in two stages: every PE file in the application tree, then the
@@ -1077,7 +1077,13 @@ jobs:
           } >> "$notes"
           assets=()
           for f in dist/*; do
-            [ "$(basename "$f")" = latest.json ] || assets+=("$f")
+            case "$(basename "$f")" in
+              # The manifest and the signatures are published to the site, not
+              # the release: the page carries what a person downloads, and a
+              # .minisig is read by the updater only.
+              latest.json|*.minisig) continue ;;
+            esac
+            assets+=("$f")
           done
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --notes-file "$notes"
@@ -1106,69 +1112,61 @@ jobs:
               "${flags[@]}"
           fi
 
-      - name: Mirror to R2 and update the Studio catalog
+      # The catalog, each version's notes and its manifest are nested paths, and
+      # a GitHub release cannot hold one: /releases/download addresses a single
+      # tag and a single flat file name. They go to the Pages branch instead,
+      # which is the host StudioPublish names in the client.
+      - name: Publish the update catalog
         env:
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.resolve.outputs.tag }}
           VERSION: ${{ needs.resolve.outputs.version }}
           CANDIDATE: ${{ needs.resolve.outputs.candidate }}
-          HAS_R2: ${{ secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' && secrets.R2_ACCOUNT_ID != '' && secrets.R2_BUCKET != '' }}
         run: |
-          if [ "$HAS_R2" != "true" ]; then
-            echo "::warning::R2 credentials are not configured; the GitHub release is published but the Studio catalog was not updated, so running builds will not see this version"
-            exit 0
-          fi
-          aws configure set aws_access_key_id "${{ secrets.R2_ACCESS_KEY_ID }}"
-          aws configure set aws_secret_access_key "${{ secrets.R2_SECRET_ACCESS_KEY }}"
-          aws configure set default.region auto
-          endpoint="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          set -euo pipefail
+          site="$RUNNER_TEMP/site"
+          git clone --quiet --depth 1 --branch gh-pages \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "$site"
+          mkdir -p "$site/studio/notes" "$site/$TAG"
 
-          # Immutable per-tag objects. The tag prefix cannot collide with the
-          # desktop line's because the tag names differ (studio-v* vs desktop-v*).
-          aws s3 cp dist/ "s3://${R2_BUCKET}/${TAG}/" --recursive --endpoint-url "$endpoint"
+          # Immutable per version: a published manifest and its notes never
+          # change, so a rerun writes the same bytes and commits nothing. The
+          # signatures travel with the manifest, not the release: a reader never
+          # opens one, and the release page should carry only what someone takes.
+          cp dist/latest.json "$site/$TAG/latest.json"
+          cp dist/*.minisig "$site/$TAG/"
+          cp "$RUNNER_TEMP/version-notes.md" "$site/studio/notes/${VERSION#v}.md"
 
-          # A candidate is mirrored so it can be installed from its own manifest
-          # and tested, but it never enters the catalog: the catalog is what a
-          # running install reads to decide its next version.
+          catalog="$site/studio/versions.json"
           if [ "$CANDIDATE" = "true" ]; then
-            echo "$TAG mirrored; the Studio catalog stays at its released version"
+            echo "::notice::$TAG is a candidate: its manifest and notes are published, the catalog is not"
+          else
+            source=-
+            if [ -f "$catalog" ]; then
+              source="$catalog"
+            else
+              echo "no existing catalog; starting a new one"
+            fi
+            bash scripts/update-versions-index.sh "$source" "$VERSION" "$TAG" studio \
+              "$(date -u +%Y-%m-%dT%H:%M:%SZ)" 20 \
+              "https://qiyuess.github.io/reasonix-studio/studio/notes/${VERSION#v}.md" > "$catalog.next"
+            jq -e --arg v "$VERSION" \
+              '.versions | map(select(.version == $v)) | length == 1' "$catalog.next" >/dev/null
+            mv "$catalog.next" "$catalog"
+            echo "catalog -> $VERSION"
+          fi
+
+          cd "$site"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "the site already carries $TAG"
             exit 0
           fi
-
-          # The notes object goes up before the catalog entry that names it, so
-          # no client reads a pointer to an object that is not there yet. Notes
-          # are optional: a failure here publishes the version without a pointer
-          # rather than keeping the new version out of the catalog.
-          notes_key="studio/notes/${VERSION#v}.md"
-          notes_arg=()
-          if aws s3 cp "$RUNNER_TEMP/version-notes.md" "s3://${R2_BUCKET}/${notes_key}" \
-              --endpoint-url "$endpoint" \
-              --content-type "text/markdown; charset=utf-8" \
-              --cache-control "public, max-age=31536000, immutable" &&
-            aws s3api head-object --bucket "$R2_BUCKET" --key "$notes_key" --endpoint-url "$endpoint" >/dev/null; then
-            notes_arg=(20 "https://dl.reasonix.io/${notes_key}")
-          else
-            echo "::warning::release notes for ${VERSION} were not uploaded to the mirror; the catalog entry is published without notes"
-          fi
-
-          # Studio's own catalog. Writing the ROOT versions.json here would hand
-          # desktop users Studio releases, so the prefix is not optional.
-          current=/tmp/studio-versions-current.json
-          next=/tmp/studio-versions-next.json
-          source=-
-          if aws s3 cp "s3://${R2_BUCKET}/studio/versions.json" "$current" --endpoint-url "$endpoint" 2>/dev/null; then
-            source="$current"
-          else
-            echo "no existing Studio catalog; starting a new one"
-          fi
-          bash scripts/update-versions-index.sh "$source" "$VERSION" "$TAG" studio \
-            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${notes_arg[@]}" > "$next"
-          jq -e --arg v "$VERSION" '.versions | map(select(.version == $v)) | length == 1' "$next" >/dev/null
-          aws s3 cp "$next" "s3://${R2_BUCKET}/studio/versions.json" \
-            --endpoint-url "$endpoint" \
-            --content-type "application/json; charset=utf-8" \
-            --cache-control "public, max-age=300, stale-if-error=86400"
-          echo "Studio catalog -> $VERSION"
+          git commit -q -m "release: $TAG"
+          git push --quiet origin gh-pages
 
   website:
     name: publish the Studio website changelog

@@ -16,7 +16,7 @@ function index(existing, ...args) {
   return { status: run.status, stderr: run.stderr, json: run.status === 0 ? JSON.parse(run.stdout) : null };
 }
 
-const NOTES = "https://dl.reasonix.io/studio/notes/2.32.0.md";
+const NOTES = "https://qiyuess.github.io/reasonix-studio/studio/notes/2.32.0.md";
 
 test("an entry carries notes only when a notes address is given", () => {
   const withNotes = index("-", "v2.32.0", "studio-v2.32.0", "studio", "2026-10-09T00:00:00Z", "20", NOTES);
@@ -42,56 +42,51 @@ test("a rerun never rewrites an existing entry, notes included", () => {
   assert.equal("notes" in again.json.versions[0], false);
 });
 
-test("the release uploads the notes object before it writes the catalog that names it", () => {
-  const step = workflow.slice(workflow.indexOf("Mirror to R2 and update the Studio catalog"));
+test("the release writes a version's notes before the catalog that names them", () => {
+  const step = workflow.slice(workflow.indexOf("Publish the update catalog"));
   const at = (needle) => {
     const i = step.indexOf(needle);
     assert.notEqual(i, -1, needle);
     return i;
   };
-  const candidate = at('if [ "$CANDIDATE" = "true" ]');
-  const upload = at('"s3://${R2_BUCKET}/${notes_key}"');
-  const verify = at("head-object");
+  const notes = at('cp "$RUNNER_TEMP/version-notes.md" "$site/studio/notes/');
   const merge = at("scripts/update-versions-index.sh");
-  const catalog = at('"s3://${R2_BUCKET}/studio/versions.json" \\\n            --endpoint-url "$endpoint" \\\n            --content-type');
-  assert.ok(candidate < upload && upload < verify && verify < merge && merge < catalog);
-  assert.match(step.slice(merge, catalog), /\$\{notes_arg\[@\]\}/);
+  assert.ok(notes < merge, "notes are written before the catalog entry that names them");
+  assert.match(step.slice(merge), /studio\/notes\/\$\{VERSION#v\}\.md/);
 });
 
-// Runs the workflow's own notes block with aws stubbed, so what is tested is
-// the text that ships rather than a copy of it.
-function notesBlock(awsBody) {
-  const step = workflow.slice(workflow.indexOf("Mirror to R2 and update the Studio catalog"));
-  const from = step.indexOf('notes_key="studio/notes/');
-  const to = step.indexOf("# Studio's own catalog.");
-  const block = step.slice(from, to).replace(/^ {10}/gm, "");
-  const root = mkdtempSync(path.join(tmpdir(), "nb-"));
-  writeFileSync(path.join(root, "aws"), `#!/bin/sh\n${awsBody}\n`);
-  chmodSync(path.join(root, "aws"), 0o755);
-  const script = `set -e\nVERSION=v2.32.0 R2_BUCKET=b RUNNER_TEMP=/tmp endpoint=e\n${block}\necho "ARGS=\${notes_arg[*]}"`;
-  return spawnSync("bash", ["-c", script], { encoding: "utf8", env: { ...process.env, PATH: `${root}:${process.env.PATH}` } });
-}
-
-test("a failed notes upload warns and leaves the catalog entry without a pointer, and the step goes on", () => {
-  const run = notesBlock("exit 1");
-  assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /::warning::release notes for v2\.32\.0 were not uploaded/);
-  assert.match(run.stdout, /ARGS=$/m);
+// The site is committed once: a catalog entry naming a notes object that never
+// reached the branch cannot exist, because both travel in the same commit.
+test("the notes and the catalog that names them land in one commit", () => {
+  const step = workflow.slice(workflow.indexOf("Publish the update catalog"));
+  const commit = step.indexOf('git commit -q -m "release: $TAG"');
+  const push = step.indexOf("git push --quiet origin gh-pages");
+  assert.notEqual(commit, -1, "the step commits the site");
+  assert.notEqual(push, -1, "the step pushes the site");
+  assert.ok(commit < push, "the commit is pushed after it is made");
+  assert.match(step.slice(0, commit), /add -A/);
+  assert.doesNotMatch(step.slice(commit, push), /update-versions-index\.sh/);
 });
 
-test("a notes object the mirror cannot confirm gets no pointer either", () => {
-  const run = notesBlock('[ "$1" = s3api ] && exit 1; exit 0');
-  assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /::warning::/);
-  assert.match(run.stdout, /ARGS=$/m);
+// A candidate's manifest and notes are published so it can be installed and
+// tested, but it must not enter the catalog every running install reads.
+test("a candidate publishes its manifest without entering the catalog", () => {
+  const step = workflow.slice(workflow.indexOf("Publish the update catalog"));
+  const candidate = step.indexOf('if [ "$CANDIDATE" = "true" ]');
+  const merge = step.indexOf("scripts/update-versions-index.sh");
+  assert.notEqual(candidate, -1);
+  assert.notEqual(merge, -1);
+  assert.ok(candidate < merge, "the candidate branch is decided before the catalog is merged");
+  const branch = step.slice(candidate, merge);
+  assert.doesNotMatch(branch, /versions\.json/, "the catalog is untouched");
+  // The manifest and the notes are written before that branch, so a candidate
+  // still publishes both; only the catalog entry is skipped.
+  const before = step.slice(0, candidate);
+  assert.match(before, /cp dist\/latest\.json/, "the manifest still ships");
+  assert.match(before, /cp "\$RUNNER_TEMP\/version-notes\.md"/, "the notes still ship");
 });
 
-test("only a confirmed upload produces the notes pointer", () => {
-  const run = notesBlock("exit 0");
-  assert.equal(run.status, 0, run.stderr);
-  assert.doesNotMatch(run.stdout, /::warning::/);
-  assert.match(run.stdout, /ARGS=20 https:\/\/dl\.reasonix\.io\/studio\/notes\/2\.32\.0\.md$/m);
-});
+
 
 test("stable publications deploy from website without widening Pages or signing permissions", () => {
   const job = workflow.match(/^  website:\n[\s\S]*?(?=^  [a-z][a-z-]*:|$(?![\s\S]))/m)?.[0] ?? "";
@@ -142,82 +137,93 @@ esac
   }
 });
 
-function sandbox({ catalog, bucket = {}, busy = "0", tags }) {
+// The site is a git branch, so the sandbox is a repository rather than a
+// bucket: the script clones it, writes notes into the clone, and pushes.
+function sandbox({ catalog, notes = {}, busy = "0", tags }) {
   const root = mkdtempSync(path.join(tmpdir(), "bf-"));
-  const store = path.join(root, "bucket");
+  const site = path.join(root, "site");
   const bin = path.join(root, "bin");
   const repo = path.join(root, "repo");
-  mkdirSync(store, { recursive: true });
+  mkdirSync(site, { recursive: true });
   mkdirSync(bin);
   mkdirSync(repo);
-  const put = (key, body) => {
-    mkdirSync(path.dirname(path.join(store, key)), { recursive: true });
-    writeFileSync(path.join(store, key), body);
+
+  const add = (base, rel, body) => {
+    mkdirSync(path.dirname(path.join(base, rel)), { recursive: true });
+    writeFileSync(path.join(base, rel), body);
   };
-  put("studio/versions.json", JSON.stringify(catalog));
-  for (const [key, body] of Object.entries(bucket)) put(key, body);
+  add(site, "studio/versions.json", JSON.stringify(catalog));
+  for (const [rel, body] of Object.entries(notes)) add(site, rel, body);
+
+  const gitIn = (dir, ...a) =>
+    spawnSync("git", ["-C", dir, "-c", "user.name=t", "-c", "user.email=t@t", ...a], { encoding: "utf8" });
+
+  gitIn(site, "init", "-q");
+  gitIn(site, "checkout", "-q", "-b", "gh-pages");
+  gitIn(site, "add", ".");
+  gitIn(site, "commit", "-q", "-m", "site");
+  // Leave gh-pages: a repository refuses a push into the branch it has checked
+  // out, and the script pushes into it.
+  gitIn(site, "checkout", "-q", "-b", "staging");
+
   const shim = (name, body) => {
     writeFileSync(path.join(bin, name), `#!/bin/sh\n${body}\n`);
     chmodSync(path.join(bin, name), 0o755);
   };
-  shim("aws", `
-log="$STORE/../calls.log"; echo "$@" >> "$log"
-if [ "$1" = s3 ] && [ "$2" = cp ]; then
-  strip() { echo "$1" | sed "s|^s3://[^/]*/||"; }
-  case "$3" in s3://*) cp "$STORE/$(strip "$3")" "$4" ;; *) mkdir -p "$(dirname "$STORE/$(strip "$4")")"; cp "$3" "$STORE/$(strip "$4")" ;; esac
-  exit $?
-fi
-if [ "$1" = s3api ]; then
-  while [ $# -gt 0 ]; do [ "$1" = --key ] && key="$2"; shift; done
-  [ -f "$STORE/$key" ]; exit $?
-fi
-exit 3`);
   shim("gh", `echo "${busy}"`);
-  shim("node", `cp "$2" "$3"; printf '\\nrendered\\n' >> "$3"`);
-  const git = (...a) => spawnSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", ...a], { encoding: "utf8" });
-  git("init", "-q");
+  shim("node", `mkdir -p "$(dirname "$3")"; cp "$2" "$3"; printf '\\nrendered\\n' >> "$3"`);
+
+  gitIn(repo, "init", "-q");
   for (const v of tags) {
-    mkdirSync(path.join(repo, "release-notes", "studio"), { recursive: true });
-    writeFileSync(path.join(repo, "release-notes", "studio", `${v}.md`), `notes ${v}\n`);
-    git("add", ".");
-    git("commit", "-q", "-m", v);
-    git("tag", `studio-v${v}`);
+    add(repo, `release-notes/studio/${v}.md`, `notes ${v}\n`);
+    gitIn(repo, "add", ".");
+    gitIn(repo, "commit", "-q", "-m", v);
+    gitIn(repo, "tag", `studio-v${v}`);
   }
+
   const run = (...args) =>
     spawnSync("bash", [backfill, ...args], {
       encoding: "utf8",
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, STORE: store, BACKFILL_REPO: repo, R2_ACCOUNT_ID: "acct", R2_BUCKET: "bkt" },
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, BACKFILL_REPO: repo, SITE_REPO: site },
     });
-  const read = (key) => (existsSync(path.join(store, key)) ? readFileSync(path.join(store, key), "utf8") : null);
-  return { run, read, calls: () => (existsSync(path.join(root, "calls.log")) ? readFileSync(path.join(root, "calls.log"), "utf8") : "") };
+  // Read what actually landed on the branch, not the working tree: the script
+  // pushes into gh-pages, which this sandbox deliberately does not have checked
+  // out (git refuses that push).
+  const read = (rel) => {
+    const r = gitIn(site, "show", `gh-pages:${rel}`);
+    return r.status === 0 ? r.stdout : null;
+  };
+  const commits = () => gitIn(site, "rev-list", "--count", "gh-pages").stdout.trim();
+  return { run, read, commits };
 }
 
-const entry = (v, extra = {}) => ({ version: `v${v}`, tag: `studio-v${v}`, channel: "studio", publishedAt: "2026-10-01T00:00:00Z", manifest: `https://dl.reasonix.io/studio-v${v}/latest.json`, ...extra });
-const catalog = () => ({ schemaVersion: 1, updatedAt: "x", versions: [entry("2.3.0"), entry("2.2.0"), entry("2.1.0", { notes: "https://dl.reasonix.io/studio/notes/2.1.0.md" })] });
+const entry = (v, extra = {}) => ({ version: `v${v}`, tag: `studio-v${v}`, channel: "studio", publishedAt: "2026-10-01T00:00:00Z", manifest: `https://qiyuess.github.io/reasonix-studio/studio-v${v}/latest.json`, ...extra });
+const catalog = () => ({ schemaVersion: 1, updatedAt: "x", versions: [entry("2.3.0"), entry("2.2.0"), entry("2.1.0", { notes: "https://qiyuess.github.io/reasonix-studio/studio/notes/2.1.0.md" })] });
 
-test("the backfill is a dry run unless asked, and uploads and writes nothing", () => {
+test("the backfill is a dry run unless asked, and writes nothing", () => {
   const s = sandbox({ catalog: catalog(), tags: ["2.3.0"] });
   const before = s.read("studio/versions.json");
+  const count = s.commits();
   const run = s.run();
   assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /would upload 2\.3\.0/);
+  assert.match(run.stdout, /would write 2\.3\.0/);
   assert.match(run.stdout, /no notes 2\.2\.0/);
   assert.equal(s.read("studio/notes/2.3.0.md"), null);
   assert.equal(s.read("studio/versions.json"), before);
-  assert.doesNotMatch(s.calls(), /cp \/\S+ s3:\/\//);
+  assert.equal(s.commits(), count, "a dry run commits nothing");
 });
 
-test("apply uploads the missing notes, skips what exists, and leaves a version without a file bare", () => {
-  const s = sandbox({ catalog: catalog(), bucket: { "studio/notes/2.2.0.md": "kept\n" }, tags: ["2.3.0", "2.2.0"] });
+test("apply writes the missing notes, skips what exists, and leaves a version without a file bare", () => {
+  const s = sandbox({ catalog: catalog(), notes: { "studio/notes/2.2.0.md": "kept\n" }, tags: ["2.3.0", "2.2.0"] });
   const run = s.run("--apply");
   assert.equal(run.status, 0, run.stderr);
   assert.match(s.read("studio/notes/2.3.0.md"), /rendered/);
   assert.equal(s.read("studio/notes/2.2.0.md"), "kept\n");
   const next = JSON.parse(s.read("studio/versions.json"));
   const byVersion = Object.fromEntries(next.versions.map((e) => [e.version, e]));
-  assert.equal(byVersion["v2.3.0"].notes, "https://dl.reasonix.io/studio/notes/2.3.0.md");
-  assert.equal(byVersion["v2.2.0"].notes, "https://dl.reasonix.io/studio/notes/2.2.0.md");
-  assert.equal(byVersion["v2.1.0"].notes, "https://dl.reasonix.io/studio/notes/2.1.0.md");
+  assert.equal(byVersion["v2.3.0"].notes, "https://qiyuess.github.io/reasonix-studio/studio/notes/2.3.0.md");
+  assert.equal(byVersion["v2.2.0"].notes, "https://qiyuess.github.io/reasonix-studio/studio/notes/2.2.0.md");
+  assert.equal(byVersion["v2.1.0"].notes, "https://qiyuess.github.io/reasonix-studio/studio/notes/2.1.0.md");
 });
 
 test("a version with no notes file gets no field", () => {

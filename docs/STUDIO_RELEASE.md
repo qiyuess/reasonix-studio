@@ -62,7 +62,7 @@ Jobs in the run:
 | `windows-install-smoke` | Runs `scripts/install-smoke.ps1` (the script pull requests run against the unsigned installer) with the amd64 installer on a `windows-latest` runner: silent per-user install, waits for the files to settle, checks the installed tree (the declared PE set, every image's architecture, the shell's own architecture, the kernel starting) and uninstalls. Holds no secrets and no environment. | `publish` waits for it |
 | `cli` | Builds `reasonix` archives for five OS/arch targets plus `SHA256SUMS`. Windows is one of them, amd64: `reasonix-windows-arm64.zip` is no longer built, and `requiredCLIAssets` no longer expects it. | fails on a missing archive |
 | `android` | Builds the phone app's signed release APK: `npm ci`, the web bundle, `capacitor sync android`, the restored keystore, `gradlew assembleRelease`, then `apksigner verify` on the result. The asset is named `reasonix-for-android-<mobile version>.apk` — the phone project's own version, not the Studio one — because the in-app updater resolves that exact name from `mobile/latest.json`. | fails without the four `ANDROID_*` signing secrets; `publish` waits for it |
-| `publish` | Renders the notes with their authors, minisigns the Studio artifacts, writes `latest.json`, creates the GitHub release (a stable tag is GitHub latest only when it is the highest stable `studio-v*` tag; a candidate is a prerelease), mirrors to R2. `latest.json` goes to R2 only, never to the GitHub release. The release carries one Windows installer, the APK, the CLI archives and `SHA256SUMS`. | environment `studio-release`; skipped unless `android`, `windows-install-smoke` and all four Windows signing jobs succeeded, or signing is off (the smoke still runs); an unresolved `#N` stops it before signing |
+| `publish` | Renders the notes with their authors, minisigns the Studio artifacts, writes `latest.json`, creates the GitHub release (a stable tag is GitHub latest only when it is the highest stable `studio-v*` tag; a candidate is a prerelease), then publishes the catalog, the notes and the signatures to the Pages branch. `latest.json` and the `.minisig` files go to the site only, never to the GitHub release. The release carries one Windows installer, the APK, the CLI archives and `SHA256SUMS`. | environment `studio-release`; skipped unless `android`, `windows-install-smoke` and all four Windows signing jobs succeeded, or signing is off (the smoke still runs); an unresolved `#N` stops it before signing |
 | `website` | Dispatches the `website` branch's Pages workflow after a stable publication, and waits for that deployment. / 正式版发布后触发 `website` 分支的官网工作流，并等待该次部署完成。 | official repository, stable releases only; requested version must appear in the generated changelog / 仅官方仓库正式版；生成的日志必须包含本次发布版本 |
 | `cli-gate` | Only with `STUDIO_PUBLISHES_CLI=true`. Requires `CLI_PUBLISH_FROZEN=true`. Checks out nothing and reads no secret. | fails while 1.x is not frozen, and then no other CLI job runs |
 | `cli-tag` | Only with `STUDIO_PUBLISHES_CLI=true`. For a stable or `-preview.N` version, creates the tag `vX.Y.Z` on the studio commit with the release tag identity (`RELEASE_TAG_TOKEN`, see below); an existing tag on that commit is kept, one elsewhere fails. | environment `studio-release`; runs after `publish` and `cli-gate`; checks out nothing, one inline step reads the token |
@@ -131,10 +131,10 @@ Every website build synchronizes missing published Studio releases before render
 | ID | Expected | Command |
 | --- | --- | --- |
 | V1 | The release exists with its assets — the Windows installer, its `.minisig`, the five CLI archives, `SHA256SUMS` and the phone APK; no `latest.json`. A stable tag is not a prerelease and is GitHub latest when it is the highest stable tag; a candidate is a prerelease. | `gh release view studio-vX.Y.Z --json isPrerelease,assets --jq '.isPrerelease, (.assets \| length), (.assets[].name)'` |
-| V2 | The catalog lists the new version first. | `curl -s https://dl.reasonix.io/studio/versions.json \| jq -r '.versions[0].tag'` |
-| V3 | The manifest is served from the mirror, and, once a Studio release is GitHub latest, the path 1.x updaters fall back to answers 404. | `curl -sI https://dl.reasonix.io/studio-vX.Y.Z/latest.json \| head -1`; `curl -sI https://github.com/esengine/DeepSeek-Reasonix/releases/latest/download/latest.json \| head -1` |
+| V2 | The catalog lists the new version first. | `curl -s https://qiyuess.github.io/reasonix-studio/studio/versions.json \| jq -r '.versions[0].tag'` |
+| V3 | The manifest is served from the Pages site, and it names the release itself rather than a URL that moves. | `curl -sI https://qiyuess.github.io/reasonix-studio/studio-vX.Y.Z/latest.json \| head -1` |
 | V4 | The body contains the version notes and the standing install text. | `gh release view studio-vX.Y.Z --json body --jq .body` |
-| V5 | The manifest carries the Windows platform it ships — amd64 — resolving to its installer, and has no `windows-arm64` key. | `curl -s https://dl.reasonix.io/studio-vX.Y.Z/latest.json \| jq -r '.platforms["windows-amd64"].url, (.platforms["windows-arm64"] // "absent")'` |
+| V5 | The manifest carries the Windows platform it ships — amd64 — resolving to its installer, and has no `windows-arm64` key. | `curl -s https://qiyuess.github.io/reasonix-studio/studio-vX.Y.Z/latest.json \| jq -r '.platforms["windows-amd64"].url, (.platforms["windows-arm64"] // "absent")'` |
 | V6 | The amd64 installer is signed, and every PE image in it is x64 except the 32-bit `resources/elevate.exe` and uninstaller. | On Windows: `Get-AuthenticodeSignature ReasonixStudio-windows-amd64-installer.exe`, then `node desktop/electron/packaging/pe.js <unpacked-installer-dir> amd64` over the tree the installer unpacks to. |
 | V7 | `windows-install-smoke` ran its single amd64 leg, and `windows-sign-payload` / `windows-sign-installer` each show one amd64 leg and no arm64 one. | `gh run view <run> --json jobs --jq '.jobs[] \| select(.name \| test("Windows\|Certum")) \| "\(.name) \(.conclusion)"'` |
 | V8 | The `website` jobs succeed and the published version has a complete website changelog. / 官网任务成功，发布版本具有完整更新日志。 | Open `https://reasonix.io/changelog/vX.Y.Z/` and check its title, date and source link. / 核对标题、日期及原文链接。 |
@@ -293,13 +293,14 @@ Studio and 1.x signing jobs and smoke tests share the concurrency group `certum-
 | `NPM_TOKEN`, `HOMEBREW_TAP_TOKEN` | repository secret | `cli-channels` here; shared with 1.x |
 | `STUDIO_SIGNING_SUBJECT` | variable | the signer subject every signed executable must carry; required when signing is on |
 | `MINISIGN_PRIVATE_KEY`, `MINISIGN_PASSWORD` | secret | detached signatures verified by the updater |
-| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET` | secret | artifact mirror and catalog |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET` | secret | the CLI pointer only; the Studio catalog and its notes live on the Pages branch |
 
-| R2 path | Owner | Content |
+| Site path (`gh-pages`) | Owner | Content |
 | --- | --- | --- |
 | `studio/versions.json` | this workflow | Studio catalog, newest first; an entry names its notes object in an optional `notes` field |
-| `studio/notes/X.Y.Z.md` | this workflow | the rendered version notes, immutable; uploaded before the catalog entry that names it |
-| `studio-vX.Y.Z/` | this workflow | artifacts, signatures, `latest.json` |
+| `studio/notes/X.Y.Z.md` | this workflow | the rendered version notes, immutable; written in the same commit as the catalog entry that names it |
+| `studio-vX.Y.Z/latest.json` | this workflow | the manifest for that version, immutable |
+| `studio-vX.Y.Z/*.minisig` | this workflow | the detached signatures the updater checks each artifact against |
 | `cli/stable/latest.json`, `cli/preview/latest.json` | `cli-pointer` | what `reasonix upgrade` reads through `crash.reasonix.io/v1/cli/releases/<channel>/latest.json`; only ever moves to a newer version |
 | `cli/releases/vX.Y.Z/latest.json` | `cli-pointer` | immutable record of one CLI release; a rerun with different content fails |
 | `versions.json` | desktop line | never written by this workflow |
@@ -316,21 +317,21 @@ Studio and 1.x signing jobs and smoke tests share the concurrency group `certum-
 
 Windows 验收：`windows-verify-package` 用 7-Zip 把安装包拆开，要求解出的树与签名 payload 逐文件一致、且只带 amd64 的应用归档；`windows-install-smoke` 在 `windows-latest` 上静默安装、检查装好的树、再卸载。这两步都不持有任何凭据。
 
-A notes upload that fails does not fail `publish`: the step warns, `::warning::release notes for vX.Y.Z were not uploaded`, and the catalog entry is written without a `notes` field. Run the backfill (section 9) afterwards to attach them.
+A version's notes, its manifest and the catalog entry that names it travel in one commit, so a release cannot publish a pointer to notes that never reached the site. A push that GitHub rejects fails the step: nothing is half-published, because nothing was written.
 
 ## 9. Backfilling notes
 
 Releases from the one that introduced `studio/notes/` publish their notes with the catalog entry. Older catalog entries get theirs once, by hand:
 
 ```bash
-R2_ACCOUNT_ID=... R2_BUCKET=... bash scripts/backfill-studio-notes.sh          # dry run
-R2_ACCOUNT_ID=... R2_BUCKET=... bash scripts/backfill-studio-notes.sh --apply
+SITE_REPO=https://github.com/<owner>/<repo>.git bash scripts/backfill-studio-notes.sh          # dry run
+SITE_REPO=https://github.com/<owner>/<repo>.git bash scripts/backfill-studio-notes.sh --apply
 ```
 
-Run it from a clone with the `studio-v*` tags, with the mirror's AWS credentials and `GH_TOKEN` in the environment.
+Run it from a clone with the `studio-v*` tags, with `GH_TOKEN` in the environment (the credit lookups the renderer makes, and the push into the site branch). It clones the Pages branch, writes the notes into that clone and pushes one commit.
 
 - It acts only on catalog entries without a `notes` field.
-- An object already in the bucket is kept.
+- A note already on the site is kept.
 - A tag without a notes file leaves its entry bare.
-- The catalog is read again and written last.
+- The notes and the catalog entry that names them land in one commit.
 - `--apply` refuses while any `release-studio.yml` run is queued or in progress, because that run's catalog write would race this one.

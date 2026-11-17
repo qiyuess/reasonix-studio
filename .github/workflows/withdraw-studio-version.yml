@@ -41,39 +41,47 @@ jobs:
 
       - name: Update the Studio catalog
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           REASON: ${{ inputs.reason }}
           RESTORE: ${{ inputs.restore }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          HAS_R2: ${{ secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' && secrets.R2_ACCOUNT_ID != '' && secrets.R2_BUCKET != '' }}
         run: |
-          if [ "$HAS_R2" != "true" ]; then
-            echo "::error::R2 credentials are not configured, so the catalog cannot be changed"
-            exit 1
-          fi
+          set -euo pipefail
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
             echo "::error::version must look like 2.36.0"
             exit 1
           fi
-          aws configure set aws_access_key_id "${{ secrets.R2_ACCESS_KEY_ID }}"
-          aws configure set aws_secret_access_key "${{ secrets.R2_SECRET_ACCESS_KEY }}"
-          aws configure set default.region auto
-          endpoint="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
-          at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          current=/tmp/studio-versions-current.json
-          next=/tmp/studio-versions-next.json
-          aws s3 cp "s3://${R2_BUCKET}/studio/versions.json" "$current" --endpoint-url "$endpoint"
-          if [ "$RESTORE" = "true" ]; then
-            bash scripts/withdraw-version.sh "$current" --restore "$VERSION" "$at" > "$next"
-            jq -e --arg v "$VERSION" '.versions | map(select((.version | ltrimstr("v")) == $v)) | length == 1' "$next" >/dev/null
-          else
-            bash scripts/withdraw-version.sh "$current" "$VERSION" "$REASON" "$at" > "$next"
-            jq -e --arg v "$VERSION" '(.versions | map(select((.version | ltrimstr("v")) == $v)) | length == 0) and (.withdrawn | map(select((.version | ltrimstr("v")) == $v)) | length == 1)' "$next" >/dev/null
+          # The catalog is an object on the Pages branch, not a bucket: it and
+          # each version's notes and manifest are nested paths a release cannot
+          # hold. Withdrawing has to land where installs read it.
+          site="$RUNNER_TEMP/site"
+          git clone --quiet --depth 1 --branch gh-pages \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$site"
+          catalog="$site/studio/versions.json"
+          if [ ! -f "$catalog" ]; then
+            echo "::error::the site carries no catalog at studio/versions.json"
+            exit 1
           fi
-          aws s3 cp "$next" "s3://${R2_BUCKET}/studio/versions.json" \
-            --endpoint-url "$endpoint" \
-            --content-type "application/json; charset=utf-8" \
-            --cache-control "public, max-age=300, stale-if-error=86400"
+          at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          if [ "$RESTORE" = "true" ]; then
+            bash scripts/withdraw-version.sh "$catalog" --restore "$VERSION" "$at" > "$catalog.next"
+            jq -e --arg v "$VERSION" '.versions | map(select((.version | ltrimstr("v")) == $v)) | length == 1' "$catalog.next" >/dev/null
+          else
+            bash scripts/withdraw-version.sh "$catalog" "$VERSION" "$REASON" "$at" > "$catalog.next"
+            jq -e --arg v "$VERSION" '(.versions | map(select((.version | ltrimstr("v")) == $v)) | length == 0) and (.withdrawn | map(select((.version | ltrimstr("v")) == $v)) | length == 1)' "$catalog.next" >/dev/null
+          fi
+          mv "$catalog.next" "$catalog"
+
+          cd "$site"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "the catalog already reads that way for $VERSION"
+            exit 0
+          fi
+          git commit -q -m "$([ "$RESTORE" = "true" ] && echo restore || echo withdraw): $VERSION"
+          git push --quiet origin gh-pages
           echo "Studio catalog updated for $VERSION (restore=$RESTORE)"
 
       - name: Keep the GitHub release off the latest slot

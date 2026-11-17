@@ -9,18 +9,22 @@ import (
 )
 
 // The mechanism is held by internal/safety/redirectguard. What this holds is the
-// decision made here: Studio's own CDN is trusted, and a name that merely ends
-// in ours is not.
+// decision made here: this line's own publish host is trusted, and a name that
+// merely ends in it is not.
 func TestUpdateTrustsItsOwnReleaseHosts(t *testing.T) {
 	follow := redirectguard.Follow(releaseHosts...)
 	for _, tc := range []struct {
 		url  string
 		want bool
 	}{
-		{"https://dl.reasonix.io/studio/versions.json", true},
+		{StudioCatalog, true},
+		{notesURL("2.31.0"), true},
 		{"https://objects.githubusercontent.com/blob/x", true},
-		{"https://dl.reasonix.io.evil.test/x", false},
-		{"http://dl.reasonix.io/x", false},
+		{"https://qiyuess.github.io.evil.test/x", false},
+		{"http://qiyuess.github.io/x", false},
+		// The mirror this line published behind before its own site answered:
+		// nothing here reaches it any more, so following it is not trust.
+		{"https://dl.reasonix.io/studio/versions.json", false},
 	} {
 		req, err := http.NewRequest(http.MethodGet, tc.url, nil)
 		if err != nil {

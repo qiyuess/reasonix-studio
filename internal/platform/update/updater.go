@@ -71,10 +71,10 @@ func UserAgent(version string) string {
 
 // releaseHosts is where Studio's own artifacts are published: this line's
 // GitHub release assets, the hosts GitHub redirects a download through, and the
-// publish host the catalog, chunk store and notes still live on. This is the
-// updater's trust decision and is deliberately not shared with the CLI's, which
-// happens to name a subset of the same hosts.
-var releaseHosts = []string{"github.com", ".githubusercontent.com", "reasonix.io", ".reasonix.io"}
+// Pages site the catalog, per-version notes and delta indexes live on. This is
+// the updater's trust decision and is deliberately not shared with the CLI's,
+// which happens to name a subset of the same hosts.
+var releaseHosts = []string{"github.com", ".githubusercontent.com", ".github.io"}
 
 // guarded copies rather than mutates: the shells hand in a client the rest of
 // the app shares. A caller that already chose a policy keeps it.

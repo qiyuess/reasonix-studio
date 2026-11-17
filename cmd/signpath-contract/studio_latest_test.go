@@ -44,8 +44,11 @@ func TestStudioGitHubReleaseCarriesNoRootManifest(t *testing.T) {
 	root := parseWorkflowFile(t, "../../.github/workflows/release-studio.yml")
 	publish := mappingValue(jobsOf(t, root), "publish")
 	run := mappingScalar(stepNamed(t, publish, "Publish GitHub release"), "run")
-	if !strings.Contains(run, `= latest.json ]`) {
-		t.Fatal("the publish step does not filter latest.json out of the uploaded assets")
+	// The release page carries only what a person downloads. The manifest and
+	// the signatures are published to the site instead, so the asset list skips
+	// both by name rather than by a pattern that could miss one.
+	if !strings.Contains(run, "latest.json|*.minisig) continue ;;") {
+		t.Fatal("the publish step does not filter latest.json and the signatures out of the uploaded assets")
 	}
 	for line := range strings.SplitSeq(run, "\n") {
 		if strings.Contains(line, "gh release") && strings.Contains(line, "dist/") {
@@ -55,8 +58,13 @@ func TestStudioGitHubReleaseCarriesNoRootManifest(t *testing.T) {
 	if !strings.Contains(run, `"${assets[@]}"`) {
 		t.Fatal("the release is not created from the filtered asset list")
 	}
-	mirror := mappingScalar(stepNamed(t, publish, "Mirror to R2 and update the Studio catalog"), "run")
-	if !strings.Contains(mirror, `aws s3 cp dist/ "s3://${R2_BUCKET}/${TAG}/" --recursive`) {
-		t.Fatal("the per-tag manifest must still reach R2 with the rest of dist")
+	// What the release drops, the site has to carry: a client reads the manifest
+	// and the signature from there, so both must be written by the same run.
+	site := mappingScalar(stepNamed(t, publish, "Publish the update catalog"), "run")
+	if !strings.Contains(site, `cp dist/latest.json "$site/$TAG/latest.json"`) {
+		t.Error("the site does not receive the per-tag manifest")
+	}
+	if !strings.Contains(site, `cp dist/*.minisig "$site/$TAG/"`) {
+		t.Error("the site does not receive the signatures the manifest names")
 	}
 }

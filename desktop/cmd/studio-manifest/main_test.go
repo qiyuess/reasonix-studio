@@ -56,8 +56,8 @@ func TestManifestRecordsEveryArtifactWithItsSignature(t *testing.T) {
 	}
 	sum := sha256.Sum256(body)
 	for name, a := range m.Downloads {
-		if a.Sig != a.URL+".minisig" {
-			t.Errorf("%s: sig %q does not point at the artifact's signature", name, a.Sig)
+		if a.Sig != update.StudioPublish+"/studio-v0.1.0/"+name+".minisig" {
+			t.Errorf("%s: sig %q is not the signature published beside the manifest", name, a.Sig)
 		}
 		if a.Size != int64(len(body)) {
 			t.Errorf("%s: size %d, want %d", name, a.Size, len(body))
@@ -172,11 +172,12 @@ func TestMirroredManifestPutsTheMirrorFirst(t *testing.T) {
 		name := a.URL[strings.LastIndex(a.URL, "/")+1:]
 		mirror := update.StudioPublish + "/studio-v0.1.0/" + name
 		github := "https://github.com/esengine/DeepSeek-Reasonix/releases/download/studio-v0.1.0/" + name
-		if a.URL != mirror || a.Sig != mirror+".minisig" {
-			t.Errorf("%s: primary = %q / %q, want the mirror", name, a.URL, a.Sig)
+		sig := update.StudioPublish + "/studio-v0.1.0/" + name + ".minisig"
+		if a.URL != mirror || a.Sig != sig {
+			t.Errorf("%s: primary = %q / %q, want the mirror and the signature beside it", name, a.URL, a.Sig)
 		}
-		if a.Fallback != github || a.FallbackSig != github+".minisig" {
-			t.Errorf("%s: fallback = %q / %q, want the GitHub release", name, a.Fallback, a.FallbackSig)
+		if a.Fallback != github || a.FallbackSig != sig {
+			t.Errorf("%s: fallback = %q / %q, want the release and the same signature", name, a.Fallback, a.FallbackSig)
 		}
 	}
 	if !strings.HasPrefix(m.DownloadPage, "https://github.com/") {
@@ -336,7 +337,8 @@ func TestLinuxArm64PackagesAreKeyedBesideAmd64(t *testing.T) {
 		}
 		mirror := update.StudioPublish + "/studio-v2.39.0/" + name
 		github := "https://github.com/esengine/DeepSeek-Reasonix/releases/download/studio-v2.39.0/" + name
-		if asset.URL != mirror || asset.Sig != mirror+".minisig" || asset.Fallback != github || asset.FallbackSig != github+".minisig" {
+		sig := update.StudioPublish + "/studio-v2.39.0/" + name + ".minisig"
+		if asset.URL != mirror || asset.Sig != sig || asset.Fallback != github || asset.FallbackSig != sig {
 			t.Errorf("%s loses its mirror, fallback or signature: %+v", key, asset)
 		}
 	}
@@ -363,7 +365,7 @@ func TestAnAppImageIsOfferedButNeverResolvedAsAnUpdate(t *testing.T) {
 	}
 	for _, name := range []string{"ReasonixStudio-linux-amd64.AppImage", "ReasonixStudio-linux-arm64.AppImage"} {
 		a, ok := m.Downloads[name]
-		if !ok || a.Sig != a.URL+".minisig" {
+		if !ok || a.Sig == "" {
 			t.Errorf("downloads[%s] = %+v, %v; want a signed download", name, a, ok)
 		}
 	}
