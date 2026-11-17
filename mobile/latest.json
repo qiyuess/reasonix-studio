@@ -1,11 +1,11 @@
 {
-  "tag": "v0.6.0",
-  "version": "0.6.0",
-  "versionCode": 28,
-  "apk": "reasonix-for-android-0.6.0.apk",
-  "notes": "# 0.6.0\n\n这一版把工作台重做成适合单手的样子，并让精简模式不再丢掉思考过程：变更一眼扫完、提交始终够得着，思考收在一行里、点开是一小片可以滚动的窗口。\n\n> 可以直接在「设置 → 偏好 → 关于」检查并安装这一版，配对信息、连接记录和本地设置都会保留。\n\n## 新增\n\n- **精简模式的思考过程**：每轮思考收成一行「✳ 思考中 / 深度思考 · 秒数 · 字数」，点开后是一小片限高滚动窗口，不再占满整屏；思考还在流式输出时窗口自动跟着最新内容，往上翻就停住。折叠的操作时间线里也能回看每一步思考。（关联 #183）\n- **工作台单手化**：变更改成单行列表（文件名在左、增删行数在右），勾选框热区加大；「暂存全部 / 提交」吸顶，长列表滚到哪里都够得着；diff 横向滚动时行号钉在左侧不跟着跑；文件浏览改成与变更一致的扁平列表，带文件夹/文件图标。（关联 #181）\n\n## 变更\n\n- **工作台触控**：所有可点控件统一不小于 44px；提交卡的确认勾选行与按钮加大，提交信息输入字号加大。（关联 #181）\n- **精简模式的折叠记录**：思考过程保留在折叠记录里，操作时间线可展开回看；标准与详尽模式不变。（关联 #183）\n\n## 修复\n\n- **精简模式点 diff 行号**现在会打开对应文件，之前会落在目录列表上。（关联 #180）\n- **展开的 diff** 不再被挤到行右侧裁切，改为在行下方整宽显示。（关联 #180）\n- **提交卡的文件路径**不再粘成一个词（如 `/src/appmain.tsx`），目录与文件名之间的斜杠恢复。（关联 #180）\n- **提交历史**在自己提交后会刷新，展开的提交可以再次收起；读取失败时给出重试。（关联 #180、#182）\n- **同一文件的暂存/未暂存两行**不再同时展开同一个 diff，只展开被点的那行。（关联 #180）",
+  "tag": "v1.0.0",
+  "version": "1.0.0",
+  "versionCode": 29,
+  "apk": "reasonix-for-android-1.0.0.apk",
+  "notes": "# 1.0.0\n\n手机端应用的第一个正式版。手机只绘制界面，通过本机的回环代理连到这台电脑上的内核。\n\n> 可以直接在「设置 → 偏好 → 关于」检查并安装这一版，配对信息、连接记录和本地设置都会保留。\n\n## 变更\n\n- **版本号进入 1.0.0**：此前手机端自己走 0.6.0 一类的号，与它配对的桌面端版本无关。从这一版起手机端随 Studio 一起发布、安装包与桌面端安装包一同提供下载，`versionCode` 从 28 进到 29（Android 不接受重复的 versionCode，即使名称变过）。\n- **手机端并入 Studio 仓库**：源码、Android 工程与发布流程都落在这个仓库里，不再单独维护。\n\n## 修复\n\n- **回环代理同时携带两个 cookie jar 的凭据**：代理原有一个 WebView cookie jar 和一个内存 jar，请求只取前者。扫码进配对 WebView 的凭据落在 `CookieManager`，直接交给代理的凭据落在内存，两者都不是对方的超集；请求挑中空的那个时，内核收到的就是「从未配对」的答案。现在两者都带上。\n\n## 说明\n\n- 手机端从 debug 包切换到正式签名包的第一版，已装 debug 包的手机会因签名不同拒绝覆盖，需要卸载一次；配对 cookie 与 origin 会一起丢失，重新扫码即可。",
   "mirrors": [
-    "https://gh-proxy.com/https://github.com/f1shsmell/Reasonix-Android/releases/download/v0.6.0/reasonix-for-android-0.6.0.apk",
-    "https://ghfast.top/https://github.com/f1shsmell/Reasonix-Android/releases/download/v0.6.0/reasonix-for-android-0.6.0.apk"
+    "https://gh-proxy.com/https://github.com/f1shsmell/Reasonix-Android/releases/download/v1.0.0/reasonix-for-android-1.0.0.apk",
+    "https://ghfast.top/https://github.com/f1shsmell/Reasonix-Android/releases/download/v1.0.0/reasonix-for-android-1.0.0.apk"
   ]
 }
