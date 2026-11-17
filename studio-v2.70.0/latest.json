@@ -1,0 +1,23 @@
+{
+  "version": "v2.70.0",
+  "notes": "",
+  "pub_date": "",
+  "download_page": "https://github.com/qiyuess/reasonix-studio/releases/tag/studio-v2.70.0",
+  "release_notes_url": "https://github.com/qiyuess/reasonix-studio/releases/tag/studio-v2.70.0",
+  "platforms": {
+    "windows-amd64": {
+      "url": "https://github.com/qiyuess/reasonix-studio/releases/download/studio-v2.70.0/ReasonixStudio-windows-amd64-installer.exe",
+      "sig": "https://qiyuess.github.io/reasonix-studio/studio-v2.70.0/ReasonixStudio-windows-amd64-installer.exe.minisig",
+      "size": 141339339,
+      "sha256": "b80ae333a1fb22ab5d2679670f095c74ee0c9963e5ae195f1f7036b2b225cfd7"
+    }
+  },
+  "downloads": {
+    "ReasonixStudio-windows-amd64-installer.exe": {
+      "url": "https://github.com/qiyuess/reasonix-studio/releases/download/studio-v2.70.0/ReasonixStudio-windows-amd64-installer.exe",
+      "sig": "https://qiyuess.github.io/reasonix-studio/studio-v2.70.0/ReasonixStudio-windows-amd64-installer.exe.minisig",
+      "size": 141339339,
+      "sha256": "b80ae333a1fb22ab5d2679670f095c74ee0c9963e5ae195f1f7036b2b225cfd7"
+    }
+  }
+}
