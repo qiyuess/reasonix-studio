@@ -12,7 +12,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$InstallerPath,
 
-    [Parameter(Mandatory = $true)]
+    # Optional: a release that publishes the installer alone has no portable
+    # archive to check, and passing an empty path would fail on a file that is
+    # meant to be absent. When a path is given, the archive is checked too.
     [string]$PortableArchivePath,
 
     [Parameter(Mandatory = $true)]
@@ -79,13 +81,20 @@ Assert-PeArchitecture -Root $payloadRoot -Architecture $Architecture
 
 # Hashed before either is opened, so the hashes name the bytes that were checked.
 $installerHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $InstallerPath).Hash.ToLowerInvariant()
-$archiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $PortableArchivePath).Hash.ToLowerInvariant()
+# A release that publishes the installer alone passes no archive, and there is
+# then no second package to name.
+$archiveHash = $null
+if ($PortableArchivePath) {
+    $archiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $PortableArchivePath).Hash.ToLowerInvariant()
+}
 
 $extractRoot = Join-Path ([IO.Path]::GetTempPath()) ("reasonix-package-" + [guid]::NewGuid().ToString("N"))
 try {
-    $portableRoot = Join-Path $extractRoot "portable"
-    Expand-Archive -LiteralPath $PortableArchivePath -DestinationPath $portableRoot
-    Assert-TreeMatchesPayload -Label "Portable archive" -Root $portableRoot -PayloadManifest $payloadManifest
+    if ($PortableArchivePath) {
+        $portableRoot = Join-Path $extractRoot "portable"
+        Expand-Archive -LiteralPath $PortableArchivePath -DestinationPath $portableRoot
+        Assert-TreeMatchesPayload -Label "Portable archive" -Root $portableRoot -PayloadManifest $payloadManifest
+    }
 
     # electron-builder's NSIS installer carries each architecture's application
     # as an app-<arch>.7z among its plugins; electron-builder names the x64 one

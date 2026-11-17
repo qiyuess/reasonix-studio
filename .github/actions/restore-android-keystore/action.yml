@@ -1,0 +1,45 @@
+name: Restore the Android release keystore
+description: Decode the signing keystore and write the phone project's keystore.properties.
+
+# The phone app lives under mobile/, so this action assumes it runs with the
+# repository root as the working directory and writes beside that project's
+# Gradle files. gradle's verifyReleaseSigning task fails the build when the
+# properties are missing, so an unset secret stops the release rather than
+# producing an APK nobody can install.
+inputs:
+  keystore_base64:
+    description: Base64 of the release keystore
+    required: true
+  store_password:
+    required: true
+  key_alias:
+    required: true
+  key_password:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Write the keystore and its properties
+      shell: bash
+      env:
+        KEYSTORE_BASE64: ${{ inputs.keystore_base64 }}
+        STORE_PASSWORD: ${{ inputs.store_password }}
+        KEY_ALIAS: ${{ inputs.key_alias }}
+        KEY_PASSWORD: ${{ inputs.key_password }}
+      run: |
+        set -euo pipefail
+        if [[ -z "$KEYSTORE_BASE64" || -z "$STORE_PASSWORD" || -z "$KEY_ALIAS" || -z "$KEY_PASSWORD" ]]; then
+          echo "::error::Android release signing secrets are not configured; see mobile/RELEASING.md"
+          exit 1
+        fi
+        keystore="$RUNNER_TEMP/reasonix-android-release.jks"
+        printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore"
+        properties=mobile/android/keystore.properties
+        cat > "$properties" <<EOF
+        storeFile=$keystore
+        storePassword=$STORE_PASSWORD
+        keyAlias=$KEY_ALIAS
+        keyPassword=$KEY_PASSWORD
+        EOF
+        chmod 600 "$keystore" "$properties"

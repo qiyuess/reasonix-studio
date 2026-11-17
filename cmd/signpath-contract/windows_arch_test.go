@@ -106,18 +106,18 @@ func TestWindowsPackagingStagesHoldNoSecrets(t *testing.T) {
 	}
 }
 
-// The arm64 installer reads back through the runner's 7-Zip, which decodes
-// filters the NSIS extractor cannot, so the filter that extractor reads is
-// pinned on every job that packs one, and publish waits for an installer to run.
-func TestArm64InstallerIsPackedWithTheFilterTheExtractorReads(t *testing.T) {
+// Publish must wait for an installer that actually ran on a machine, so a
+// package that installs nowhere cannot be published. The arm64 packing filter
+// that once lived here went with the arm64 leg: with one architecture there is
+// no arm64 archive for the NSIS extractor to choke on.
+func TestPublishWaitsForAnInstallerThatRan(t *testing.T) {
 	root := parseWorkflowFile(t, "../../.github/workflows/release-studio.yml")
 	jobs := jobsOf(t, root)
 	pack := map[string]string{"build": "Package Windows from the bundle", "windows-package": "Package Windows from the signed bundle"}
 	for job, step := range pack {
-		env := mappingValue(stepNamed(t, mappingValue(jobs, job), step), "env")
-		if got := mappingScalar(env, "ELECTRON_BUILDER_7Z_FILTER"); !strings.Contains(got, "'BCJ'") {
-			t.Errorf("%s / %s: ELECTRON_BUILDER_7Z_FILTER = %q, want BCJ for arm64", job, step, got)
-		}
+		// stepNamed fails the test itself when the step is gone, which is what
+		// this loop is here to catch.
+		stepNamed(t, mappingValue(jobs, job), step)
 	}
 	needs := mappingValue(mappingValue(jobs, "publish"), "needs")
 	var names []string
@@ -140,7 +140,7 @@ func TestWindowsOutputsAreOnePerArchitecture(t *testing.T) {
 	jobs := jobsOf(t, root)
 	want := map[string][]string{
 		"windows-sign-payload":   {"payload-digest"},
-		"windows-verify-package": {"installer-sha256", "archive-sha256"},
+		"windows-verify-package": {"installer-sha256"},
 		"windows-sign-installer": {"installer-sha256"},
 	}
 	for name, keys := range want {
