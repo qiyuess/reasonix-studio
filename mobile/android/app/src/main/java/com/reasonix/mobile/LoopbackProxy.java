@@ -859,7 +859,10 @@ public final class LoopbackProxy {
                     // Only the device credential is this exchange's to keep;
                     // other cookies belong to the page and its own lifetime.
                     if (!value.startsWith("reasonix_device=")) continue;
-                    web.setCookie(uri.toString(), value);
+                    // Written under the same spelling every read uses: a value
+                    // stored against `/pair` or against the scheme's own port is
+                    // one the door's own URL never sees again.
+                    web.setCookie(ProxyCookies.cookieUrl(uri.getScheme() + "://" + uri.getAuthority()), value);
                 }
             }
             web.flush();

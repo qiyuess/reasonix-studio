@@ -56,4 +56,23 @@ public class ProxyCookiesTest {
     public void keepsAnEmptyValueBecauseAPairMayClearACookie() {
         assertEquals("a=", ProxyCookies.merge(Collections.singletonList("a=")));
     }
+
+    @Test
+    public void oneDoorHasOneSpellingWhateverPortItWasStoredUnder() {
+        // The proxy normalizes a door to `https://host:443` before it stores an
+        // origin; the pairing page was loaded as `https://host/`. Cookies match
+        // by host, but two spellings ask two questions — and the jar that
+        // answered the other one reads as a phone holding no credential.
+        assertEquals("https://agent.example.com/", ProxyCookies.cookieUrl("https://agent.example.com"));
+        assertEquals("https://agent.example.com/", ProxyCookies.cookieUrl("https://agent.example.com:443"));
+        assertEquals("https://agent.example.com/", ProxyCookies.cookieUrl("https://agent.example.com/"));
+        assertEquals("http://10.0.0.5:10086/", ProxyCookies.cookieUrl("http://10.0.0.5:10086"));
+        assertEquals("http://agent.example.com/", ProxyCookies.cookieUrl("http://agent.example.com:80"));
+    }
+
+    @Test
+    public void aDoorWithNoNameHasNoCookieUrl() {
+        assertEquals("", ProxyCookies.cookieUrl(""));
+        assertEquals("", ProxyCookies.cookieUrl(null));
+    }
 }

@@ -42,9 +42,35 @@ final class ProxyCookies {
     String forOrigin(String origin) {
         if (origin == null || origin.isEmpty()) return "";
         List<String> sources = new ArrayList<>();
-        sources.add(webCookie(origin.endsWith("/") ? origin : origin + "/"));
+        sources.add(webCookie(cookieUrl(origin)));
         sources.addAll(memoryCookies(origin));
         return merge(sources);
+    }
+
+    /**
+     * The URL every jar is asked about, spelled one way for one door.
+     *
+     * A door arrives both with and without the scheme's own port: the proxy
+     * normalizes `https://host` to `https://host:443` before it stores an
+     * origin, while the pairing page was loaded as `https://host/`. Cookies are
+     * matched by host, so the port settles nothing — but two spellings ask two
+     * questions, and a jar that answered one of them reads as "this phone holds
+     * no credential", which is the answer a phone that never paired gives.
+     *
+     * The scheme's own port is therefore dropped rather than added: the page's
+     * own spelling is what the WebView jar was written under, and every jar is
+     * read through this one function so the two can no longer drift apart.
+     */
+    static String cookieUrl(String origin) {
+        String clean = origin == null ? "" : origin.trim();
+        if (clean.isEmpty()) return "";
+        while (clean.endsWith("/")) clean = clean.substring(0, clean.length() - 1);
+        if (clean.startsWith("https://") && clean.endsWith(":443")) {
+            clean = clean.substring(0, clean.length() - 4);
+        } else if (clean.startsWith("http://") && clean.endsWith(":80")) {
+            clean = clean.substring(0, clean.length() - 3);
+        }
+        return clean + "/";
     }
 
     /** The memory jar's cookie headers for one origin, one entry per header line. */

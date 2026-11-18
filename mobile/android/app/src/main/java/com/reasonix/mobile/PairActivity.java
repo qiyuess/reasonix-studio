@@ -44,6 +44,18 @@ public class PairActivity extends ComponentActivity {
     private String origin = "";
     private long startedAt;
     private boolean done;
+    /**
+     * The `reasonix_device` cookie this phone already held when the sheet opened.
+     *
+     * Pairing is judged by a *change* from this value, never by the cookie
+     * merely being there. A phone that paired once keeps a copy for thirty days;
+     * asking "is the cookie present" therefore answered yes before the page had
+     * even loaded, so the sheet reported a pairing that never happened and the
+     * proxy went on to carry the stale credential — which the kernel answers
+     * with "this device is not paired", the same answer it gives a phone that
+     * was never paired at all.
+     */
+    private String credentialBefore = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +73,9 @@ public class PairActivity extends ComponentActivity {
             return;
         }
         startedAt = System.currentTimeMillis();
+        // Read before the page loads, so what the page writes is a change this
+        // code can see rather than the copy it could not tell apart from one.
+        credentialBefore = deviceCookieValue();
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.TRANSPARENT);
@@ -135,13 +150,41 @@ public class PairActivity extends ComponentActivity {
         handler.postDelayed(this::poll, 250);
     }
 
+    /**
+     * Whether the page has left a credential this sheet can call its own.
+     *
+     * A value equal to the one this phone already held is not a pairing: the
+     * page may not have answered yet, or it refused the code and left the old
+     * copy in place. Only a different value proves the exchange that ran here
+     * minted something new.
+     */
     private boolean hasDeviceCookie() {
+        String now = deviceCookieValue();
+        return !now.isEmpty() && !now.equals(credentialBefore);
+    }
+
+    /**
+     * The `reasonix_device=` value the cookie jar holds for this door, or "".
+     *
+     * Read through the proxy's own spelling of the door so the credential a
+     * page writes and the credential a later request carries cannot be looked up
+     * under two different URLs.
+     */
+    private String deviceCookieValue() {
         try {
-            String cookie = CookieManager.getInstance()
-                    .getCookie(origin.endsWith("/") ? origin : origin + "/");
-            return cookie != null && cookie.contains("reasonix_device=");
+            String cookie = CookieManager.getInstance().getCookie(ProxyCookies.cookieUrl(origin));
+            if (cookie == null) return "";
+            for (String part : cookie.split(";")) {
+                String trimmed = part.trim();
+                int equals = trimmed.indexOf('=');
+                if (equals <= 0) continue;
+                if (trimmed.substring(0, equals).trim().equals("reasonix_device=")) {
+                    return trimmed.substring(equals + 1).trim();
+                }
+            }
+            return "";
         } catch (RuntimeException e) {
-            return false;
+            return "";
         }
     }
 
