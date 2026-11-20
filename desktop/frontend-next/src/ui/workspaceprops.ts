@@ -28,7 +28,7 @@ export interface WorkspacesProps {
   // The session path being opened, or empty. The row shows it selected and busy
   // before the kernel answers; the owner clears it on failure.
   opening?: string;
-  onOpen: (req: { root?: string; sessionPath?: string }) => Promise<void>;
+  onOpen: (req: { root?: string; sessionPath?: string; noProject?: boolean }) => Promise<void>;
   onFocus: (id: string) => void;
   onClose: (ids: string[]) => Promise<void>;
   // Which of these panes are mid-turn. A callback rather than a prop: run state

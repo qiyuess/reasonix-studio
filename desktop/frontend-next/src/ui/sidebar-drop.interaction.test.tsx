@@ -38,7 +38,7 @@ function draw(collapsed = false) {
         onFiles={vi.fn()}
         onView={vi.fn()}
         hub={hub} collapsed={collapsed} navShown={false} paging={NO_PAGING} tree={[]} treeRead runtimes={[]} runs={{}} active="remote-pane"
-        activeWorkspace={undefined} liveIds={() => []} pinned={new Set()} onPin={() => {}}
+        liveIds={() => []} pinned={new Set()} onPin={() => {}}
         remotes={null} remoteTrees={{}} reloadRemotes={async () => {}} reloadRemoteTrees={async () => {}}
         readRemoteTree={async () => {}} reloadTree={reload} adder={adder} onOpen={open} onOpenRemote={remote}
         onFocusPane={() => {}} onClosePanes={async () => {}} onPause={() => {}} onArchive={async () => {}}

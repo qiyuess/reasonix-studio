@@ -46,9 +46,6 @@ interface Props {
   runtimes: RuntimeView[];
   runs: Record<string, { run: string; live: boolean }>;
   active: string;
-  // Where a new session lands, and the row the tree marks as focused. The window
-  // decides it from the focused pane, so it arrives rather than being derived.
-  activeWorkspace: TreeWorkspace | undefined;
   liveIds: (ids: string[]) => string[];
   listedIds?: (ids: string[]) => string[];
   // Pins outlive this column — archiving a session drops one — so the set is the
@@ -105,7 +102,6 @@ export function Sidebar({
   runtimes,
   runs,
   active,
-  activeWorkspace,
   liveIds,
   listedIds = liveIds,
   pinned,
@@ -160,7 +156,6 @@ export function Sidebar({
     [remotes, hiddenHosts],
   );
   const online = (remotes ?? []).filter((h) => h.status === "connected" || h.status === "degraded").length;
-  const newSessionRoot = activeWorkspace?.root;
   // A new conversation belongs to no project; the pill on its composer is where
   // one is chosen. Only a pane on another machine keeps that machine's folder.
   const startConversation = () => {
@@ -237,7 +232,7 @@ export function Sidebar({
       { id: "settings", label: t("common.settings"), icon: "settings", keywords: "settings preferences 设置 偏好",
         run: () => onSettings() },
     ],
-    [newSessionRoot, onNew, onOpen, onOpenRemote, runtimes, active, onFiles, onView, onSettings, onFeedback, feedbackUnread, onFind, onError],
+    [onNew, onOpen, onOpenRemote, runtimes, active, onFiles, onView, onSettings, onFeedback, feedbackUnread, onFind, onError],
   );
 
   const onFold = (root: string, shut: boolean) => {

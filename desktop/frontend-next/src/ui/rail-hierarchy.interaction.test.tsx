@@ -27,7 +27,7 @@ function draw(withRemote = false, runtimes: RuntimeView[] = []) {
   render(
     <Sidebar
       onFiles={noop} onView={noop} hub={hub} collapsed={false} navShown paging={NO_PAGING} tree={tree} treeRead runtimes={runtimes} runs={{}} active=""
-      activeWorkspace={tree[0]} liveIds={() => []} pinned={new Set()} onPin={noop}
+      liveIds={() => []} pinned={new Set()} onPin={noop}
       remotes={withRemote ? [{ name: "gpu", target: "gpu", status: "connected", workspaces: ["/srv/work"] }] : null}
       remoteTrees={withRemote ? { gpu: [{ root: "/srv/work", name: "Remote project", sessions: [{ path: "/r/s", name: "Remote task" }] }] } : {}}
       reloadRemotes={async () => {}} reloadRemoteTrees={async () => {}}

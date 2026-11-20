@@ -646,7 +646,6 @@ export function App({ hub }: { hub: HubPort }) {
           runtimes={runtimes}
           runs={runs}
           active={active}
-          activeWorkspace={activeWorkspace}
           liveIds={liveIds}
           listedIds={listedIds}
           pinned={pinnedSessions}

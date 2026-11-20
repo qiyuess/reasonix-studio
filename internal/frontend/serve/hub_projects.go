@@ -153,7 +153,7 @@ func (h *Hub) resolveRoot(req OpenRequest) (string, error) {
 			return root, nil
 		}
 	}
-	// 不使用项目, asked for up front. It answers with the app's own folder — the
+	// "No project", asked for up front. It answers with the app's own folder — the
 	// one the tree never lists — rather than with the first pane's project,
 	// which is a guess and not an answer.
 	if req.NoProject {

@@ -237,7 +237,7 @@ func TestHubOpensTheAutoWorkspaceWhenNothingIsChosenOrRemembered(t *testing.T) {
 	}
 }
 
-// A new conversation answers 不使用项目 up front: with panes of several
+// A new conversation answers "no project" up front: with panes of several
 // projects open, asking for none has to land in the app's own folder rather than
 // in whichever pane happened to be first.
 func TestHubOpensTheAutoWorkspaceWhenNoProjectIsAskedFor(t *testing.T) {

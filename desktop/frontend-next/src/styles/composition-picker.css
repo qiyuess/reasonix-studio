@@ -2,8 +2,6 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  /* The same gap the composer's own button row uses, so the project pill sits
-     as close to its neighbours as those buttons sit to each other. */
   gap: 4px 2px;
   min-height: 28px;
   margin: -3px 0 4px;

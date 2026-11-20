@@ -15,7 +15,7 @@ function draw(remote = false) {
   return render(<Sidebar hub={new MockHub()} collapsed={false} navShown treeRead
     tree={[{ root: "/work/alpha", name: "alpha", remembered: true,
       sessions: [{ path: "/work/alpha/a.jsonl", name: "a", title: "first" }] }]}
-    runtimes={[]} runs={{}} active="" activeWorkspace={undefined} liveIds={() => []}
+    runtimes={[]} runs={{}} active="" liveIds={() => []}
     pinned={new Set()} onPin={noop}
     remotes={remote ? [{ name: "server", target: "server", status: "connected", workspace: "/work/alpha" }] : null}
     remoteTrees={remote ? { server: [{ root: "/work/alpha", name: "remote-alpha", remembered: true,

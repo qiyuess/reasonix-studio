@@ -17,7 +17,7 @@ function sidebar(onSettings = vi.fn()) {
   render(
     <Sidebar
       onFiles={noop} onView={noop} hub={new MockHub()} collapsed={false} navShown={false} paging={NO_PAGING} tree={tree} treeRead runtimes={[]} runs={{}} active=""
-      activeWorkspace={tree[0]} liveIds={() => []} pinned={new Set()} onPin={noop} remotes={null} remoteTrees={{}}
+      liveIds={() => []} pinned={new Set()} onPin={noop} remotes={null} remoteTrees={{}}
       reloadRemotes={async () => {}} reloadRemoteTrees={async () => {}} readRemoteTree={async () => {}} reloadTree={async () => {}}
       adder={{ busy: false, add: noop, addPath: noop } as never} onOpen={async () => {}} onOpenRemote={async () => {}} onFocusPane={noop} onClosePanes={async () => {}}
       onPause={noop} onArchive={async () => {}} onRename={noop} onCollapse={noop} wallet=""

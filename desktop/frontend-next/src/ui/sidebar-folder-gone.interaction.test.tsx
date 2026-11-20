@@ -17,7 +17,7 @@ function draw(onOpen: (req: { root?: string; sessionPath?: string }) => Promise<
   render(<Sidebar hub={hub} collapsed={false} navShown treeRead
     tree={[{ root: "/gone/alpha", name: "alpha", remembered: true,
       sessions: [{ path: "/gone/alpha/a.jsonl", name: "a", title: "first" }] }]}
-    runtimes={[]} runs={{}} active="" activeWorkspace={undefined} liveIds={() => []}
+    runtimes={[]} runs={{}} active="" liveIds={() => []}
     pinned={new Set()} onPin={noop} remotes={null} remoteTrees={{}}
     reloadRemotes={async () => {}} reloadRemoteTrees={async () => {}} readRemoteTree={async () => {}}
     reloadTree={async () => {}} paging={NO_PAGING} adder={{ busy: false, add: noop, addPath: noop } as never}
@@ -66,8 +66,7 @@ it("draws the new-session button of a project row as a plus, as the Sess-Rows bo
 
 it("draws a remote project's new-session button as a plus too", () => {
   const noop = vi.fn();
-  render(<Sidebar hub={new MockHub()} collapsed={false} navShown treeRead tree={[]} runtimes={[]} runs={{}} active="" activeWorkspace={undefined}
-    liveIds={() => []} pinned={new Set()} onPin={noop}
+  render(<Sidebar hub={new MockHub()} collapsed={false} navShown treeRead tree={[]} runtimes={[]} runs={{}} active="" liveIds={() => []} pinned={new Set()} onPin={noop}
     remotes={[{ name: "server", target: "server", status: "connected", workspace: "/work/alpha" }]}
     remoteTrees={{ server: [{ root: "/work/alpha", name: "remote-alpha", remembered: true, sessions: [{ path: "/work/alpha/r.jsonl", name: "r", title: "remote session" }] }] }}
     reloadRemotes={async () => {}} reloadRemoteTrees={async () => {}} readRemoteTree={async () => {}} reloadTree={async () => {}} paging={NO_PAGING}

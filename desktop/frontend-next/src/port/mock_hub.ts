@@ -2,7 +2,7 @@ import type { AgentPort } from "./port";
 import type { HistorySearch, HubPort, RuntimeView, TreeSession, TreeWindow, TreeWorkspace } from "./hub";
 import type { RemoteHost, RemoteListing, RemoteProbe } from "./remote";
 import type { OfferChannel, PhoneAction, PhoneList, PhoneView, ShareStatus } from "./share";
-import { MockPort } from "./mock";
+import { AUTO_WORKSPACE, MockPort } from "./mock";
 import { HttpError } from "./http_error";
 
 // MockHub is the fixture's answer to a window that drives several panes. Each
@@ -46,7 +46,7 @@ export class MockHub implements HubPort {
     this.seq++;
     // A pane with no project joins the app's own folder, exactly as
     // {auto:true} answers — a folder the project tree never lists.
-    const root = req.noProject ? "~/workspaces/auto" : (req.root || this.roots[0]);
+    const root = req.noProject ? AUTO_WORKSPACE : (req.root || this.roots[0]);
     const view: RuntimeView = {
       id: `r${this.seq}`,
       base: `/rt/r${this.seq}`,

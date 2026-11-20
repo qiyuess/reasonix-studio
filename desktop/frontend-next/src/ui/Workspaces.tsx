@@ -255,7 +255,7 @@ function WorkspacesView({ hub, tree, treeRead, answered = null, runtimes, active
   const startTaskSession = async () => {
     setBusy("new:");
     try {
-      await onOpen({});
+      await onOpen({ noProject: true });
     } catch (e) {
       onError(e);
     } finally {

@@ -45,14 +45,8 @@ function git(args) {
 }
 
 // The bundle is asked what version it carries, rather than trusted to have taken
-// the one it was handed. The dotted-path flag is documented and still stopped
-// landing once: a bare `--` upstream ended the option list, yargs read the rest
-// as positional arguments, and the installer shipped 0.0.0 while the log printed
-// the right number. Reading it back is the only check that fails on the machine
-// doing the packaging.
-//
-// The asar header is read directly — a length-prefixed JSON index, then a
-// length-prefixed file — so this needs no dependency of its own.
+// the one it was handed. The asar header is read directly — index, then file —
+// so this needs no dependency of its own.
 function checkPackagedVersion(expected) {
   const fs = require("node:fs");
   const app = path.join(REPO, "dist", "win-unpacked", "resources", "app.asar");
@@ -98,12 +92,10 @@ let statedMissing = false;
 const passthrough = [];
 for (let i = 0; i < argv.length; i++) {
   const arg = argv[i];
-  // `pnpm run pack -- --win nsis` hands the script a bare `--`, because that is
-  // how pnpm separates its own flags from the script's. It cannot go on to
-  // electron-builder: yargs reads a bare `--` as the end of options and treats
-  // everything after it as positional arguments, so `--config.…` is never parsed
-  // as a flag. The bundle then ships 0.0.0 while this script prints the number it
-  // was told — which is exactly the failure the check below exists to prevent.
+  // pnpm hands the script a bare `--` to separate its own flags from these. It
+  // must not reach electron-builder: yargs reads `--` as the end of options and
+  // takes everything after it as positional arguments, which is how the version
+  // flag below once stopped landing.
   if (arg === "--") continue;
   if (arg === "--build-version") {
     // A flag with nothing after it is a mistake, not a request to go guessing:
@@ -151,10 +143,7 @@ console.log(`packaging Reasonix Studio ${number}`);
 // The kernel spells it with the tag's prefix; the bundle carries the bare
 // number electron's app.getVersion() reports.
 run(path.join(HERE, "packaging", "build-host.js"), [], { REASONIX_VERSION: `v${number}` });
-// The dotted path is the documented way to set a package.json field, and it works
-// only while nothing before it ends the option list — see the bare `--` dropped
-// above. The number is also read back from the bundle afterwards by
-// checkPackagedVersion, so a spelling that stops landing fails here rather than
-// in someone's updater.
+// The dotted path is the documented way to set a package.json field, and the
+// number is read back afterwards so a spelling that stops landing fails here.
 run(require.resolve("electron-builder/cli.js"), [...passthrough, `--config.extraMetadata.version=${number}`]);
 checkPackagedVersion(number);

@@ -22,7 +22,7 @@ type RuntimeView struct {
 	Host             string              `json:"host,omitempty"`
 	ReadOnly         bool                `json:"readOnly,omitempty"`
 	// NoProject marks a pane belonging to no project: the app's own folder. The
-	// next 新建会话 may reuse it for that reason alone — an empty pane inside
+	// next new conversation may reuse it for that reason alone — an empty pane in
 	// someone's project is somewhere else.
 	NoProject bool `json:"noProject,omitempty"`
 }

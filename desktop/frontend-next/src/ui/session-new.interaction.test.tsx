@@ -77,3 +77,30 @@ describe("a new session belongs to no project", () => {
     expect((await screen.findByRole("combobox", { name: "任务输入" }) as HTMLTextAreaElement).value).toBe("keep this draft");
   });
 });
+
+// The task run's plus is the fourth way into a new conversation, and it answers
+// the same as the other three: no project. It used to open with an empty root,
+// which the hub fills from the first pane — the project the window was working
+// in, and exactly what a new task must not inherit.
+it("starts a task from the tasks run's plus with no project", async () => {
+  const hub = new MockHub();
+  const build = hub.portFor.bind(hub);
+  hub.portFor = (rt) => {
+    const port = build(rt);
+    port.providerSetup = async () => null;
+    port.welcomeSeen = async () => true;
+    return port;
+  };
+  const asked: Array<{ noProject?: boolean }> = [];
+  const open = hub.open.bind(hub);
+  hub.open = async (req) => {
+    asked.push(req as { noProject?: boolean });
+    return open(req);
+  };
+
+  render(<App hub={hub} />);
+  await expandProjects();
+  await userEvent.click(document.querySelector('button[data-action="session.new-task"]') as HTMLElement);
+
+  await waitFor(() => expect(asked).toEqual([expect.objectContaining({ noProject: true })]));
+});

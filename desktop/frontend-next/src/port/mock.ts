@@ -16,7 +16,7 @@ import { mockUploadUsage, mockUsage } from "./mock_usage";
 // Where the fixture's rootless sessions land: the kernel keeps its auto
 // workspace under its own state directory, so a pane working there belongs to
 // no project the tree remembers.
-const AUTO_WORKSPACE = "~/workspaces/auto";
+export const AUTO_WORKSPACE = "~/workspaces/auto";
 
 export class MockPort extends MockWorkspace implements AgentPort {
   private listeners = new Set<(ev: WireEvent) => void>();

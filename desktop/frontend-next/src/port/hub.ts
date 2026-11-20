@@ -33,7 +33,7 @@ export interface RuntimeView {
   // add to it.
   readOnly?: boolean;
   // Set on a pane belonging to no project — the app's own folder. A new
-  // conversation asks for one, so the next 新建会话 may reuse that pane: it is
+  // conversation asks for one, so the next new one may reuse that pane: it is
   // the same answer, where an empty pane in a project is not.
   noProject?: boolean;
 }
