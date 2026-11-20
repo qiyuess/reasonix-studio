@@ -98,4 +98,10 @@ console.log(`packaging Reasonix Studio ${number}`);
 // The kernel spells it with the tag's prefix; the bundle carries the bare
 // number electron's app.getVersion() reports.
 run(path.join(HERE, "packaging", "build-host.js"), [], { REASONIX_VERSION: `v${number}` });
-run(require.resolve("electron-builder/cli.js"), [...passthrough, `-c.extraMetadata.version=${number}`]);
+// `--config.`, not `-c.`. electron-builder parses its command line with yargs,
+// and a one-letter option is read as a short flag: `-c.extraMetadata.version=…`
+// arrives as the string in `argv.c`, which nothing reads, so extraMetadata stays
+// empty and the bundle ships 0.0.0 while the log still prints the version it was
+// told. Only the long name expands the dotted path into an object — verified
+// against the yargs this build resolves to.
+run(require.resolve("electron-builder/cli.js"), [...passthrough, `--config.extraMetadata.version=${number}`]);
