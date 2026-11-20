@@ -55,7 +55,8 @@ func writeThemePack(t *testing.T, id string) {
 	}
 }
 
-func themeServer(t *testing.T) *httptest.Server {	t.Helper()
+func themeServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	srv := httptest.NewServer(operatorHandler(New(&extensionCtl{}, NewBroadcaster(), config.ServeConfig{})))
 	t.Cleanup(srv.Close)
 	return srv
