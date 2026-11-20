@@ -59,7 +59,11 @@ describe("model picker", () => {
     expect(heads()).toEqual(["deepseek", "moonshot", "relay", "gw"]);
     expect(rows()).toHaveLength(16);
     expect(document.querySelectorAll(".studio-model-menu .mi.head .mi-mono")).toHaveLength(4);
-    expect(document.querySelectorAll(".studio-model-menu button.mi .mi-mono")).toHaveLength(16);
+    // A model's row carries the vendor's own artwork where there is one, and the
+    // fallback glyph where there is not; either way every row is marked.
+    for (const row of rows()) expect(row.querySelector(".mi-mono, .vendor-mark")).not.toBeNull();
+    expect(document.querySelectorAll(".studio-model-menu button.mi .vendor-mark").length +
+      document.querySelectorAll(".studio-model-menu button.mi .mi-mono").length).toBe(16);
   });
 
   it("gives a provider the same service icon and tone every time it is drawn", () => {

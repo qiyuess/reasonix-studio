@@ -30,6 +30,11 @@ async function openWindow() {
     port.history = async () => history(60);
     return port;
   };
+  // A launch nobody has entered has no conversation in front: the pane is the
+  // room, and nothing is read into it until a row is picked. This case is about
+  // a conversation already on screen, which is what a reload of the tab is.
+  const runtime = await hub.open({ root: "~/projects/my-website", sessionPath: "/sessions/site.jsonl" });
+  sessionStorage.setItem("rx-active-pane", runtime.id);
   render(<App hub={hub} />);
   const composer = await waitFor(() => {
     const box = document.querySelector<HTMLTextAreaElement>(".pane textarea");

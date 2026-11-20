@@ -21,10 +21,16 @@ describe("adding a project from the pill's palette", () => {
       port.providerSetup = async () => null;
       port.welcomeSeen = async () => true;
       port.workspaces = async () => ({ current: rt.root ?? "", canSwitch: true, canIsolate: true, recents: [] });
+      // The pill names the project of the conversation it sits in, so the pane
+      // has to be one that has been entered — a launch nobody has entered names
+      // no project at all.
+      const base = port.status.bind(port);
+      port.status = async () => ({ ...(await base()), sessionPath: "/sessions/mock.jsonl" });
       return port;
     };
     hub.pickFolder = async () => "/work/fresh-project";
     const open = vi.spyOn(hub, "open");
+    sessionStorage.setItem("rx-active-pane", "r1");
     render(<App hub={hub} />);
 
     await screen.findByRole("combobox", { name: "任务输入" });

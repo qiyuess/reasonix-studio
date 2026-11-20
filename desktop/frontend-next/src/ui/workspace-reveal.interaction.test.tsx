@@ -72,7 +72,7 @@ it("reports a refusal instead of swallowing it", async () => {
   await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(refusal));
 });
 
-it("lists the other programs once, in the user's language, and not the file manager twice", async () => {
+it("lists the other programs once, in the user's language, and neither the file manager nor a terminal twice", async () => {
   shell.targets = [
     { id: "file-manager", name: "File manager", available: true },
     { id: "vscode", name: "Visual Studio Code", available: true },
@@ -81,10 +81,14 @@ it("lists the other programs once, in the user's language, and not the file mana
   try {
     draw();
     await openMenu();
-    await screen.findByRole("menuitem", { name: /用 终端 打开/ });
-    expect(screen.getByRole("menuitem", { name: /用 VS Code 打开/ })).toBeTruthy();
+    // One entry per editor, named in the user's language. Revealing a folder is
+    // the menu's own item above, and a terminal is not a way of looking at a
+    // project, so neither is offered as a program.
+    await screen.findByRole("menuitem", { name: /用 VS Code 打开/ });
+    expect(screen.getAllByRole("menuitem", { name: /用 VS Code 打开/ })).toHaveLength(1);
     expect(screen.queryByRole("menuitem", { name: /File manager|Terminal/ })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: /用 文件管理器 打开/ })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /用 终端 打开/ })).toBeNull();
   } finally {
     shell.targets = [];
   }

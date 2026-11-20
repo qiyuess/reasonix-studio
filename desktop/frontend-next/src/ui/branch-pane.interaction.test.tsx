@@ -51,6 +51,10 @@ it("opens a sidebar conversation through the real final-reply BranchAt action", 
     finishOpen = async () => { resolve(await originalOpen(req)); };
   }));
   const rename = vi.spyOn(hub, "renameSession");
+  // The reply actions live on a conversation that is in front of the person, so
+  // the tab says which one it was showing — a launch nobody has entered has no
+  // conversation to branch from.
+  sessionStorage.setItem("rx-active-pane", source.id);
   const view = render(<App hub={hub} />);
   await expandProjects();
   const active = () => view.container.querySelector<HTMLElement>(".pane[data-active]")!;

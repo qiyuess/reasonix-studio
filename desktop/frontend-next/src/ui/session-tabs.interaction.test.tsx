@@ -25,6 +25,11 @@ async function hub(panes = 2) {
     return port;
   };
   if (panes > 1) await kernel.open({ sessionPath: "/sessions/second.jsonl" });
+  // The tab strip sits over conversations the person is in, so the window is
+  // one that has been entered: a launch nobody entered shows the room, not a
+  // conversation, and its pane has no breadcrumb to wait for.
+  const [first] = await kernel.runtimes();
+  sessionStorage.setItem("rx-active-pane", first.id);
   return kernel;
 }
 
