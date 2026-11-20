@@ -75,24 +75,18 @@ The gallery has four groups:
   `desktop-theme-state.json` — reinstalling the same plugin restores the theme.
   Save/delete/duplicate/export reject plugin theme ids as read-only.
 
-### The eight official themes
+### The official themes
 
-| ID | Name | Base style | Artwork |
-| --- | --- | --- | --- |
-| `official-rose-dawn` | Rose Dawn / 玫瑰晨光 | graphite | Ivory dawn, soft roses, original illustrated muse |
-| `official-fortune-forge` | Fortune Forge / 鸿运工坊 | amber | Vermilion/gold/jade workshop, original lucky programmer |
-| `official-crimson-horizon` | Crimson Horizon / 赤曜新城 | graphite | Coral-red future city skyline, no people |
-| `official-sage-breeze` | Sage Breeze / 鼠尾草清风 | slate | Cream paper, sage sprigs, original reader |
-| `official-spark-notebook` | Spark Notebook / 灵感手账 | aurora | Notebook grid with stationery, original anime adult |
-| `official-violet-starlight` | Violet Starlight / 紫曜星夜 | nocturne | Blue-violet starfield, butterflies, silhouette muse |
-| `official-cyan-stage` | Cyan Stage / 青岚舞台 | carbon | Cyan stage, light rings, original digital performer |
-| `official-noir-gold` | Noir Gold / 黑金序曲 | carbon | Black velvet, gold spotlights, original gentleman |
+The themes that ship are palettes only — 清白蓝 (`official-clear-blue`),
+Patina (`official-patina`) and 茶绿 (`official-tea-green`). They carry tokens
+and nothing else: no artwork, no background, no preview image. A pack with
+pictures is something a person installs, not something this repository ships.
 
-Previews are shown inside the app's theme library (Settings → Appearance) from
-real Reasonix builds. **Screenshots of the app must not be imported as theme
-backgrounds.** Asset provenance, hashes and licence ledger:
-[THEME_ASSETS.md](./THEME_ASSETS.md) · generator scripts in
-`scripts/official-theme-art/` (procedural, fixed seeds, reproducible).
+**Screenshots of the app must not be imported as theme
+backgrounds.** The generator scripts that once produced illustrated packs live
+in `scripts/official-theme-art/` (procedural, fixed seeds, reproducible); see
+[THEME_ASSETS.md](./THEME_ASSETS.md) for the provenance of the artwork they
+made, which is no longer part of this tree.
 
 ## Package format
 

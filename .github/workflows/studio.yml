@@ -195,7 +195,6 @@ jobs:
           node perf/job-names.mjs
           node perf/mcp-actions.mjs
           node perf/web-access.mjs
-          node perf/peers-settings.mjs
           node perf/output-cap.mjs
           node perf/tool-output-clip.mjs
           node perf/agent-run-tab.mjs
@@ -208,7 +207,6 @@ jobs:
           node perf/trust-wait.mjs
           node perf/nest-nodes.mjs
           node perf/provider-ports.mjs
-          node perf/peer-threads.mjs
           node perf/text-size.mjs
           node perf/fs-scale.mjs
           node perf/composer-feel.mjs

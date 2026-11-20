@@ -52,7 +52,7 @@ it("marks the grouped SSH project current and removes all its booked directories
   expect(document.querySelectorAll(".wsnode")).toHaveLength(1);
   expect(document.querySelector(".wsnode[data-current]")).not.toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "项目操作：site · gpu" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: /从列表移除/ }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /移除/ }));
   expect(onClose).toHaveBeenCalledWith(["r1"]);
   expect(removeRemoteWorkspace.mock.calls).toEqual([["gpu", root], ["gpu", copy]]);
 });

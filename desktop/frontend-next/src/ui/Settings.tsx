@@ -284,7 +284,6 @@ export function Settings({ hub, onError, port, networkPort, localWorkspacePort, 
     model: status?.modelRef?.split("/").pop() ?? "—",
     providers: models.length ? t("settings.n_services", { n: groupVendors(models).length }) : "",
     tools: ruleCount ? `${approval} · ${ruleCount}` : approval,
-    peers: "",
     hooks: hookCount ? t("common.n_2", { n: hookCount }) : t("common.off"),
     ext: broken ? t("settings.n_with_problems", { n: broken }) : packages.length ? t("settings.n_packages", { n: packages.length }) : `${looseMcp.length + looseOn}`,
     network: netMode,
@@ -427,7 +426,7 @@ export function Settings({ hub, onError, port, networkPort, localWorkspacePort, 
               <span className="why">{note.text}</span>
             </div>
           )}
-          {at === "session" && <AgentSettings port={port} hub={hub} persona={landed === "persona"} onPersona={() => go("session", "persona")} onChanged={onChanged} />}
+          {at === "session" && <AgentSettings port={port} persona={landed === "persona"} onPersona={() => go("session", "persona")} onChanged={onChanged} />}
 
           {at === "model" && (
             <ModelSettings port={port} onChanged={onChanged} onFailed={setFailed}

@@ -19,6 +19,8 @@ function rail(authoredTurns?: number | null, extra: { cost?: boolean; tariff?: b
   );
 }
 
+// The chip itself is the button inside its anchor: the anchor also carries the
+// note the count opens, and only the button reads as the figure.
 const chip = (c: HTMLElement) => c.querySelector<HTMLElement>(".studio-meter-turns");
 // The figure alone: a loose text match lets "10" satisfy an assertion about "0",
 // which is how a wrong count passes a test meant to catch it.
@@ -54,9 +56,8 @@ it("draws no count for a value that is not a finite number", () => {
 });
 
 // It sits among the session-level figures, after what the model did and before
-// what the session has cost. Compared on the whole class string on purpose: the
-// turns chip carries two classes, and taking the first match would compare
-// "studio-meter-static" — which no chip but this one has.
+// what the session has cost. The anchor is what the rail's own order sees: the
+// button inside it is what a reader sees.
 it("keeps its place between the tariff and the cost chips when they share the rail", () => {
   const { container } = rail(3, { cost: true, tariff: true });
   const order = [...container.querySelectorAll(".studio-meterrail > *")].map((e) =>
@@ -64,6 +65,6 @@ it("keeps its place between the tariff and the cost chips when they share the ra
   );
   const at = (name: string) => order.findIndex((c) => c.includes(name));
   expect(at("studio-meter-tariff"), order.join(" | ")).toBeGreaterThanOrEqual(0);
-  expect(at("studio-meter-turns"), order.join(" | ")).toBeGreaterThan(at("studio-meter-tariff"));
-  expect(at("studio-meter-cost"), order.join(" | ")).toBeGreaterThan(at("studio-meter-turns"));
+  expect(at("studio-turns-anchor"), order.join(" | ")).toBeGreaterThan(at("studio-meter-tariff"));
+  expect(at("studio-meter-cost"), order.join(" | ")).toBeGreaterThan(at("studio-turns-anchor"));
 });

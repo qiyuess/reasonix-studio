@@ -1,30 +1,35 @@
 import { useContext } from "react";
 import { t } from "../i18n";
-import type { Adder } from "./addws";
-import { StudioIcon } from "./StudioIcon";
 import { RailFilterContext } from "./railfilter";
+import { WsMark } from "./WsMark";
 
-export function ProjectsHeader({ adder, onRecent, onToggleAll, allFolded, canFold, searching }: { adder: Adder; onRecent?: () => void; onToggleAll?: () => void; allFolded?: boolean; canFold?: boolean; searching?: boolean }) {
+/** The row above the tree: the view's name and the session filter. The name
+ *  folds both runs at once — every folder that can fold, and every empty run's
+ *  note — with the same arrow the group labels answer to. Folding a single
+ *  group lives on the group labels; picking conversations starts from the
+ *  tree's own right-click menus; ordering by recency lives in the filter menu,
+ *  beside the scopes it reorders. */
+export function ProjectsHeader({ bothFolded, searching, onToggleBoth }: {
+  bothFolded?: boolean;
+  searching?: boolean;
+  onToggleBoth?: () => void;
+}) {
   const filter = useContext(RailFilterContext);
+  const said = t(bothFolded ? "session.expand_all_groups" : "session.collapse_all_groups");
   return (
     <div className="projects-header">
       <div className="projects-tabs">
-        <div className="vtabs" role="group" aria-label={t("session.session_view")}>
-          <button type="button" className="vtab" data-action="session.view" data-value="projects" aria-pressed="true">{t("common.project")}</button>
-          {onRecent && <button type="button" className="vtab" data-action="session.recent" title={t("session.recent_sessions")} aria-label={t("session.recent_sessions")} onClick={onRecent}>{t("session.recent")}</button>}
-        </div>
-        <span className="projects-spacer" />
-        {onToggleAll && (
-          <button className="projects-add projects-fold" data-action="workspace.fold-all" disabled={!canFold || searching} aria-expanded={!allFolded}
-            title={t(searching ? "session.projects_expand_automatically_while_searching" : allFolded ? "session.expand_all_projects" : "session.collapse_all_projects")} aria-label={t(allFolded ? "session.expand_all_projects" : "session.collapse_all_projects")} onClick={onToggleAll}>
-            <StudioIcon name={allFolded ? "expandAll" : "collapseAll"} />
-          </button>
-        )}
-        {filter}
-        <button className="projects-add" data-busy={adder.busy ? "" : undefined} disabled={adder.busy}
-          title={t("session.open_project")} aria-label={t("session.open_project")} data-action="workspace.add" onClick={() => adder.add()}>
-          <StudioIcon name="plus" />
+        <button type="button" className="vtab" aria-current="true"
+          data-action="workspace.fold-all" data-value="both"
+          disabled={!onToggleBoth || searching}
+          aria-expanded={onToggleBoth ? !bothFolded : undefined}
+          title={said} aria-label={said}
+          onClick={onToggleBoth}>
+          {t("session.task_list")}
+          <WsMark open={onToggleBoth ? !bothFolded : undefined} />
         </button>
+        <span className="projects-spacer" />
+        {filter}
       </div>
     </div>
   );

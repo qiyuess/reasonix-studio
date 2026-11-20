@@ -18,7 +18,7 @@ import { ModelGroupChips } from "./ModelGroupChips";
 import { useModelHealth } from "./modelhealth";
 import { effortMenu, effortReading, effortShort, effortsFor, forcesThinkingFor, routeEffortPick } from "./effort";
 import { EffortColumn } from "./EffortColumn";
-import { hasVendorMark, VendorMark } from "./vendormarks";
+import { hasVendorMark, markForModelId, VendorMark } from "./vendormarks";
 import { CompletionMenu, useCompletion } from "./Completion";
 import { ChipMirror, useSkillChips } from "./ChipMirror";
 import { useIme } from "./ime";
@@ -80,17 +80,19 @@ interface Props {
   // Git state follows changeCount's refresh path (turn boundaries and writes).
   // null is unread; repo:false is a workspace without a repository.
   git?: WorkspaceGit | null;
-  // The repository that git reading speaks for, "" being the workspace's own.
-  repo?: string;
   workspace?: WorkspaceInfo | null;
   // The switch already answers with the workspace's Git state.
   onTreeChanged?: (git: WorkspaceGit) => void;
   // Bumped when settings change; a source edited there can change the ladder.
   pulse?: number;
   draftKey?: string;
+  // Nobody has entered this conversation yet: a window that has just opened
+  // shows the room, not a conversation, and typing here would either start one
+  // nobody asked for or write into whatever the kernel happened to have open.
+  locked?: boolean;
 }
 
-export function Composer({ port, status, running, queued = false, quote, restore, inject, focus, onSubmit, onChanged, onError, onSettings = () => {}, side = false, onSide, sidePanel, queueStrip, changeCount = 0, countElsewhere = false, git = null, repo = "", workspace = null, onTreeChanged, pulse = 0, draftKey = "", fresh = false, worktreeTarget, onWorktreePhase }: Props) {
+export function Composer({ port, status, running, queued = false, quote, restore, inject, focus, onSubmit, onChanged, onError, onSettings = () => {}, side = false, onSide, sidePanel, queueStrip, changeCount = 0, countElsewhere = false, git = null, workspace = null, onTreeChanged, pulse = 0, draftKey = "", fresh = false, worktreeTarget, onWorktreePhase, locked = false }: Props) {
   const touch = touchKeyboard();
   const providerOrder = useProviderOrder();
   const modelGroups = useModelFilter();
@@ -230,7 +232,7 @@ export function Composer({ port, status, running, queued = false, quote, restore
   const showHint = useSyncExternalStore(onComposerHintChange, showsComposerHint, showsComposerHint);
   const fittedPlaceholder = usePlaceholderFit(box, queued ? [t("composer.keep_typing_to_queue_further"), t("composer.keep_typing"), "…"] : running ? [t("composer.you_can_keep_typing_while"), t("composer.keep_typing"), "…"] : [t("composer.describe_a_task_question_or"), t("composer.describe_a_task"), "…"]);
   const typedPlaceholder = useTypedPlaceholder(fittedPlaceholder, text.length > 0);
-  const placeholder = showHint ? typedPlaceholder : "";
+  const placeholder = locked ? t("app.pick_one_on_the_left") : showHint ? typedPlaceholder : "";
 
   // Attachments ride into the turn as path references, exactly as they do from
   // the CLI — the host saved the bytes, the turn parser resolves the token. A
@@ -239,6 +241,7 @@ export function Composer({ port, status, running, queued = false, quote, restore
   const keepPaste = (chip: PasteChip) => keepPasteAsFile(port, chip, setShots);
 
   const send = () => {
+    if (locked) return;
     if (submittingRef.current || shots.some((c) => c.k === "attachment" && c.state !== "ready")) return;
     const v = text.trim();
     if (!v && shots.length === 0) return;
@@ -397,7 +400,11 @@ export function Composer({ port, status, running, queued = false, quote, restore
   });
 
   const efforts = effortsFor(models, status?.modelRef);
-  const currentMark = models.find((m) => m.ref === status?.modelRef)?.mark;
+  // The id names the family, and the family owns the mark — the same rule the
+  // menu's rows use. A relay declares no vendor of its own, so reading m.mark
+  // alone left the composer's button bare.
+  const currentModel = models.find((m) => m.ref === status?.modelRef);
+  const currentMark = (currentModel && markForModelId(currentModel.model)) ?? currentModel?.mark;
   // Whether this model says anything about reasoning levels at all. The session
   // may still carry one from a model that did, and printing that would be the
   // composer answering for an endpoint that never spoke.
@@ -423,7 +430,7 @@ export function Composer({ port, status, running, queued = false, quote, restore
   const hasDraft = text.trim().length > 0 || shots.some((c) => c.k !== "attachment" || c.state === "ready");
   const lines = countLines(text);
   const showCount = text.length >= 240 || lines > 3;
-  const sendDisabled = submitting || stopping || adding || failed || !hasDraft || !!worktree.stage;
+  const sendDisabled = submitting || stopping || adding || failed || !hasDraft || !!worktree.stage || locked;
   const warnPictures = status?.vision === false && shots.some((c) => c.k === "attachment" && c.state === "ready" && isPicture(c));
 
   const setupPage = worktree.stage && <WorktreeSetupPage stage={worktree.stage} task={setupDraft.text} files={setupDraft.files} busy={submitting} onRetry={send} onCancel={() => void worktree.cancel()} onEdit={worktree.dismiss}/>;
@@ -570,7 +577,7 @@ export function Composer({ port, status, running, queued = false, quote, restore
           aria-describedby={guide}
           aria-keyshortcuts={sendAria(sendShortcut, touch)}
           aria-busy={submitting}
-          readOnly={submitting}
+          readOnly={submitting || locked}
           aria-expanded={menu.open}
           aria-controls={menu.open ? completionId : undefined}
           aria-autocomplete="list"
@@ -716,7 +723,7 @@ export function Composer({ port, status, running, queued = false, quote, restore
             label={<><StudioIcon name={status?.plan ? "tasks" : "agent"} /><span className="studio-sr-label">{t("common.plan")}</span><span>{status?.plan ? "Plan" : "Agent"}</span><StudioIcon name="down" /></>}
           />
         </div>
-        {git?.repo && (worktree.sources || status?.workspaceRoot) ? <WorktreeChip port={port} workspace={workspace} onChanged={onChanged} onSwitched={onTreeChanged} onError={onError} changeCount={countElsewhere ? 0 : changeCount} sources={worktree.sources ?? { available: false, sourceRoot: status?.workspaceRoot ?? "", sources: [] }} canCreate={fresh && !!worktree.sources?.available} selection={worktree.selection} branch={git.branch} busy={submitting || running} onSelect={worktree.setSelection} refresh={worktree.refresh} /> : <BranchChip port={port} git={git} changeCount={changeCount} countElsewhere={countElsewhere} repo={repo} onChanged={onChanged} onSwitched={onTreeChanged} onError={onError} />}
+        {git?.repo && (worktree.sources || status?.workspaceRoot) ? <WorktreeChip port={port} workspace={workspace} onChanged={onChanged} onSwitched={onTreeChanged} onError={onError} changeCount={countElsewhere ? 0 : changeCount} sources={worktree.sources ?? { available: false, sourceRoot: status?.workspaceRoot ?? "", sources: [] }} canCreate={fresh && !!worktree.sources?.available} selection={worktree.selection} branch={git.branch} busy={submitting || running} onSelect={worktree.setSelection} refresh={worktree.refresh} /> : <BranchChip port={port} git={git} changeCount={changeCount} countElsewhere={countElsewhere} onChanged={onChanged} onSwitched={onTreeChanged} onError={onError} />}
         {/* The toggle keeps its legacy meaning: it follows `plan`, which the
             kernel turns off the moment a plan is approved. The lifecycle is a
             separate reading — an approved plan is still running, and saying so

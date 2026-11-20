@@ -5,6 +5,7 @@ import { groupVendors } from "./Models";
 import { t } from "../i18n";
 import { UNCONFIGURED_REF } from "./ConnectNote";
 import { KIND_LABEL } from "./vendors";
+import { markForModelId } from "./vendormarks";
 import { orderAccounts } from "../state/providerorder";
 import { modelHealthStatus, type ModelHealth } from "./modelhealth";
 
@@ -36,15 +37,24 @@ export function modelMenu(models: ModelEntry[], order: readonly string[] = [], c
     out.push({ value: `__account:${a.key}`, label: a.label, right: a.host, header: true, divide: i > 0, providerIcon, mark });
     for (const kind of a.kinds) {
       for (const m of a.byKind[kind]) {
+        // The names are the door's own: the refresh reads what its listing
+        // offers (a relay's renamed models, magpie's custom names) into the
+        // aliases, and the alias leads the label. The id's own shorthand is
+        // never guessed at here.
+        const label = m.modelAlias?.trim() || m.modelShort || m.model;
         out.push({
           value: m.ref,
-          label: m.modelAlias?.trim() || m.modelShort || m.model,
+          label,
           desc: m.modelAlias?.trim() ? m.model : undefined,
           status: modelHealthStatus(health[m.provider]),
           meta: t(KIND_LABEL[kind] ?? kind),
           badge: m.vision ? t("common.reads_images") : undefined,
           providerIcon,
-          mark: m.mark,
+          // The id names the family, and the family owns the mark: a relay
+          // serving deepseek-chat shows DeepSeek even though the door is its
+          // own. No keyword match leaves the row to the door's declared mark,
+          // or to the letter chip when none was declared.
+          mark: markForModelId(m.model) ?? m.mark,
         });
       }
     }

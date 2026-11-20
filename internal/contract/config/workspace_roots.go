@@ -57,9 +57,6 @@ func (c *Config) ForbiddenRootsForRoot(root string) []string {
 	base := c.ForbidReadRootsForRoot(root)
 	base = appendUniqueResolved(base, secrets.ForbiddenReadPaths(c.Secrets.ProtectSensitiveFiles)...)
 	base = appendUniqueResolved(base, append(secrets.HostSecretPaths(), c.Roots().RemoteStateDir(), c.Roots().ScheduleDir())...)
-	if peers := c.Roots().PeersDir(); peers != "" {
-		base = appendUniqueResolved(base, peers)
-	}
 	if dir := c.Roots().SandboxDir(); dir != "" {
 		base = appendUniqueResolved(base, dir)
 	}

@@ -59,18 +59,6 @@ function ApprovalScope({ scope, input }: { scope: string; input?: Record<string,
       </>
     );
   }
-  if (scope === "open_projects") {
-    const paths = Array.isArray(input?.paths) ? input.paths.filter((p): p is string => typeof p === "string") : [];
-    return (
-      <div className="apv-dt" data-scope={scope}>
-        <span className="apv-dt-label">{t("chat.approving_also")}</span>
-        <span>
-          {t("chat.adds_these_n_folders_to", { n: paths.length })}
-          <ul className="apv-paths">{paths.map((p) => <li key={p}><code title={p}>{p}</code></li>)}</ul>
-        </span>
-      </div>
-    );
-  }
   return (
     <div className="apv-dt" data-scope={scope}>
       <span className="apv-dt-label">{t("chat.approving_also")}</span>

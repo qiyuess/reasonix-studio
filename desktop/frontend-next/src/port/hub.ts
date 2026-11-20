@@ -106,6 +106,11 @@ export interface OpenWithTarget {
 }
 
 export interface TreeWorkspace {
+  /** The name the person gave the project in the sidebar; `name` stays the
+   *  folder's own. */
+  displayName?: string;
+  /** The kernel is the authority for pins: a pinned project leads the list. */
+  pinned?: boolean;
 	listingState?: "discovering" | "indexing" | "ready" | "degraded";
 	listingRevision?: number;
 	countsComplete?: boolean;
@@ -122,6 +127,9 @@ export interface TreeWorkspace {
   // True when the user chose this folder. A window always has a root — the one
   // it happened to launch in — and only this tells that apart from a project.
   remembered?: boolean;
+  // True for the app's own folder, where a conversation with no project lands:
+  // the sidebar draws it as the task section, never as a project row.
+  auto?: boolean;
   // Every conversation the folder lists, loaded or not, and how many of those
   // are archived. `sessions` is only the newest of them; a kernel that predates
   // paging sends neither, and then `sessions` is all there is.
@@ -207,7 +215,7 @@ export interface HubPort extends SharePort {
   /** Conversations, in every workspace, that say these words. */
   searchHistory(query: string): Promise<HistorySearch>;
   onTreeChanged(listener: () => void): () => void;
-  addWorkspace(path: string): Promise<TreeWorkspace>;
+  addWorkspace(path: string, name?: string): Promise<TreeWorkspace>;
   removeWorkspace(path: string): Promise<void>;
   /** Show a listed project's folder in the system file manager. */
   revealWorkspace(path: string): Promise<void>;
@@ -220,6 +228,16 @@ export interface HubPort extends SharePort {
   moveSession(path: string, direction: -1 | 1): Promise<void>;
   /** Drop a project before another remembered one, or at the end when `before` is empty. */
   placeWorkspace(path: string, before: string): Promise<void>;
+  /** Put one conversation before another inside its folder. */
+  placeSession(path: string, before: string): Promise<void>;
+  /** The name a folder shows instead of its basename. */
+  setWorkspaceDisplayName(path: string, name: string): Promise<void>;
+  /** Pin a project: a pinned one leads the list. */
+  setWorkspacePinned(path: string, pinned: boolean): Promise<void>;
+  /** Archive or restore every conversation the project holds, so the project
+   *  itself reads as archived or active — archiving is a property of
+   *  conversations, and the kernel decides the reach from what is on disk. */
+  archiveWorkspace(path: string, archived: boolean): Promise<void>;
   removeSession(path: string): Promise<void>;
   /** The conversation moves into the named project; originalRemoved is false when the copy arrived but the original could not be taken away. */
   moveSessionTo(path: string, target: string): Promise<{ path: string; originalRemoved: boolean }>;
@@ -280,7 +298,7 @@ export interface HubPort extends SharePort {
   // separate read so the page can choose a usable fallback before invoking a
   // host-only action.
   hostCapabilities(): Promise<HostCapabilities>;
-  pickFolder(): Promise<string | null>;
+  pickFolder(preferred?: string): Promise<string | null>;
   // Machine settings resolve a local owner; workspace reads can pin a runtime.
   machinePort(runtimeId?: string): AgentPort;
   // Absolute paths of every file dropped anywhere on the window. It belongs
@@ -389,8 +407,8 @@ export class SseHub implements HubPort {
     return this.get<HistorySearch>("/history/search?q=" + encodeURIComponent(query));
   }
 
-  addWorkspace(path: string) {
-    return this.post<TreeWorkspace>("/tree/workspaces", { path });
+  addWorkspace(path: string, name?: string) {
+    return this.post<TreeWorkspace>("/tree/workspaces", { path, name: name ?? "" });
   }
 
   async revealWorkspace(path: string) {
@@ -425,6 +443,22 @@ export class SseHub implements HubPort {
 
   async placeWorkspace(path: string, before: string) {
     await this.post<void>("/tree/workspaces/move", { path, before });
+  }
+
+  async placeSession(path: string, before: string) {
+    await this.post<void>("/tree/sessions/move", { path, before });
+  }
+
+  setWorkspaceDisplayName(path: string, name: string) {
+    return this.post<void>("/tree/workspaces/display-name", { path, name });
+  }
+
+  setWorkspacePinned(path: string, pinned: boolean) {
+    return this.post<void>("/tree/workspaces/pin", { path, pinned });
+  }
+
+  archiveWorkspace(path: string, archived: boolean) {
+    return this.post<void>("/tree/workspaces/archive", { root: path, archived });
   }
 
   async moveSessionTo(path: string, target: string) {

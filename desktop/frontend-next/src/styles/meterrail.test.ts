@@ -41,12 +41,14 @@ describe("status rail figures hold their width", () => {
     expect(speed?.decls.get("min-width")).toBe("5ch");
   });
 
-  // The turn count grows on its own — 9 to 10, 99 to 100 — with the cost chips
-  // right behind it, so it owes the same reservation the speed figure pays.
-  it("reserves the width of the turn count, which grows on its own beside the cost", () => {
+  // The turn count sits as close to its words as the context percentage does:
+  // both are one reading, and the label names it. A three-character reservation
+  // with right alignment left a one-digit count floating a whole gap away from
+  // its label, which is not the shape any other figure in this rail has.
+  it("keeps the turn count beside its label instead of reserving a column", () => {
     const turns = rail.find((r) => r.selector === ".studio-meterrail .studio-meter-turns b");
-    expect(turns?.decls.get("min-width")).toBe("3ch");
-    expect(turns?.decls.get("text-align")).toBe("right");
+    expect(turns?.decls.get("min-width")).toBe("1.6ch");
+    expect(turns?.decls.get("text-align")).toBe("left");
   });
 
   // Its label is set faint like every other session figure's, so the number is

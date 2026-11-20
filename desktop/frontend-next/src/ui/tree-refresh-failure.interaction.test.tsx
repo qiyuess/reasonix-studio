@@ -7,7 +7,6 @@ import { App } from "./App";
 import { MockHub } from "../port/mock_hub";
 import type { TreeWorkspace } from "../port/hub";
 import { boot, STORAGE } from "../i18n";
-import { expandProjects } from "./sidebarrows";
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -43,6 +42,8 @@ async function refreshFromNewSession(hub: MockHub) {
   const read = vi.spyOn(hub, "tree").mockReturnValue(pending);
   await userEvent.keyboard("{Control>}k{/Control}");
   await userEvent.click(await screen.findByRole("button", { name: /^新建会话操作$/ }));
+  // 新建会话 opens at once and sends no root; opening the session is what
+  // re-reads the tree.
   await waitFor(() => expect(read).toHaveBeenCalled());
   return { resolve, reject };
 }
@@ -50,7 +51,6 @@ async function refreshFromNewSession(hub: MockHub) {
 it("keeps the listed conversations when a refresh after opening a session fails", async () => {
   const hub = readyHub();
   render(<App hub={hub} />);
-  await expandProjects();
   await screen.findByText("上一次的会话");
   expect(screen.getByText("my-website")).toBeTruthy();
   await screen.findByRole("combobox", { name: "任务输入" });
@@ -64,12 +64,13 @@ it("keeps the listed conversations when a refresh after opening a session fails"
 it("accepts a successful empty refresh as the new canonical tree", async () => {
   const hub = readyHub();
   render(<App hub={hub} />);
-  await expandProjects();
   await screen.findByText("上一次的会话");
   await screen.findByRole("combobox", { name: "任务输入" });
   const pending = await refreshFromNewSession(hub);
   await act(async () => pending.resolve([]));
   expect(screen.queryByText("上一次的会话")).toBeNull();
   expect(screen.queryByText("my-website")).toBeNull();
-  expect(screen.getAllByText("尚无文件夹").length).toBeGreaterThan(0);
+  // An empty tree reads as two standing runs, each with its own empty note.
+  expect(screen.getByText("暂无项目")).toBeTruthy();
+  expect(screen.getByText("暂无任务")).toBeTruthy();
 });

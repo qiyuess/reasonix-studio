@@ -148,3 +148,8 @@ this native smoke; successful builds do not establish native shortcut behavior.
 Packaging runs through electron-builder; `release-studio.yml` drives it on all
 three platforms. Linux ships a `.deb` because that is what makes Studio
 self-updating there. See `docs/STUDIO_RELEASE.md`.
+
+Locally, package with `pnpm run pack -- --win nsis --build-version X.Y.Z` in
+`desktop/electron`. It is the one entry that answers both halves of the version
+question — the kernel's `main.version` and the bundle's `-c.extraMetadata.version`
+— and it refuses to build rather than hand back a 0.0.0 installer.

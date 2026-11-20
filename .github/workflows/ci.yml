@@ -175,7 +175,12 @@ jobs:
           # regression there silently tanks the cache hit rate the project is
           # built around.
           REASONIX_RELEASE_CACHE_GUARD: "1"
-        run: go test ./...
+        # The per-package timeout is 18m, the same budget the Windows smoke step
+        # below states and for the same reason: Go's 10m default is per package,
+        # not per run, and internal/frontend/serve alone holds ~1500 cases that
+        # take 8m on a fast runner. Without this, a slower runner reports a
+        # timeout panic on whichever case it happened to be running.
+        run: go test -timeout=18m ./...
 
       - name: test (Windows composition links)
         if: env.RUN_STEPS == 'true' && runner.os == 'Windows' && github.event_name == 'pull_request'

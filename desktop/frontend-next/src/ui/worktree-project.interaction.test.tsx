@@ -57,7 +57,7 @@ it("opens grouped history in its worktree and new conversations in the original 
 it("closes the project's worktree panes when removing the grouped project", async () => {
   const { onClose, removeWorkspace } = draw();
   await userEvent.click(screen.getByRole("button", { name: "项目操作：site" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: /从列表移除/ }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /移除/ }));
   await userEvent.click(screen.getByRole("button", { name: "移除" }));
   expect(onClose).toHaveBeenCalledWith(["r1"]);
   expect(removeWorkspace).toHaveBeenCalledWith(root);

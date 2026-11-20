@@ -1,31 +1,32 @@
 import { FEEDBACK_RETIRED } from "../feedbackchannel";
 import { SidebarTools } from "./SidebarTools";
+import { SidebarDestinations } from "./SidebarDestinations";
 import { FeedbackBadge, feedbackEntryTab } from "./feedbackentry";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { t } from "../i18n";
 import logoWordmark from "../assets/logo-wordmark.svg";
 import type { ApprovalMode } from "../port/port";
-import type { HubPort, RuntimeView, TreeSession, TreeWorkspace } from "../port/hub";
-import { workspaceContains } from "../port/hub";
+import type { HubPort, RuntimeView, TreeWorkspace } from "../port/hub";
 import type { RemoteHost } from "../port/remote";
 import type { Adder } from "./addws";
 import { ContentMatches } from "./ContentMatches";
 import { SECTION_NAME, SETTINGS } from "./prefsnav";
 import { RailSearch } from "./railsearch";
-import { RemoteHosts, remoteProjectKey, remoteWorkspaces } from "./RemoteHosts";
+import { RemoteHosts, remoteWorkspaces } from "./RemoteHosts";
 import { remoteProjects } from "./remoteProjects";
 import { StudioIcon } from "./StudioIcon";
 import { UpdateNotice } from "./UpdateNotice";
 import { useHiddenHosts } from "../state/remotehide";
+import { useSidebarFolds } from "../state/sidebarFolds";
 import { chord } from "./keys";
+import { listenAction } from "./listen";
 import { Palette, type Command } from "./Palette";
 import { Workspaces } from "./Workspaces";
 import { OpenProject } from "./OpenProject";
 import type { TreePaging, TreeView } from "./treewindow";
 import { useFileDrop } from "./filedrop";
 import type { PaneView } from "../state/paneview";
-import { RecentSessions } from "./RecentSessions";
-import { sessionRuntime, type SessionScope } from "./sessionScope";
+import type { SessionScope } from "./sessionScope";
 import { RailFilterContext } from "./railfilter";
 import { SessionFilter } from "./SessionFilter";
 
@@ -35,6 +36,10 @@ interface Props {
   // other half of that — a column nobody can see must not be reachable by Tab.
   collapsed: boolean;
   navShown: boolean;
+  /** Whether the command palette is open, and how to change it. The window owns
+   *  this so the icon column can open the same palette; a column drawn on its
+   *  own keeps its own. */
+  palette?: [boolean, (open: boolean | ((on: boolean) => boolean)) => void];
   tree: TreeWorkspace[];
   treeRead: boolean;
   answered?: TreeView | null;
@@ -68,6 +73,8 @@ interface Props {
   onPause: (runtimeId: string) => void;
   onBranch?: (runtimeId: string, name: string) => Promise<void>;
   onArchive: (path: string, archived: boolean, runtimeId?: string) => Promise<void>;
+  /** The same archive without the tree read; a batch reads the tree once. */
+  onArchiveQuiet?: (path: string, archived: boolean, runtimeId?: string) => Promise<void>;
   onRename: (path: string, title: string, mode?: "inline" | "dialog") => void;
   onCollapse: () => void;
   wallet: string;
@@ -121,6 +128,7 @@ export function Sidebar({
   onPause,
   onBranch,
   onArchive,
+  onArchiveQuiet,
   onRename,
   onCollapse,
   wallet,
@@ -133,17 +141,17 @@ export function Sidebar({
   feedbackUnread,
   onFind,
   onError,
+  palette: controlledPalette,
 }: Props) {
   const [railScope, setRailScope] = useState<SessionScope>("all");
 
-  const [palette, setPalette] = useState(false);
+  // Owned by the window, not the column: the icon column opens the same palette,
+  // and it has to keep working while this column is shut. Drawn on its own, the
+  // column keeps the state it always had.
+  const [ownPalette, setOwnPalette] = useState(false);
+  const [palette, setPalette] = controlledPalette ?? [ownPalette, setOwnPalette];
   const [projectPicker, setProjectPicker] = useState(false);
-  const [recent, setRecent] = useState(false);
-  const [located, setLocated] = useState<{ target: string } | null>(null);
-  const locatedOnce = useRef<typeof located>(null);
-  // Cold start folds every project: this set holds the ones opened during this
-  // session only, so nothing carries over to the next launch.
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [folded, setFolded] = useSidebarFolds();
 
   const hiddenHosts = useHiddenHosts();
   // Hidden hosts stay manageable in settings but do not contribute project rows.
@@ -192,8 +200,7 @@ export function Sidebar({
       e.preventDefault();
       setPalette((on) => !on);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return listenAction(window, "keydown", { action: "workspace.search", listener: onKey as EventListener });
   }, []);
 
   // What the palette can do is what this column already offers, named once so
@@ -207,6 +214,7 @@ export function Sidebar({
       { id: "view-flow", label: t("session.show_conversation"), icon: "menu", keywords: "conversation chat flow 对话 会话", keys: chord("1"), run: () => onView("flow") },
       { id: "view-analysis", label: t("session.show_run_analysis"), icon: "list", keywords: "run analysis trace 运行 分析", keys: chord("2"), run: () => onView("analysis") },
       { id: "view-browser", label: t("session.show_workbench"), icon: "panel", keywords: "workbench browser files 工作台 浏览器", keys: chord("3"), run: () => onView("browser") },
+      { id: "nav-entries", label: t("settings.navigation_entries"), icon: "settings", keywords: "navigation entries order hide rail 导航 入口 顺序 隐藏 图标", run: () => onSettings("naventries") },
       { id: "files", label: t("common.files"), icon: "file", keywords: "files workspace explorer 文件 工作区", run: onFiles },
       { id: "storage", label: t("common.storage"), icon: "file", keywords: "storage disk data 存储 磁盘 数据",
         run: () => onSettings("storage") },
@@ -231,47 +239,14 @@ export function Sidebar({
   );
 
   const onFold = (root: string, shut: boolean) => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (shut) next.delete(root);
-      else next.add(root);
-      return next;
-    });
+    const next = new Set(folded);
+    if (shut) next.add(root);
+    else next.delete(root);
+    setFolded(next);
   };
-  const foldable = [
-    ...tree.filter((ws) => ws.sessions.length || ws.remaining).map((ws) => ws.root),
-    ...shownRemotes.flatMap((host) => remoteWorkspaces(host, remoteTrees[host.name], runtimes)
-      .filter((ws) => ws.sessions.length || ws.total || !remoteTrees[host.name] || runtimes.some((rt) => rt.host === host.name && workspaceContains(ws, rt.root)))
-      .map((ws) => remoteProjectKey(host.name, ws.root))),
-  ];
-  const folded = new Set(foldable.filter((key) => !expanded.has(key)));
-  const allFolded = foldable.length > 0 && foldable.every((key) => folded.has(key));
-  const toggleAll = () => setExpanded(allFolded ? new Set(foldable) : new Set());
-
-  const pickRecent = async (host: string, workspace: TreeWorkspace, session: TreeSession) => {
-    const held = sessionRuntime(session, runtimes, host);
-    if (held) onFocusPane(held.id);
-    else if (host) {
-      await onOpenRemote(host, session.workspaceRoot || workspace.root, session.path);
-      await readRemoteTree(host);
-    } else await onOpen({ root: session.workspaceRoot || workspace.root, sessionPath: session.path });
-    setRailScope("all");
-    onFold(host ? remoteProjectKey(host, workspace.root) : workspace.root, false);
-    setLocated({ target: host ? remoteProjectKey(host, workspace.root) + ":" + session.path : session.path });
-  };
-  useEffect(() => {
-    if (!located || recent || locatedOnce.current === located) return;
-    const row = [...document.querySelectorAll<HTMLElement>('.rail [role="treeitem"]')]
-      .find((element) => element.dataset.target === located.target);
-    if (!row) return;
-    row.scrollIntoView?.({ block: "nearest" });
-    row.focus({ preventScroll: true });
-    locatedOnce.current = located;
-  }, [located, recent, tree, remoteTrees]);
 
   return (
     <>
-    {recent && <RecentSessions hub={hub} hosts={shownRemotes} runs={runs} onPick={pickRecent} onClose={() => setRecent(false)} />}
     {projectPicker && <OpenProject hub={hub} adder={adder} hosts={shownRemotes}
       onClose={() => setProjectPicker(false)} onError={onError} onOpen={async (host, root) => {
         await onOpenRemote(host, root);
@@ -306,20 +281,14 @@ export function Sidebar({
             <StudioIcon name="panel" />
           </button>
         </div>
-        <button
-          className="studio-new-task"
-          data-action="session.new"
-          title="Alt N"
-          onClick={() => void startConversation().catch(onError)}
-        >
-          <span aria-hidden="true"><StudioIcon name="plus" /></span><b className="studio-label">{t("common.start_a_new_session")}</b><kbd>Alt N</kbd>
-        </button>
-        <button className="studio-search" data-action="workspace.search" title="Ctrl K" onClick={() => setPalette(true)}>
-          <span aria-hidden="true"><StudioIcon name="search" /></span><b className="studio-label">{t("session.search_sessions_and_actions")}</b><kbd>Ctrl K</kbd>
-        </button>
+        {/* Every row of the bar, the two commands included, is drawn from the
+            one list in 更多's keeping — drawing a New session row here as well
+            would offer it twice. */}
+        {!navShown && <SidebarDestinations wallet={wallet} approval={approval} online={online} onGo={onSettings} onFiles={onFiles}
+          onNew={() => void startConversation().catch(onError)} onSearch={() => setPalette(true)} />}
       </div>
       <RailFilterContext.Provider value={<SessionFilter scope={railScope} counts={scopeCounts} onScope={setRailScope} />}>
-      <RailSearch resetKey={located}>
+      <RailSearch>
       <ContentMatches hub={hub} tree={tree} onOpen={onOpen} onError={onError} onReference={onReferenceSession} />
       <Workspaces
         hub={hub}
@@ -329,10 +298,6 @@ export function Sidebar({
         runtimes={runtimes}
         active={active}
         folded={folded}
-        onToggleAll={toggleAll}
-        allFolded={allFolded}
-        onRecent={() => setRecent(true)}
-        canFold={foldable.length > 0}
         onFold={onFold}
         reload={reloadTree}
         retry={retryTree ? () => void retryTree() : undefined}
@@ -353,6 +318,7 @@ export function Sidebar({
         onPause={(runtimeId) => onPause(runtimeId)}
         onBranch={onBranch}
         onArchive={onArchive}
+        onArchiveQuiet={onArchiveQuiet}
         onRename={onRename}
         onError={onError}
         adder={{ ...adder, add: () => shownRemotes.length ? setProjectPicker(true) : adder.add() }}
@@ -385,7 +351,7 @@ export function Sidebar({
       </div>
       {!navShown && <div className="railfoot">
         <UpdateNotice onOpen={() => onSettings("versions")} />
-        <SidebarTools wallet={wallet} approval={approval} online={online} onSettings={onSettings} onFiles={onFiles} />
+        <SidebarTools onSettings={onSettings} />
         {!FEEDBACK_RETIRED && (
           <button className="studio-feedback" data-action="feedback.open" onClick={() => onFeedback(feedbackEntryTab(feedbackUnread))}>
             <span aria-hidden="true"><StudioIcon name="feedback" /></span>

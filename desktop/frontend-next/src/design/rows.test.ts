@@ -28,9 +28,8 @@ describe("session and project rows follow the board", () => {
     expect(rule(".ds-row:hover")).toMatch(/color-mix\(in srgb, var\(--overlay\) 60%, transparent\)/);
   });
 
-  it("swaps the time for the more button on hover", () => {
+  it("swaps the time for the row's quick actions on hover", () => {
     expect(rule(".ds-row:is(:hover, :focus-within) > :is(.ds-meta, .ds-pin)")).toMatch(/display:\s*none/);
-    expect(rule(".ds-row:is(:hover, :focus-within) .ds-more")).toMatch(/display:\s*grid/);
   });
 
   it("hides the quick buttons until the row is hovered or focused, without taking them out of the tab order", () => {

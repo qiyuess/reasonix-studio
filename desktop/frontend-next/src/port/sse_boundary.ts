@@ -3,7 +3,7 @@ import type { PresentFilesSettings } from "./boundary";
 import type { AgentComposition, AgentPresetVersion, AgentPresetCatalog, CompositionSummary } from "./composition";
 import type { ScheduleBoard, ScheduleDraft, SchedulePreview, ScheduleResultView, ScheduleView } from "./schedule";
 import type { PersonaDraft, PersonaSettings } from "./boundary";
-import type { Adjudications, BrowserToolsSettings, SubagentClaimsSettings, WriteLeaseSettings, PlanApprovalSettings, DefaultModeSettings, ToolSettings, PeerReceipt, PeersState, PeersSettings, PeersSettingsEdit, PeerRemember, ConfigProblem, ConfigRepair, PermissionLists, PermissionRules, SandboxSettings } from "./port";
+import type { Adjudications, BrowserToolsSettings, SubagentClaimsSettings, WriteLeaseSettings, PlanApprovalSettings, DefaultModeSettings, ToolSettings, ConfigProblem, ConfigRepair, PermissionLists, PermissionRules, SandboxSettings } from "./port";
 import type { AskTimeoutSettings, ModStatus, ModsSettings, ModsSettingsEdit, SessionRefSettings, AutoArchiveSettings, ChangedFilesSettings, FeedbackLevelNotices, FoldWorkSettings, ChangedSettings, TurnNarrationSettings, ObservabilityPatch, ObservabilitySettings, WebAccessPatch, WebAccessSettings, SearxngProbe, DisplayCurrencyMode, DisplayCurrencySettings, ProgressWatchSettings, WorkspaceRoots } from "./boundary";
 
 // Where the agent may reach: the permission rules a call is matched against and
@@ -103,21 +103,6 @@ export class SseBoundary extends SseShell {
   }
   scheduleResult(triggerId: string) {
     return this.get<ScheduleResultView>(`/schedules/result?trigger=${encodeURIComponent(triggerId)}`);
-  }
-  peers() {
-    return this.get<PeersState>("/peers");
-  }
-  sendPeerMessage(to: string, text: string) {
-    return this.post0<PeerReceipt>("/peers/send", { to, text });
-  }
-  resolvePeerMessage(id: string, approve: boolean, remember: PeerRemember = "none") {
-    return this.post(`/peers/held/${encodeURIComponent(id)}`, { approve, remember });
-  }
-  peersSettings() {
-    return this.get<PeersSettings>("/peers/settings");
-  }
-  savePeersSettings(edit: PeersSettingsEdit) {
-    return this.post0<PeersSettings>("/peers/settings", edit);
   }
   async mods() {
     return (await this.get<{ mods: ModStatus[] }>("/mods")).mods ?? [];

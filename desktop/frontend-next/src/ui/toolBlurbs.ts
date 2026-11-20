@@ -41,10 +41,6 @@ export function toolBlurb(name: string): string | undefined {
       return t("chat.delete_a_contiguous_range_of");
     case "delete_symbol":
       return t("chat.delete_a_named_function_method");
-    case "dispatch_to_project":
-      return t("chat.hand_a_task_to_a");
-    case "open_projects":
-      return t("chat.ask_you_to_add_a");
     case "docs":
       return t("chat.search_and_read_the_official");
     case "edit_file":
@@ -69,8 +65,6 @@ export function toolBlurb(name: string): string | undefined {
       return t("chat.plan_install_or_uninstall_a");
     case "kill_shell":
       return t("chat.stop_a_background_job_that");
-    case "list_peers":
-      return t("chat.list_the_other_reasonix_sessions");
     case "list_sessions":
       return t("chat.list_saved_conversations_newest_first");
     case "list_subagents":
@@ -127,8 +121,6 @@ export function toolBlurb(name: string): string | undefined {
       return t("chat.invoke_a_skill_from_the");
     case "security_review":
       return t("chat.security_review_the_current_branchs");
-    case "send_peer_message":
-      return t("chat.send_text_to_another_reasonix");
     case "setting":
       return t("chat.find_and_change_your_own");
     case "slash_command":

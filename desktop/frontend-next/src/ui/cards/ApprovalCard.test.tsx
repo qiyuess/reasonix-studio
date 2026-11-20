@@ -38,7 +38,7 @@ describe("an approval that covers more than its call", () => {
 describe("a setting the model asks to change", () => {
   const card = (tool: string, allowsSession: boolean) => (
     <ApprovalCard
-      item={{ t: "approval", id: "i1", a: { id: "a1", tool, subject: "peers.dispatch", reason: "助手请求把设置 peers.dispatch 从 false 改为 true。", kind: "tool", fresh: true, allowsSession, allowsPersist: false } } as never}
+      item={{ t: "approval", id: "i1", a: { id: "a1", tool, subject: "tools.video_url_passthrough", reason: "助手请求把设置 tools.video_url_passthrough 从 false 改为 true。", kind: "tool", fresh: true, allowsSession, allowsPersist: false } } as never}
       onApprove={async () => {}} onFullAccess={async () => {}} onPlan={async () => {}}
     />
   );
@@ -48,7 +48,7 @@ describe("a setting the model asks to change", () => {
     expect(screen.getByText("请求修改设置")).toBeTruthy();
     expect(screen.queryByText("请求执行权限")).toBeNull();
     expect(screen.queryByText("setting_change")).toBeNull();
-    expect(screen.getByText("peers.dispatch")).toBeTruthy();
+    expect(screen.getByText("tools.video_url_passthrough")).toBeTruthy();
   });
 
   it("an elevated one says it is asked every time and offers no session grant", () => {
@@ -86,25 +86,3 @@ describe("a call that repeats text from outside", () => {
   });
 });
 
-describe("an approval that opens folders as projects", () => {
-  const paths = ["D:\\workspce\\1", "D:\\workspce\\2"];
-  const card = () => draw({ id: "o1", tool: "open_projects", subject: "D:\\workspce\\1 (+1)", scope: "open_projects", input: { paths }, fresh: true });
-
-  it("lists every folder it will add, and says it also marks them trusted", () => {
-    const box = card();
-    const scope = box.querySelector('[data-scope="open_projects"]');
-    expect([...(scope?.querySelectorAll("li code") ?? [])].map((c) => c.textContent)).toEqual(paths);
-    expect(scope?.textContent).toContain(t("chat.adds_these_n_folders_to", { n: 2 }));
-  });
-
-  it("offers no session or always grant, so every batch is its own click", () => {
-    const box = card();
-    expect(box.querySelector('[data-action="decision.tool"][data-value="once"]')).not.toBeNull();
-    expect(box.querySelector('[data-value="session"], [data-value="always"]')).toBeNull();
-  });
-
-  it("lists nothing it was not given", () => {
-    const box = draw({ id: "o2", tool: "open_projects", subject: "", scope: "open_projects", input: { paths: [3, "/only"] } });
-    expect([...box.querySelectorAll("li code")].map((c) => c.textContent)).toEqual(["/only"]);
-  });
-});

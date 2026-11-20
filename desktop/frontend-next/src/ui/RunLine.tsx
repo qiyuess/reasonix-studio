@@ -13,6 +13,7 @@ export function RunLine({
   sent,
   received,
   estimated,
+  aside,
   children,
 }: {
   label: string;
@@ -22,9 +23,13 @@ export function RunLine({
   sent: number;
   received: number;
   estimated: boolean;
+  /** Shown beside the status whatever the agent picker's switch says: the
+   *  project's name is its own answer, not part of that setting. */
+  aside?: ReactNode;
   children?: ReactNode;
 }) {
   const showsPicker = useShowsCompositionPicker();
+  const picker = showsPicker ? children : null;
   const status = (
     <div
       className="studio-runstate"
@@ -42,9 +47,14 @@ export function RunLine({
       <RunTokens sent={sent} received={received} estimated={estimated} />
     </div>
   );
-  return showsPicker && children ? (
+  // One row above the input box holds both answers — what it runs as, and where
+  // it lives — and the status keeps the right edge. The row is drawn whenever
+  // any of the three has something to say, so the project's name survives the
+  // agent picker being switched off.
+  return picker || aside ? (
     <div className="compose-context">
-      {children}
+      {picker}
+      {aside}
       {status}
     </div>
   ) : (

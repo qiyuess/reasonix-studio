@@ -44,7 +44,7 @@ it("puts nothing destructive on the project row itself", () => {
 it("removes a project from its menu after a confirm", async () => {
   const { removeWorkspace } = draw();
   await userEvent.click(screen.getByRole("button", { name: /项目操作：/ }));
-  await userEvent.click(screen.getByRole("menuitem", { name: /从列表移除/ }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /移除/ }));
   expect(removeWorkspace).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("button", { name: "移除" }));
   expect(removeWorkspace).toHaveBeenCalledWith("/w");

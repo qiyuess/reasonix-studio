@@ -253,6 +253,8 @@ export class MockHub implements HubPort {
 
   // Where the person placed sessions, by workspace: what the kernel keeps per project.
   protected placedSessions = new Map<string, string[]>();
+  protected names = new Map<string, string>();
+  protected pinnedRoots = new Set<string>();
 
   protected placed(root: string, sessions: TreeSession[]): TreeSession[] {
     const order = this.placedSessions.get(root) ?? [];
@@ -291,6 +293,42 @@ export class MockHub implements HubPort {
     const to = before ? this.roots.indexOf(before) : this.roots.length;
     this.roots.splice(to < 0 ? this.roots.length : to, 0, path);
     return Promise.resolve();
+  }
+
+  // Put one conversation before another inside its folder.
+  placeSession(path: string, before: string) {
+    const ws = this.roots.map((root) => root).find((root) => (this.placedSessions.get(root) ?? []).includes(path));
+    const root = ws ?? this.roots.find((r) => r === path.split("/").slice(0, -1).join("/"));
+    if (!root) return Promise.resolve();
+    const order = [...(this.placedSessions.get(root) ?? [])].filter((p) => p !== path);
+    const at = before ? order.indexOf(before) : order.length;
+    order.splice(at < 0 ? order.length : at, 0, path);
+    this.placedSessions.set(root, order);
+    return Promise.resolve();
+  }
+
+  setWorkspaceDisplayName(path: string, name: string) {
+    this.names.set(path, name);
+    return Promise.resolve();
+  }
+
+  setWorkspacePinned(path: string, pinned: boolean) {
+    if (pinned) this.pinnedRoots.add(path);
+    else this.pinnedRoots.delete(path);
+    return Promise.resolve();
+  }
+
+  // The fixture's project archive has to reach every conversation of the folder,
+  // not the rows one page happened to carry: that reach is the whole point of
+  // the kernel doing it.
+  async archiveWorkspace(path: string, archived: boolean) {
+    for (const ws of await this.tree()) {
+      if (ws.root !== path) continue;
+      for (const session of ws.sessions) {
+        const key = JSON.stringify(["", session.path]);
+        this.flags.set(key, { ...this.flags.get(key), archived, ...(archived ? { pinned: false } : {}) });
+      }
+    }
   }
 
   moveSessionTo(path: string, target: string) {

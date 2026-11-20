@@ -702,6 +702,9 @@ export function Home({
   useBackCloser(dispatchOpen, () => setDispatchOpen(false));
 
   const recent = useMemo(() => recentConversations(tree.projects), [tree.projects]);
+  // The app's own folder is not a project on a phone: it has no row to show and
+  // nothing to switch between. Its conversations still reach Recent above.
+  const projects = useMemo(() => tree.projects.filter((project) => !project.auto), [tree.projects]);
   const linkName = useMemo(() => {
     if (!link.target) return link.name;
     const rows = loadConnections();
@@ -711,8 +714,8 @@ export function Home({
   const needle = (tab === "recent" ? sessionQuery : projectQuery).trim().toLowerCase();
   const shownRecent = needle ? recent.filter((row) => sessionMatches(row, needle)) : recent;
   const shownProjects = needle
-    ? tree.projects.filter((project) => projectMatches(project, needle))
-    : tree.projects;
+    ? projects.filter((project) => projectMatches(project, needle))
+    : projects;
 
   const open = async (project: TreeProject, session?: TreeSession) => {
     if (busy) return;
@@ -810,7 +813,7 @@ export function Home({
     ? false
     : tab === "recent"
       ? recent.length === 0
-      : tree.projects.length === 0;
+      : projects.length === 0;
 
   const pullReset = () => {
     pullStart.current = null;
@@ -932,7 +935,7 @@ export function Home({
         {dispatchOpen ? (
           onDispatch ? (
             <DispatchPage
-              projects={tree.projects}
+              projects={projects}
               computerName={linkName}
               onDispatch={onDispatch}
               onSent={(result) => {
@@ -1007,7 +1010,7 @@ export function Home({
 
               {error ? <div className="notice error">{error}</div> : null}
 
-              {tree.status === "loading" && tree.projects.length === 0 ? (
+              {tree.status === "loading" && projects.length === 0 ? (
                 <div className="centered">
                   <div>正在读取项目…</div>
                 </div>
@@ -1119,7 +1122,7 @@ export function Home({
           projectName={menu.project.name}
           when={relativeTime(menu.session.lastActiveAt)}
           pinned={menu.session.pinned === true}
-          projects={tree.projects}
+          projects={projects}
           projectRoot={menu.project.root}
           busy={busy === menu.session.path}
           deleteWarning={deleteWarning(menu.session)}

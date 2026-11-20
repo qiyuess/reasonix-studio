@@ -33,8 +33,8 @@ func settingToolWith(h tool.SettingsHost) tool.Tool {
 
 func TestSettingProposeReachesTheHostAndReturnsTheReceipt(t *testing.T) {
 	h := &fakeSettings{}
-	out, err := settingToolWith(h).Execute(context.Background(), json.RawMessage(`{"op":"propose","id":"peers.dispatch","value":true,"reason":"hand a task over"}`))
-	if err != nil || len(h.proposed) != 1 || h.proposed[0] != "peers.dispatch=true" {
+	out, err := settingToolWith(h).Execute(context.Background(), json.RawMessage(`{"op":"propose","id":"tools.video_url_passthrough","value":true,"reason":"pass the URL through"}`))
+	if err != nil || len(h.proposed) != 1 || h.proposed[0] != "tools.video_url_passthrough=true" {
 		t.Fatalf("proposed=%v err=%v", h.proposed, err)
 	}
 	if !strings.Contains(out, `"via":"click"`) || !strings.Contains(out, `"effect":"next_turn"`) {
@@ -44,7 +44,7 @@ func TestSettingProposeReachesTheHostAndReturnsTheReceipt(t *testing.T) {
 
 func TestSettingNeedsAValueToPropose(t *testing.T) {
 	h := &fakeSettings{}
-	if _, err := settingToolWith(h).Execute(context.Background(), json.RawMessage(`{"op":"propose","id":"peers.dispatch"}`)); err == nil || len(h.proposed) != 0 {
+	if _, err := settingToolWith(h).Execute(context.Background(), json.RawMessage(`{"op":"propose","id":"tools.video_url_passthrough"}`)); err == nil || len(h.proposed) != 0 {
 		t.Fatalf("proposed %v with no value, err=%v", h.proposed, err)
 	}
 }

@@ -567,7 +567,6 @@ func (c *Controller) close(fireSessionEnd bool, jobsMode closeJobsMode) {
 		}
 		c.mu.Unlock()
 		c.leaveCurrencyGroup()
-		c.closePeers()
 		c.side.closeAll()
 		if cancel != nil {
 			// clearAll deliberately does not signal waiters. Pair it with the

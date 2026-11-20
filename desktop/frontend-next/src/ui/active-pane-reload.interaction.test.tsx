@@ -37,8 +37,14 @@ describe("a reloaded window", () => {
   it("comes back to the pane it was showing, not the first one open", async () => {
     const kernel = hub();
     const first = render(<App hub={kernel} />);
-    const opening = await settled();
+    // A launch nobody has entered names no pane, so entering has to happen
+    // first — the same pick a person makes. Everything this guard is about
+    // starts once a conversation is on screen.
     await expandProjects();
+    const openingRow = document.querySelector<HTMLElement>(".sessrow");
+    expect(openingRow, "the fixture needs a session to enter").toBeTruthy();
+    await userEvent.click(openingRow!);
+    const opening = await settled();
     const other = [...document.querySelectorAll(".sessrow")].find((r) => !r.textContent?.includes(opening));
     expect(other, "the fixture needs a second session").toBeTruthy();
     await userEvent.click(other!);

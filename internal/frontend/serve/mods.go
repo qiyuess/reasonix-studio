@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	codeModsBadBudget = "mods.invalid_budget"
-	codeModsWithheld  = "mods.withheld"
+	codeModsBadBudget  = "mods.invalid_budget"
+	codeModsWithheld   = "mods.withheld"
+	codeModsUnwritable = "mods.settings_unwritable"
 )
 
 func (s *Server) registerModRoutes(mux *http.ServeMux) {
@@ -51,8 +52,8 @@ func (s *Server) saveModsSettings(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusConflict, codeModsWithheld, "the Claude Code mods switch is not available yet", nil)
 	case errors.Is(err, control.ErrModsBudgetInvalid):
 		refuse(w, http.StatusBadRequest, codeModsBadBudget, "a hook budget is 0 to 55000 milliseconds", nil)
-	case errors.Is(err, control.ErrPeerSettingsUnwritable):
-		saveFailed(w, http.StatusInternalServerError, codePeerSettings, err)
+	case errors.Is(err, control.ErrModsUnwritable):
+		saveFailed(w, http.StatusInternalServerError, codeModsUnwritable, err)
 	case err != nil:
 		writeErr(w, http.StatusInternalServerError, err)
 	default:

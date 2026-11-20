@@ -18,7 +18,9 @@ export function WorkspaceReveal({ ws, hub, dismiss, onError }: {
   useEffect(() => {
     if (!shell) return;
     let alive = true;
-    void hub.openWithTargets().then((list) => alive && setTargets(list.filter((x) => (x.available || blockedInProject(x)) && x.id !== "file-manager"))).catch(() => {});
+    // A terminal is not one of the ways to look at a project here: the menu
+    // offers the file manager and the editors, and nothing else.
+    void hub.openWithTargets().then((list) => alive && setTargets(list.filter((x) => x.id !== "terminal" && (x.available || blockedInProject(x)) && x.id !== "file-manager"))).catch(() => {});
     return () => { alive = false; };
   }, [hub, shell]);
   if (!shell) return null;

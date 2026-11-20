@@ -1,4 +1,4 @@
-import type { Adjudications, BrowserToolsSettings, SubagentClaimsSettings, WriteLeaseSettings, PlanApprovalSettings, DefaultModeSettings, ToolSettings, PeerReceipt, PeersState, PeersSettings, PeersSettingsEdit, PeerRemember, ConfigProblem, ConfigRepair, PermissionLists, PermissionRules, SandboxSettings, UpdateMode } from "./port";
+import type { Adjudications, BrowserToolsSettings, SubagentClaimsSettings, WriteLeaseSettings, PlanApprovalSettings, DefaultModeSettings, ToolSettings, ConfigProblem, ConfigRepair, PermissionLists, PermissionRules, SandboxSettings, UpdateMode } from "./port";
 import type { AskTimeoutSettings, ModStatus, ModsSettings, ModsSettingsEdit, SessionRefSettings, AutoArchiveSettings, ChangedFilesSettings, FeedbackLevelNotices, FoldWorkSettings, ChangedSettings, TurnNarrationSettings, ObservabilityPatch, ObservabilitySettings, WebAccessPatch, WebAccessSettings, SearxngProbe, DisplayCurrencyMode, DisplayCurrencySettings, ProgressWatchSettings, WorkspaceRoots } from "./boundary";
 import { mockMods } from "./mock_mods";
 import type { ScheduleBoard, ScheduleDraft, SchedulePreview, ScheduleResultView, ScheduleView } from "./schedule";
@@ -235,8 +235,6 @@ export class MockBoundary extends MockShell {
     return { ...this.lease };
   }
 
-  protected peerState: PeersState = { enabled: false, peers: [], held: [] };
-
   private scheduled: ScheduleBoard = {
     pausedAll: false,
     policy: { minIntervalMinutes: 60, maxSchedules: 8, globalTokensDay: 1_200_000, expiryDays: 30 },
@@ -294,20 +292,6 @@ export class MockBoundary extends MockShell {
     return { triggerId, report: "Three files changed since yesterday. Two TODOs were added in `internal/store`.", pending: [{ kind: "approval", summary: "Wanted to run a shell command", detail: "git log --stat" }], enforcement: "tool-filter", recordedUnix: 1_790_000_260 };
   }
 
-  async peers(): Promise<PeersState> {
-    return { ...this.peerState, peers: [...this.peerState.peers], held: [...this.peerState.held], threads: [...(this.peerState.threads ?? [])] };
-  }
-
-  async sendPeerMessage(to: string, text: string): Promise<PeerReceipt> {
-    const target = this.peerState.peers.find((p) => p.key === to || p.title === to);
-    if (!target) throw new Error("no session answers to that name");
-    return { id: `m-${text.length}`, to: target };
-  }
-
-  async resolvePeerMessage(id: string, _approve: boolean, _remember: PeerRemember = "none"): Promise<void> {
-    this.peerState = { ...this.peerState, held: this.peerState.held.filter((h) => h.id !== id) };
-  }
-
   protected modConfig: ModsSettings = { enabled: false, hook_budget_ms: 0, path: "/Users/you/.reasonix/config.toml", available: false, applies: "next_session" };
 
   async modsSettings(): Promise<ModsSettings> {
@@ -322,27 +306,6 @@ export class MockBoundary extends MockShell {
 
   async mods(): Promise<ModStatus[]> {
     return mockMods(this.modConfig.enabled);
-  }
-
-  protected peerSettings: PeersSettings = { enabled: false, dispatch: false, release_projects: [], max_dispatch_depth: 1, max_dispatched_sessions: 8, open_nested: false, path: "/Users/you/.reasonix/config.toml", applies: "next_turn", pending: false, available: true };
-
-  async peersSettings(): Promise<PeersSettings> {
-    return { ...this.peerSettings, release_projects: [...this.peerSettings.release_projects] };
-  }
-
-  async savePeersSettings(edit: PeersSettingsEdit): Promise<PeersSettings> {
-    const keep = edit.release_projects;
-    this.peerSettings = {
-      ...this.peerSettings,
-      enabled: edit.enabled ?? this.peerSettings.enabled,
-      dispatch: edit.dispatch ?? this.peerSettings.dispatch,
-      max_dispatch_depth: edit.max_dispatch_depth ?? this.peerSettings.max_dispatch_depth,
-      max_dispatched_sessions: edit.max_dispatched_sessions ?? this.peerSettings.max_dispatched_sessions,
-      open_nested: edit.open_nested ?? this.peerSettings.open_nested,
-      release_projects: keep ? keep.map((path) => this.peerSettings.release_projects.find((p) => p.path === path) ?? { path, name: path.split(/[\\/]/).filter(Boolean).at(-1) ?? path }) : this.peerSettings.release_projects,
-      pending: true,
-    };
-    return this.peersSettings();
   }
 
   private archive: AutoArchiveSettings = { enabled: false, days: 30, defaultDays: 30, path: "/Users/you/.reasonix/config.toml" };

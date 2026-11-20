@@ -97,7 +97,7 @@ func settingSession(t *testing.T, id, val string) (*settingProvider, *control.Co
 	ctrl.EnableInteractiveApproval()
 	path := config.UserConfigPath()
 	cfg := config.LoadForEdit(path)
-	cfg.Peers.Enabled, cfg.Permissions.Mode = false, ""
+	cfg.ProgressWatch.Pause, cfg.Permissions.Mode = false, ""
 	if err := cfg.SaveTo(path); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func runSetting(ctrl *control.Controller) chan error {
 func TestEffectTheModelProposesASettingAndTheUserClickDecidesIt(t *testing.T) {
 	for _, allow := range []bool{true, false} {
 		t.Run(fmt.Sprintf("allow=%v", allow), func(t *testing.T) {
-			rec, ctrl, userFile, approvals := settingSession(t, "peers.enabled", "true")
+			rec, ctrl, userFile, approvals := settingSession(t, "progress_watch.pause", "true")
 			done := runSetting(ctrl)
 			var card event.Approval
 			select {
@@ -131,15 +131,15 @@ func TestEffectTheModelProposesASettingAndTheUserClickDecidesIt(t *testing.T) {
 			if card.Tool != control.SettingElevatedApprovalTool || !card.Fresh || card.AllowsSession {
 				t.Fatalf("card = %+v", card)
 			}
-			if config.LoadForEdit(userFile).Peers.Enabled {
+			if config.LoadForEdit(userFile).ProgressWatch.Pause {
 				t.Fatal("the file changed before the click")
 			}
 			ctrl.Approve(card.ID, allow, false, false)
 			if err := <-done; err != nil {
 				t.Fatalf("Run: %v", err)
 			}
-			if got := config.LoadForEdit(userFile).Peers.Enabled; got != allow {
-				t.Fatalf("peers.enabled = %v after allow=%v", got, allow)
+			if got := config.LoadForEdit(userFile).ProgressWatch.Pause; got != allow {
+				t.Fatalf("progress_watch.pause = %v after allow=%v", got, allow)
 			}
 			result := rec.toolResult()
 			want := `"via":"click"`

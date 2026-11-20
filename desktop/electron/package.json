@@ -8,6 +8,7 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
+    "pack": "node packaging/local-build.js",
     "build:host": "node packaging/build-host.js",
     "build:linux-payload": "node packaging/linux-payload.js",
     "test": "node --test test/unit.mjs test/linux-packaging.test.mjs test/globalshortcut.test.mjs",

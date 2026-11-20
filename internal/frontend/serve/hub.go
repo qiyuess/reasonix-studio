@@ -83,8 +83,6 @@ type Hub struct {
 	stance  *approvalStance
 	changes *Broadcaster
 	muxes   *eventMuxes
-	// dispatch remembers the panes a task was handed to; see dispatch.go.
-	dispatch dispatchBook
 }
 
 // approvalStance is the Ask/Auto/YOLO posture the frontend is in, held by the
@@ -690,7 +688,6 @@ func (h *Hub) publish(rt *Runtime) error {
 		rt.Server.bindMu.Lock()
 		rt.Server.mu.Lock()
 		ctrl, concrete := rt.Server.ctrl.(*control.Controller)
-		projects := projectBindings{dispatch: h.dispatcherFor(rt), open: openProjects}
 		if concrete {
 			rt.Server.currency = &h.currency
 		}
@@ -703,12 +700,6 @@ func (h *Hub) publish(rt *Runtime) error {
 				rt.Server.bindMu.Unlock()
 				return err
 			}
-		}
-		if concrete {
-			rt.Server.mu.Lock()
-			rt.Server.projects = projects
-			projects.bind(ctrl)
-			rt.Server.mu.Unlock()
 		}
 		rt.Server.bindMu.Unlock()
 		rt.Server.bc.observeTree(h.treeChanged)

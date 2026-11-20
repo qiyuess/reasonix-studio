@@ -6,13 +6,17 @@ import { StudioIcon } from "./StudioIcon";
 
 export interface SessionMenuProps {
   session: TreeSession;
-  label: string;
   /** The conversation behind this row is running a turn. */
   live: boolean;
   pinned: boolean;
   exporting: boolean;
   autoNaming: boolean;
   onPin: () => void;
+  /** Present where the row can move one slot inside its pinned partition. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  moveUpDisabled?: boolean;
+  moveDownDisabled?: boolean;
   /** Absent where the row is not unread. */
   onMarkRead?: () => void;
   onRename: () => void;
@@ -23,10 +27,9 @@ export interface SessionMenuProps {
   onBranch?: () => void;
   onCopyInfo: () => void;
   onExport: (format: "json" | "md") => void;
+  /** Starts picking conversations with this one already chosen; the batch bar takes over from there. */
+  onBatchSelect: (session: TreeSession) => void;
   onDelete: () => void;
-  /** One place up or down in the project list; absent where the row has no order to move in. */
-  onMove?: (direction: -1 | 1) => void;
-  canMove?: { up: boolean; down: boolean };
   /** Opens the choice of another project; absent where a conversation cannot move (a copy, a version). */
   onMoveTo?: () => void;
   keptCount?: number;
@@ -38,17 +41,13 @@ export interface SessionMenuProps {
  *  sidebar's clipping cannot cut it. Every action closes the menu itself:
  *  the parent's handlers do that, this only says which one was chosen. */
 export const SessionMenu = forwardRef<HTMLDivElement, SessionMenuProps>(function SessionMenu(
-  { session, label, live, pinned, exporting, autoNaming, onPin, onMarkRead, onRename, onAutoName, onPause, onClose, onArchive, onBranch, onCopyInfo, onExport, onDelete, onMove, canMove, onMoveTo, keptCount = 0, keptOpen, onKept },
+  { session, live, pinned, exporting, autoNaming, onPin, onMoveUp, onMoveDown, moveUpDisabled, moveDownDisabled, onMarkRead, onRename, onAutoName, onPause, onClose, onArchive, onBranch, onCopyInfo, onExport, onBatchSelect, onDelete, onMoveTo, keptCount = 0, keptOpen, onKept },
   ref,
 ) {
   const target = session.path;
   const why = useId();
   return createPortal(
     <div ref={ref} className="session-pop" role="menu" aria-label={t("common.session_actions")} style={{ maxHeight: "calc(100vh / var(--zoom, 1) - 24px)", overflowY: "auto" }} onClick={(ev) => ev.stopPropagation()}>
-      <div className="session-pop-head">
-        <b>{label}</b>
-        <small>{live ? t("session.running") : t("common.done_2")} · {t("session.local_workspace")}</small>
-      </div>
       {session.runtimeId && live && (
         <>
           <div className="session-pop-group">
@@ -63,14 +62,21 @@ export const SessionMenu = forwardRef<HTMLDivElement, SessionMenuProps>(function
         <button role="menuitem" data-action="session.pin" data-target={target} onClick={onPin}>
           <StudioIcon name="pin" /><span>{pinned ? t("common.unpin") : t("common.pin_session")}</span>
         </button>
-        {onMove && canMove && ([-1, 1] as const).map((direction) => (
-          <button key={direction} role="menuitem" data-action="session.move" data-target={target} data-value={direction}
-            disabled={direction === -1 ? !canMove.up : !canMove.down} onClick={() => onMove(direction)}>
-            <StudioIcon name="arrow" data-flip={direction === 1 ? "" : undefined} /><span>{t(direction === -1 ? "common.move_up" : "common.move_down")}</span>
-          </button>
-        ))}
       </div>
       <div className="session-pop-divider" />
+      {onMoveUp && onMoveDown && (
+        <>
+          <div className="session-pop-group">
+            <button role="menuitem" data-action="session.move" data-value="up" data-target={target} disabled={moveUpDisabled} onClick={onMoveUp}>
+              <StudioIcon name="up" /><span>{t("common.move_up")}</span>
+            </button>
+            <button role="menuitem" data-action="session.move" data-value="down" data-target={target} disabled={moveDownDisabled} onClick={onMoveDown}>
+              <StudioIcon name="down" /><span>{t("common.move_down")}</span>
+            </button>
+          </div>
+          <div className="session-pop-divider" />
+        </>
+      )}
       <div className="session-pop-group">
         <button role="menuitem" data-action="session.rename-start" data-target={target} onClick={onRename}>
           <StudioIcon name="edit" /><span>{t("common.renamed")}</span>
@@ -99,6 +105,12 @@ export const SessionMenu = forwardRef<HTMLDivElement, SessionMenuProps>(function
           <button role="menuitem" aria-label={`${t("session.export_session")} · Markdown`} data-action="session.export" data-value="md" data-target={target} disabled={exporting} onClick={() => onExport("md")}>Markdown</button>
           <button role="menuitem" aria-label={`${t("session.export_session")} · JSON`} data-action="session.export" data-value="json" data-target={target} disabled={exporting} onClick={() => onExport("json")}>JSON</button>
         </div>
+      </div>
+      <div className="session-pop-divider" />
+      <div className="session-pop-group">
+        <button role="menuitem" data-action="session.selection" data-value="start" data-target={target} onClick={() => onBatchSelect(session)}>
+          <StudioIcon name="check" /><span>{t("session.batch_select_sessions")}</span>
+        </button>
       </div>
       <div className="session-pop-divider" />
       <div className="session-pop-group">

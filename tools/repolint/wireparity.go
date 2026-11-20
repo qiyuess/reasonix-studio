@@ -157,8 +157,6 @@ var mirroredWireTypesHead = []wireMirror{
 	{"internal/session/control/present_files_settings.go", "PresentFilesSettings", tsBoundaryFile, "PresentFilesSettings"},
 	{"internal/session/control/tool_settings.go", "ToolSettings", tsBoundaryFile, "ToolSettings"},
 	{"internal/session/control/tool_settings.go", "ToolSetting", tsBoundaryFile, "ToolSetting"},
-	{"internal/session/control/peer_settings.go", "PeersSettings", tsBoundaryFile, "PeersSettings"},
-	{"internal/session/control/peer_settings.go", "PeerReleased", tsBoundaryFile, "PeerProject"},
 	{"internal/session/control/mods.go", "ModStatus", tsBoundaryFile, "ModStatus"},
 	{"internal/session/control/mods.go", "ModRuntime", tsBoundaryFile, "ModRuntime"},
 	{"internal/session/control/mods.go", "ModsSettings", tsBoundaryFile, "ModsSettings"},

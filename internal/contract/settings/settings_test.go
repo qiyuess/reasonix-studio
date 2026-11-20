@@ -65,18 +65,10 @@ func TestBoundaryKeysAreGuarded(t *testing.T) {
 		"agent.max_steps", "agent.max_subagent_depth", "agent.max_subagent_concurrency", "agent.max_parallel_writers",
 		"agent.guardian_model", "agent.system_prompt", "agent.screen_external_content",
 		"tools.shell.path", "tools.enabled", "statusline.command", "skills.paths", "providers", "plugins",
-		"peers.release_projects", "serve.token", "serve.auth_mode", "secrets.protect_sensitive_files", "storage", "attachments.max_stream_bytes",
+		"serve.token", "serve.auth_mode", "secrets.protect_sensitive_files", "storage", "attachments.max_stream_bytes",
 	} {
 		if e, ok := Lookup(id); !ok || e.Class != Guarded {
 			t.Errorf("%s = %+v, want Guarded", id, e)
-		}
-	}
-}
-
-func TestDispatchIsElevatedAndItsProjectListIsNot(t *testing.T) {
-	for id, want := range map[string]Class{"peers.enabled": Elevated, "peers.dispatch": Elevated, "peers.release_projects": Guarded} {
-		if e, _ := Lookup(id); e.Class != want {
-			t.Errorf("%s class = %v, want %v", id, e.Class, want)
 		}
 	}
 }
@@ -224,7 +216,7 @@ func TestTheConfigsOwnSetterJudgesTheValue(t *testing.T) {
 }
 
 func TestARemedyFollowsTheKeysClass(t *testing.T) {
-	if r := RemedyFor("peers.dispatch", true); r == nil || r.Op != "propose" || string(r.Value) != "true" {
+	if r := RemedyFor("tools.video_url_passthrough", true); r == nil || r.Op != "propose" || string(r.Value) != "true" {
 		t.Fatalf("elevated remedy = %+v", r)
 	}
 	if r := RemedyFor("permissions.mode", "yolo"); r == nil || r.Op != "open" || len(r.Value) != 0 {
@@ -279,15 +271,5 @@ func TestTheDesktopScreenTableNamesOnlyDeclaredSettings(t *testing.T) {
 		if _, ok := Lookup(m[1]); !ok {
 			t.Errorf("settingScreens.ts names %q, which no declaration has", m[1])
 		}
-	}
-}
-
-func TestSkippingTheOpenFoldersCardIsNeverTheModelsToWrite(t *testing.T) {
-	e, ok := Lookup("peers.open_nested")
-	if !ok {
-		t.Fatal("peers.open_nested is not declared")
-	}
-	if e.Class != Guarded {
-		t.Fatalf("class = %v, want Guarded: a setting that removes a trust card must not be written on the model's say-so", e.Class)
 	}
 }

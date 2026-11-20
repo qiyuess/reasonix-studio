@@ -12,16 +12,16 @@ function draw() {
   const go = vi.fn();
   render(
     <>
-      <AgentSettings port={new MockPort() as unknown as AgentPort} hub={{ tree: async () => [] }} persona={false} onPersona={go} onChanged={() => {}} />
+      <AgentSettings port={new MockPort() as unknown as AgentPort} persona={false} onPersona={go} onChanged={() => {}} />
     </>,
   );
   return go;
 }
 
-it("is four cards of single rows, plan mode and the display switches living elsewhere", async () => {
+it("is three cards of single rows, plan mode and the display switches living elsewhere", async () => {
   draw();
-  expect([...document.querySelectorAll(".prefs-card > header h3")].map((h) => h.textContent)).toEqual(["人设与预设", "计划与提问", "协作", "自动化"]);
-  for (const id of ["persona", "agent-presets", "plan-approval", "ask-timeout", "turn-narration", "progress-watch", "session-ref", "subagent-claims", "peers", "hooks", "scheduled-runs"]) {
+  expect([...document.querySelectorAll(".prefs-card > header h3")].map((h) => h.textContent)).toEqual(["人设与预设", "计划与提问", "自动化"]);
+  for (const id of ["persona", "agent-presets", "plan-approval", "ask-timeout", "turn-narration", "progress-watch", "session-ref", "subagent-claims", "hooks", "scheduled-runs"]) {
     await waitFor(() => expect(document.querySelector(`[data-setting="${id}"]`), id).toBeTruthy());
   }
   for (const id of ["plan-mode", "changed-files", "fold-work", "feedback-level-notices"]) expect(document.querySelector(`[data-setting="${id}"]`), id).toBeNull();

@@ -38,9 +38,9 @@ function draw(over: Partial<TreeSession> = {}, live = false) {
 const row = () => screen.getByRole("treeitem", { name: new RegExp(TITLE) });
 const buttons = () => within(row()).queryAllByRole("button", { name: /归档|置顶|删除/ });
 
-it("hides pin and archive for an explicit off preference", () => {
+it("hides the pin for an explicit off preference; the archive stays on the row", () => {
   draw();
-  expect(buttons()).toEqual([]);
+  expect(buttons().map((b) => b.getAttribute("data-action"))).toEqual(["session.archive"]);
 });
 
 it("offers pin on the left and archive on the right without a quick delete action", async () => {
@@ -92,11 +92,11 @@ it("opens a local conversation only once when Enter is pressed on its row", asyn
   expect(onOpen).toHaveBeenCalledExactlyOnceWith({ root: "/w", sessionPath: PATH });
 });
 
-it("hides quick actions by default while preserving explicit choices", () => {
+it("hides the pin by default while preserving explicit choices", () => {
   localStorage.removeItem("rx-session-quick-actions");
   expect(showsSessionQuickActions()).toBe(false);
   draw();
-  expect(buttons()).toEqual([]);
+  expect(buttons().map((b) => b.getAttribute("data-action"))).toEqual(["session.archive"]);
   setShowsSessionQuickActions(true);
   expect(showsSessionQuickActions()).toBe(true);
   setShowsSessionQuickActions(false);
@@ -120,13 +120,13 @@ it("keeps pin and archive available from the local menu with quick actions off",
   expect(onPin).toHaveBeenCalledExactlyOnceWith(PATH);
 });
 
-it("shows or hides the buttons on a list that is already drawn when the setting flips", () => {
+it("shows or hides the pin on a list that is already drawn when the setting flips", () => {
   draw();
-  expect(buttons()).toEqual([]);
+  expect(buttons().map((b) => b.getAttribute("data-action"))).toEqual(["session.archive"]);
   act(() => setShowsSessionQuickActions(true));
-  expect(buttons()).toHaveLength(2);
+  expect(buttons().map((b) => b.getAttribute("data-action"))).toEqual(["session.pin", "session.archive"]);
   act(() => setShowsSessionQuickActions(false));
-  expect(buttons()).toEqual([]);
+  expect(buttons().map((b) => b.getAttribute("data-action"))).toEqual(["session.archive"]);
 });
 
 it("remembers the explicitly disabled choice made in Settings", async () => {

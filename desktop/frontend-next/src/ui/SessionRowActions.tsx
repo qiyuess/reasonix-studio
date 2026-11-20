@@ -39,6 +39,9 @@ export function SessionArchiveAction({ target, title, archived, disabled, onArch
   </button></span>;
 }
 
+/** The remote rows still carry "more": their menu holds actions the local
+ *  row's right-click does not (host, reconnect), so the trigger earns its
+ *  slot there. */
 export function SessionMoreAction({ target, disabled, onOpen }: { target: string; disabled?: boolean; onOpen: (trigger: HTMLElement) => void }) {
   return <button className="ds-more" data-action="session.menu" data-target={target} aria-haspopup="menu" disabled={disabled}
     title={t("common.session_actions")} aria-label={t("common.session_actions")}

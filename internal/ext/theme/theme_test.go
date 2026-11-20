@@ -118,8 +118,10 @@ func TestLoadRejectsAPathInsteadOfAnID(t *testing.T) {
 func TestShippedPacksAreReadable(t *testing.T) {
 	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
 	packs := List()
-	if len(packs) < 8 {
-		t.Fatalf("List = %d packs, want the shipped set", len(packs))
+	// The foundation palettes: 默认 is the built-in base rather than a pack, so
+	// the three that ship are 清白蓝, Patina and 茶绿.
+	if len(packs) < 3 {
+		t.Fatalf("List = %d packs, want the shipped foundation set", len(packs))
 	}
 	for _, p := range packs {
 		if p.Name == "" || len(p.Tokens["light"]) == 0 || len(p.Tokens["dark"]) == 0 {

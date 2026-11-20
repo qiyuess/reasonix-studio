@@ -61,6 +61,9 @@ export interface TreeProject {
   open?: boolean;
   /** The person chose this folder, rather than a window launching in it. */
   remembered?: boolean;
+  /** The app's own folder, where a conversation with no project lands. A phone
+   *  has no project row for it: its conversations already show under Recent. */
+  auto?: boolean;
   /** The folder is gone from disk. */
   missing?: boolean;
   /** Conversations the folder lists, archived ones included. */

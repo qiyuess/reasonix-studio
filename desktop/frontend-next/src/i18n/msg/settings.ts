@@ -10,7 +10,6 @@ export const SETTINGS: Messages = {
   "settings.after_the_window_closes_the": { zh: "关闭窗口后需通过托盘图标重新打开主界面，下方选项依赖该图标。", en: "After the window closes, the tray icon is how you reopen the interface; the option below depends on it." },
   "settings.agent_behaviour": { zh: "Agent 行为", en: "Agent behaviour" },
   "settings.ai_file_delivery_cards": { zh: "AI 文件交付卡片", en: "AI file delivery cards" },
-  "settings.always": { zh: "始终显示", en: "Always" },
   "settings.an_update_most_likely_replaced": { zh: "多半是更新换掉了这个窗口正在用的那份文件。重新载入窗口即可，当前会话与正在跑的回合都不受影响。", en: "An update most likely replaced the file this window was using. Reloading the window is enough — your session and any running turn are unaffected." },
   "settings.appearance": { zh: "外观", en: "Appearance" },
   "settings.appears_on_the_next_launch": { zh: "下次启动时出现", en: "Appears on the next launch" },
@@ -25,7 +24,6 @@ export const SETTINGS: Messages = {
   "settings.click_record_and_press_a": { zh: "点击录制后按下修饰键与按键组合，或直接编辑快捷键。Esc 取消录制；清除会立即关闭快捷键。Wayland 或系统保留组合可能不受支持。", en: "Click Record and press a modifier and key combination, or edit the shortcut directly. Esc cancels recording; Clear immediately disables the shortcut. Wayland or OS-reserved bindings may not be supported." },
   "settings.close_the_open_panel": { zh: "关闭当前弹层", en: "Close the open panel" },
   "settings.closing_the_window_does_not": { zh: "关闭窗口不会中断会话和后台任务；从托盘菜单退出才会完全关闭程序", en: "Closing the window does not stop sessions or background tasks; use Quit in the tray menu to exit completely" },
-  "settings.collaboration": { zh: "协作", en: "Collaboration" },
   "settings.common": { zh: "常用", en: "Common" },
   "settings.context_maintenance": { zh: "上下文维护", en: "Context maintenance" },
   "settings.controls_and_performance": { zh: "操作与性能", en: "Controls and performance" },
@@ -139,7 +137,6 @@ export const SETTINGS: Messages = {
   "settings.send_or_a_new_line": { zh: "发送，或用 Shift 换行", en: "Send, or a new line with Shift" },
   "settings.send_system_notifications": { zh: "发送系统通知", en: "Send system notifications" },
   "settings.send_when_the_send_key": { zh: "发送（发送键设为修饰键 + Enter 时）", en: "Send when the send key is set to the modifier plus Enter" },
-  "settings.session_messages": { zh: "会话间消息", en: "Session messages" },
   "settings.session_tabs_kept_live": { zh: "保持实时连接的会话标签数", en: "Session tabs kept live" },
   "settings.session_tabs_kept_open": { zh: "同时保留的会话标签数", en: "Session tabs kept open" },
   "settings.settings_did_not_open": { zh: "设置没能打开", en: "Settings did not open" },
@@ -198,7 +195,6 @@ export const SETTINGS: Messages = {
   "settings.edit_persona": { zh: "编辑人设", en: "Edit persona" },
   "settings.persona_hint": { zh: "写在每个会话开头的身份说明", en: "The identity note written at the start of every session" },
 
-  "settings.sessions_send_each_other": { zh: "让一个会话给另一个会话发消息（实验）", en: "Let one session send another a message (experimental)" },
   "settings.persona_and_presets": { zh: "人设与预设", en: "Persona and presets" },
 
   "settings.which_currency_costs_show": { zh: "费用用什么币种显示", en: "Which currency costs are shown in" },
@@ -258,4 +254,8 @@ export const SETTINGS: Messages = {
   "settings.tool_calls_and_thinking_fold": { zh: "回复里工具调用和思考默认收起，只留最后的结论", en: "Tool calls and thinking fold by default, leaving the final answer" },
   "settings.show_n_files_changed_above_input": { zh: "输入框顶部显示「n 个文件已更改」", en: "Show “n files changed” at the top of the composer" },
   "settings.notice_when_feedback_adopted": { zh: "反馈被采纳、等级提升时提示你", en: "Tell you when feedback is adopted or your level rises" },
+  "settings.always_shown": { zh: "始终显示", en: "Always shown" },
+  "settings.compose_the_nav_bar": { zh: "自定义导航栏", en: "Customize the nav bar" },
+  "settings.drag_name": { zh: "拖动排序：{name}", en: "Drag to reorder: {name}" },
+
 };

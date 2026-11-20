@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { newlyDone } from "./Workspaces";
+import { newlyDone } from "./newlydone";
 import { removeHint } from "./WorkspaceConfirm";
 
 describe("removeHint", () => {

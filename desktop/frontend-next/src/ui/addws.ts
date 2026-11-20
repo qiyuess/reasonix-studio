@@ -9,6 +9,11 @@ export interface Adder {
   pathOpen: boolean;
   addPath: (path: string) => void;
   closePath: () => void;
+  /** The system folder picker, for a caller that asks twice — the blank-project
+   *  dialog picks the folder a new project is made inside, then adds it apart. */
+  pickFolder: (preferred?: string) => Promise<string | null>;
+  /** Make an empty, named folder inside `parent` and remember it. */
+  addNamed: (name: string, parent: string) => Promise<TreeWorkspace>;
 }
 
 const LEGACY_CAPABILITIES: HostCapabilities = { pickFolder: true, addWorkspace: true };
@@ -83,5 +88,26 @@ export function useAddWorkspace(
     if (!busy) setPathOpen(false);
   }, [busy]);
 
-  return useMemo(() => ({ add, busy, pathOpen, addPath, closePath }), [add, busy, pathOpen, addPath, closePath]);
+  const pickFolder = useCallback(
+    (preferred?: string) =>
+      hub
+        .hostCapabilities()
+        .catch(() => LEGACY_CAPABILITIES)
+        .then((capabilities) => (capabilities.pickFolder ? hub.pickFolder(preferred) : Promise.resolve(null))),
+    [hub],
+  );
+
+  const addNamed = useCallback(
+    async (name: string, parent: string) => {
+      const workspace = await hub.addWorkspace(parent, name);
+      await reload();
+      return workspace;
+    },
+    [hub, reload],
+  );
+
+  return useMemo(
+    () => ({ add, busy, pathOpen, addPath, closePath, pickFolder, addNamed }),
+    [add, busy, pathOpen, addPath, closePath, pickFolder, addNamed],
+  );
 }

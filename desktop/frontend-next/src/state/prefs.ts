@@ -123,22 +123,24 @@ export function setEffectsMode(mode: EffectsMode): void {
   effectsListeners.forEach((fn) => fn());
 }
 
-// When the icon column beside the workspace rail is drawn: "on" always, "collapsed"
-// only while the workspace rail is closed, "off" never. A phone-width window
-// never draws it, whatever this says. "on" and "off" are the two values the
-// earlier on/off switch wrote, so a stored choice reads back as itself; anything
-// unreadable or unset is the default, "off".
+// When the icon column beside the workspace rail is drawn. A phone-width window
+// never draws it, whatever this says.
 const NAV_RAIL_KEY = "rx-nav-rail";
 
-export type NavRailMode = "on" | "collapsed" | "off";
-export const NAV_RAIL_MODES: readonly NavRailMode[] = ["on", "collapsed", "off"];
+// Two answers, not three: the icon column exists while the workspace column is
+// shut, and is gone while it is open. A standing "always" put the same six
+// entries on screen twice, which is what the sidebar's own tool card is for.
+export type NavRailMode = "collapsed" | "off";
+export const NAV_RAIL_MODES: readonly NavRailMode[] = ["collapsed", "off"];
 
 const navRailListeners = new Set<() => void>();
 
 export function navRailMode(): NavRailMode {
   try {
     const raw = localStorage.getItem(NAV_RAIL_KEY);
-    return raw === "collapsed" || raw === "on" ? raw : "off";
+    // A stored "on" was the standing answer this no longer offers; it reads back
+    // as "collapsed", which is the same column, shown when it is useful.
+    return raw === "collapsed" || raw === "on" ? "collapsed" : "off";
   } catch {
     return "off";
   }

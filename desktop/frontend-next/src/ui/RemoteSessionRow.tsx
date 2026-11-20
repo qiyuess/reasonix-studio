@@ -9,7 +9,7 @@ import { SessionAge } from "./SessionAge";
 import { LeadDot } from "./UnreadMark";
 import { SessionArchiveAction, SessionMoreAction, SessionPinAction } from "./SessionRowActions";
 import { StudioIcon } from "./StudioIcon";
-import { workspaceMenuKeys } from "./WorkspaceOrder";
+import { workspaceMenuKeys } from "./menuKeys";
 import { asksDelete } from "./keys";
 import type { SessionMutation } from "./useSessionMutation";
 

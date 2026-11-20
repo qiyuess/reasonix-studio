@@ -52,8 +52,6 @@ type Config struct {
 	// AutoSubmit commits a multi-question ask once its last question is answered,
 	// instead of showing the Submit tab. User/global only; a repo cannot set it.
 	AutoSubmit bool `toml:"auto_submit"`
-	// Peers governs messages between sessions; see PeersConfig.
-	Peers PeersConfig `toml:"peers"`
 	// Observability governs the opt-in trace export. User/global only.
 	Observability ObservabilityConfig `toml:"observability"`
 	// Mods governs Claude Code mods; see ModsConfig.
@@ -1318,7 +1316,7 @@ func Default() *Config {
 	return &Config{
 		ConfigVersion:    freshConfigVersion,
 		DefaultModel:     "deepseek-flash",
-		CredentialsStore: CredentialsStoreAuto, Peers: defaultPeers(), Mods: defaultMods(),
+		CredentialsStore: CredentialsStoreAuto, Mods: defaultMods(),
 		UI:      UIConfig{Theme: "auto", ShowTurnUsage: true, ShowChangedFiles: true},
 		Desktop: DesktopConfig{ConversationWidth: "standard"},
 		Billing: BillingConfig{},

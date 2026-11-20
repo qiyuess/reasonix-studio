@@ -4,7 +4,7 @@ import { t } from "../i18n";
 import { useDismiss } from "./dismiss";
 import { pinToViewport } from "./place";
 import { StudioIcon } from "./StudioIcon";
-import { workspaceMenuKeys } from "./WorkspaceOrder";
+import { workspaceMenuKeys } from "./menuKeys";
 
 export function RemoteProjectMenu({ name, root, host, defaultRoot, busy, onRefresh, onRemove, onMove }: {
   name: string;

@@ -652,7 +652,7 @@ func TestApprovalOptionsForASettingChange(t *testing.T) {
 	if len(pref) != 3 || pref[1].Kind != OptAllowAlways || !strings.Contains(pref[1].Name, "ui.show_receipt") || pref[2].Kind != OptRejectOnce {
 		t.Fatalf("preference options = %+v", pref)
 	}
-	elevated := approvalOptions(control.SettingElevatedApprovalTool, "peers.dispatch", true, false)
+	elevated := approvalOptions(control.SettingElevatedApprovalTool, "tools.video_url_passthrough", true, false)
 	if len(elevated) != 2 || elevated[0].Kind != OptAllowOnce || elevated[1].Kind != OptRejectOnce {
 		t.Fatalf("elevated options = %+v, want allow-once/reject only", elevated)
 	}

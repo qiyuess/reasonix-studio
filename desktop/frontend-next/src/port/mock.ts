@@ -13,6 +13,11 @@ import { MEMORIES, mockMemoryCatalog } from "./mock_memory";
 import { mockModels } from "./mock_models";
 import { mockUploadUsage, mockUsage } from "./mock_usage";
 
+// Where the fixture's rootless sessions land: the kernel keeps its auto
+// workspace under its own state directory, so a pane working there belongs to
+// no project the tree remembers.
+const AUTO_WORKSPACE = "~/workspaces/auto";
+
 export class MockPort extends MockWorkspace implements AgentPort {
   private listeners = new Set<(ev: WireEvent) => void>();
   private log: WireEvent[] = [];
@@ -230,6 +235,13 @@ export class MockPort extends MockWorkspace implements AgentPort {
     this.state.workspaceRoot = path;
     this.state.cwd = path;
     await this.newSession();
+  }
+
+  // The kernel answers a rootless open with its own auto workspace, and the
+  // same answer to {auto:true}: a folder the project tree never remembers.
+  async setWorkspaceAuto(): Promise<string> {
+    await this.setWorkspace(AUTO_WORKSPACE);
+    return this.state.workspaceRoot ?? "";
   }
 
   async worktreeSources(): Promise<import("./workspace").WorktreeSources> {

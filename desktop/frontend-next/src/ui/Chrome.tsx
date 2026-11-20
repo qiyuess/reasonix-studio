@@ -44,10 +44,16 @@ interface Props {
   // The window's port, for what belongs to the window rather than a pane.
   hub?: HubPort;
   onError?: (e: unknown) => void;
+  // False until the person has entered a conversation. A launch nobody has
+  // entered is in no project and no session: the pane the kernel opened is the
+  // room, and naming the folder it happens to hold would read as having walked
+  // into it. Absent means entered, so a caller drawing the bar for a focused
+  // conversation says nothing extra.
+  entered?: boolean;
 }
 
-export function Chrome({ port, status, workspace: ws, title, steer, host, theme, onTheme, onFind, view, rows, onView, hub, onError }: Props) {
-  const root = status?.workspaceRoot || status?.cwd || "";
+export function Chrome({ port, status, workspace: ws, title, steer, host, theme, onTheme, onFind, view, rows, onView, hub, onError, entered = true }: Props) {
+  const root = entered ? status?.workspaceRoot || status?.cwd || "" : "";
   const project = root ? base(root) : "—";
   // The folder mark opens the project itself. Only a shell that can enter a
   // folder offers it, and only once a pane names where that folder is; a
@@ -91,23 +97,24 @@ export function Chrome({ port, status, workspace: ws, title, steer, host, theme,
             aria-label={t("app.open_project_folder")}
             title={t("app.open_project_folder")}
             disabled={!canOpenProject}
+            hidden={!entered}
             onClick={openProject}
           >
             <StudioIcon name="folder" />
           </button>
-          <span className="crumb-proj" title={root}>
+          {entered && <span className="crumb-proj" title={root}>
             {project}
-          </span>
-          {ws?.isolated && ws.current === root && <span className="isolab" title={`${workspaceDirectoryDescription(true)}\n${root}`}>
+          </span>}
+          {entered && ws?.isolated && ws.current === root && <span className="isolab" title={`${workspaceDirectoryDescription(true)}\n${root}`}>
             {t("common.isolated_worktree")}
           </span>}
-          <span className="isolab hostlab" hidden={!host}>
+          <span className="isolab hostlab" hidden={!host || !entered}>
             {host}
           </span>
-          <span className="crumbsep">/</span>
+          {entered && <span className="crumbsep">/</span>}
         </span>
-        <b title={status?.sessionPath}>{sessionName(title, status?.sessionPath)}</b>
-        {phone && device && (
+        {entered && <b title={status?.sessionPath}>{sessionName(title, status?.sessionPath)}</b>}
+        {entered && phone && device && (
           <span className="crumb-sub" data-state={!reachable ? "down" : status?.running ? "run" : "ok"}>
             <i aria-hidden="true" />
             {!reachable

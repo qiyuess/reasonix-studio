@@ -28,6 +28,45 @@ const AdoptedSuffix = ".adopted"
 type List struct {
 	Paths  []string `json:"paths"`
 	Launch string   `json:"launch,omitempty"`
+	// Names are the display names a project reads by in the sidebar: a folder
+	// renamed there keeps its on-disk path and its files whole.
+	Names map[string]string `json:"names,omitempty"`
+	// Pinned are the projects that lead the list, in the order they pinned.
+	Pinned []string `json:"pinned,omitempty"`
+}
+
+// SetName renames a project in the sidebar. An empty name clears it, so the
+// folder reads by its own basename again.
+func (l *List) SetName(path, name string) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		delete(l.Names, path)
+		return
+	}
+	if l.Names == nil {
+		l.Names = map[string]string{}
+	}
+	l.Names[path] = name
+}
+
+// SetPinned records whether the project at path leads the list. Pinning twice
+// is not two entries, and unpinning one that was never pinned is nothing.
+func (l *List) SetPinned(path string, pinned bool) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return
+	}
+	at := slices.Index(l.Pinned, path)
+	if pinned && at < 0 {
+		l.Pinned = append(l.Pinned, path)
+	}
+	if !pinned && at >= 0 {
+		l.Pinned = append(l.Pinned[:at], l.Pinned[at+1:]...)
+	}
 }
 
 // Read parses the list at path. A missing file or empty path is an empty list.
@@ -66,6 +105,17 @@ func Read(path string) (List, error) {
 			list.Launch = paths[0]
 		}
 	}
+	// Metadata about a project that is no longer listed is dead weight, and worse
+	// than that: adding the same folder back would resurrect a name or a pin the
+	// person never re-applied. A project is listed, or it is forgotten.
+	for dir := range list.Names {
+		if !slices.ContainsFunc(paths, func(have string) bool { return samePath(have, dir) }) {
+			delete(list.Names, dir)
+		}
+	}
+	list.Pinned = slices.DeleteFunc(list.Pinned, func(dir string) bool {
+		return !slices.ContainsFunc(paths, func(have string) bool { return samePath(have, dir) })
+	})
 	return list, nil
 }
 
@@ -159,6 +209,24 @@ func MergeOnce(ctx context.Context, current, old string) (int, error) {
 				added++
 			}
 		}
+		// The names and pins travel with their projects: a migration that keeps
+		// the folders but drops what a person called them would undo the rename
+		// silently. Incoming wins only where the current list has nothing.
+		for dir, name := range incoming.Names {
+			if slices.ContainsFunc(list.Paths, func(have string) bool { return samePath(have, dir) }) &&
+				!hasName(list.Names, dir) {
+				if list.Names == nil {
+					list.Names = map[string]string{}
+				}
+				list.Names[dir] = name
+			}
+		}
+		for _, dir := range incoming.Pinned {
+			if slices.ContainsFunc(list.Paths, func(have string) bool { return samePath(have, dir) }) &&
+				!slices.ContainsFunc(list.Pinned, func(have string) bool { return samePath(have, dir) }) {
+				list.Pinned = append(list.Pinned, dir)
+			}
+		}
 		if list.Launch == "" && len(list.Paths) > 0 {
 			list.Launch = list.Paths[0]
 		}
@@ -168,6 +236,17 @@ func MergeOnce(ctx context.Context, current, old string) (int, error) {
 		return 0, err
 	}
 	return added, fileutil.RenameAside(old, AdoptedSuffix)
+}
+
+// hasName says whether the list already carries a name for dir, spelled any way
+// the platform treats as the same folder.
+func hasName(names map[string]string, dir string) bool {
+	for have := range names {
+		if samePath(have, dir) {
+			return true
+		}
+	}
+	return false
 }
 
 func samePath(a, b string) bool {

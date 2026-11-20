@@ -38,15 +38,20 @@ const paneTab = (name: string) =>
 describe("what the window says it is showing", () => {
   it("names the pane in front, including one that has nothing to report", async () => {
     render(<App hub={hub()} />);
+    // A launch nobody has entered shows no name at all, so the title has to be
+    // earned: pick a conversation first, the way a person does. What this guard
+    // is about — that a still pane's name survives a switch — starts from there.
+    await expandProjects();
+    const firstRow = document.querySelector<HTMLElement>(".sessrow");
+    expect(firstRow, "the fixture needs a conversation to enter").toBeTruthy();
+    await userEvent.click(firstRow!);
     const first = await waitFor(() => {
       const t = title();
       if (!t) throw new Error("no title yet");
       return t;
     });
 
-    await expandProjects();
-    const rows = document.querySelectorAll(".sessrow");
-    const other = [...rows].find((r) => !r.textContent?.includes(first));
+    const other = [...document.querySelectorAll(".sessrow")].find((r) => !r.textContent?.includes(first));
     // A fixture that offers only one conversation cannot tell "the title
     // followed the front pane" from "there was nowhere else to go", so say that
     // here instead of passing quietly — which is what this guard used to do, for

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -60,7 +60,9 @@ describe("the corner notices", () => {
       return port;
     };
     render(<App hub={hub} />);
-    await waitFor(() => expect(document.querySelector(".crumb b")?.textContent).toBeTruthy());
+    // The window is ready when the composer is, not when a title is: a launch
+    // nobody has entered names nothing.
+    await screen.findByRole("combobox", { name: "任务输入" });
     act(() => pushToast("无法打开链接"));
     await userEvent.click(await screen.findByRole("button", { name: "报告此问题" }));
     const box = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: /发生了什么/ });

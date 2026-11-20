@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -46,7 +45,7 @@ func TestEffectViewImageReachesOnlyAModelThatReadsImages(t *testing.T) {
 				writeFile(t, home, "config.toml", fmt.Sprintf("[tools]\nenabled = %s\nweb_search_backends = [\"searxng\"]\nsearxng_url = %q\n", tc.enabled, search.URL))
 			}
 			dir := testenv.TempDir(t)
-			rec := &peerToolProvider{}
+			rec := &effectRecordingProvider{}
 			kind := fmt.Sprintf("boot-view-image-%s", strings.ReplaceAll(t.Name(), "/", "-"))
 			provider.Register(kind, func(provider.Config) (provider.Provider, error) { return rec, nil })
 			writeFile(t, dir, "reasonix.toml", fmt.Sprintf(`
@@ -77,16 +76,17 @@ vision = %v
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
 			_ = ctrl.Run(ctx, "hi")
-			if !slices.Contains(rec.toolNames(), "bash") {
-				t.Fatalf("required bash tool missing from provider request: %v", rec.toolNames())
+			reqs := rec.requests()
+			if len(reqs) == 0 {
+				t.Fatal("the provider was never asked")
 			}
-			has := false
-			for _, name := range rec.toolNames() {
-				has = has || name == "view_image"
+			offered := toolNames(reqs[0])
+			if !offered["bash"] {
+				t.Fatalf("required bash tool missing from provider request: %v", offered)
 			}
 			want := tc.vision && tc.enabled == ""
-			if has != want {
-				t.Fatalf("vision=%v composition=%s: tools in the first request = %v", tc.vision, tc.composition, rec.toolNames())
+			if offered["view_image"] != want {
+				t.Fatalf("vision=%v composition=%s: tools in the first request = %v", tc.vision, tc.composition, offered)
 			}
 		})
 	}

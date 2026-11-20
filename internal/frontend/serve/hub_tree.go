@@ -34,6 +34,9 @@ func (h *Hub) registerTreeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /tree/workspaces", h.addWorkspace)
 	mux.HandleFunc("POST /tree/workspaces/remove", h.removeWorkspace)
 	mux.HandleFunc("POST /tree/workspaces/move", h.moveWorkspace)
+	mux.HandleFunc("POST /tree/workspaces/pin", h.setWorkspacePinned)
+	mux.HandleFunc("POST /tree/workspaces/display-name", h.setWorkspaceDisplayName)
+	mux.HandleFunc("POST /tree/workspaces/archive", h.archiveWorkspaceSessions)
 	mux.HandleFunc("POST /tree/sessions/remove", h.removeSession)
 	mux.HandleFunc("POST /tree/sessions/remove-many", h.removeSessions)
 	mux.HandleFunc("POST /tree/sessions/archive", h.archiveSession)
@@ -61,15 +64,21 @@ func (h *Hub) tree(w http.ResponseWriter, r *http.Request) {
 	}
 	open := h.openSessions()
 	roots := groupWorkspaces(h.roots())
+	pinned := workspacePinned()
+	names := workspaceNames()
 	out := make([]treeWorkspace, 0, len(roots))
 	for _, ref := range roots {
 		// Open means a pane is driving this folder — true from the moment one is
 		// opened, before its first turn has written a transcript to list.
+		auto := isAutoWorkspace(ref.root)
 		node := treeWorkspace{
 			Root: ref.root, Name: fileutil.RootName(ref.root),
+			DisplayName:    names[projectIdentity(ref.root)],
 			WorkspaceRoots: ref.roots,
 			Isolated:       worktree.IsManagedPath(ref.root, config.DeliveryWorktreeDir()),
 			Remembered:     ref.remembered,
+			Pinned:         pinned[projectIdentity(ref.root)],
+			Auto:           auto,
 			Sessions:       []treeSession{},
 		}
 		for _, root := range ref.roots {
@@ -79,7 +88,9 @@ func (h *Hub) tree(w http.ResponseWriter, r *http.Request) {
 			node.Missing = true
 		}
 		page := h.projectPage(ref.roots, node.Name, open, window, window.limitFor(ref.root))
-		if !ref.remembered && !page.Said && (page.Status == nil || page.Status.CountsComplete) {
+		// The task group is a standing section, so the app's own folder is listed
+		// even before anything was said in it — an unremembered project is not.
+		if !ref.remembered && !auto && !page.Said && (page.Status == nil || page.Status.CountsComplete) {
 			continue
 		}
 		node.Sessions, node.Total, node.Archived, node.Remaining = page.Sessions, page.Total, page.Archived, page.Remaining
@@ -375,11 +386,67 @@ func recoveryLineageRoot(si sessionstore.SessionInfo, byID map[string]sessionsto
 	return id
 }
 
+// setWorkspaceDisplayName renames a project in the sidebar. The folder keeps
+// its path and its files: only the name the tree reads it by changes.
+func (h *Hub) setWorkspaceDisplayName(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		badBody(w)
+		return
+	}
+	dir, err := workspaceMetaPath(body.Path)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	err = updateWorkspaceList(r.Context(), false, func(list *workspaceList) error {
+		list.SetName(storedWorkspacePath(*list, dir), strings.TrimSpace(body.Name))
+		return nil
+	})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	h.treeChanged()
+	writeJSON(w, map[string]any{"ok": true})
+}
+
+// setWorkspacePinned pins or unpins a project: a pinned one leads the list.
+func (h *Hub) setWorkspacePinned(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path   string `json:"path"`
+		Pinned bool   `json:"pinned"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		badBody(w)
+		return
+	}
+	dir, err := workspaceMetaPath(body.Path)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	err = updateWorkspaceList(r.Context(), false, func(list *workspaceList) error {
+		list.SetPinned(storedWorkspacePath(*list, dir), body.Pinned)
+		return nil
+	})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	h.treeChanged()
+	writeJSON(w, map[string]any{"ok": true})
+}
+
 // addWorkspace remembers a folder without opening it. Adding and opening are
 // separate acts: the sidebar lists what you work on, panes are what you drive.
 func (h *Hub) addWorkspace(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path string `json:"path"`
+		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		badBody(w)
@@ -390,7 +457,45 @@ func (h *Hub) addWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err)
 		return
 	}
+	// madeHere is the folder this request created, so a failure after it can
+	// take it back: a project nobody was told about should not be left on disk.
+	madeHere := ""
+	// A named add makes the folder first: a blank project is an empty, chosen
+	// folder inside the one the picker returned, never a rename of it. Without
+	// this the parent the picker handed back is what gets remembered, and the
+	// project a person just named does not exist.
+	if name := strings.TrimSpace(body.Name); name != "" {
+		if strings.ContainsAny(name, `/\`) || name == "." || name == ".." {
+			refuse(w, http.StatusBadRequest, "workspace.bad_name", "that name cannot be a folder", nil)
+			return
+		}
+		created := filepath.Join(dir, name)
+		_, statErr := os.Stat(created)
+		fresh := statErr != nil
+		// MkdirAll, not Mkdir: two requests naming the same project at once both
+		// find it missing, and the loser's EEXIST is success, not a failure.
+		if err := os.MkdirAll(created, 0o755); err != nil {
+			writeErr(w, http.StatusInternalServerError, errors.New("could not create the folder"))
+			return
+		}
+		if st, statErr := os.Stat(created); statErr != nil || !st.IsDir() {
+			refuse(w, http.StatusConflict, "workspace.name_taken", "a file with that name is already there", nil)
+			return
+		}
+		if fresh {
+			madeHere = created
+		}
+		dir = created
+	}
 	if err := addRememberedWorkspace(r.Context(), dir); err != nil {
+		// The folder was made for a project that could not be remembered. It is
+		// removed only when it is still empty and this request made it, so a
+		// folder someone already works in is never touched.
+		if madeHere != "" {
+			if entries, readErr := os.ReadDir(madeHere); readErr == nil && len(entries) == 0 {
+				_ = os.Remove(madeHere)
+			}
+		}
 		if errors.Is(err, errWorkspaceListFull) {
 			refuse(w, http.StatusConflict, "workspace.limit_reached", err.Error(), nil)
 		} else {
@@ -647,6 +752,14 @@ func (h *Hub) roots() []rootRef {
 	}
 	for _, rt := range h.localRuntimes() {
 		add(rt.Server.Controller().WorkspaceRoot())
+	}
+	// The app's own folder stands in the tree once it exists, pane or no pane:
+	// the task group holds its conversations, and closing a pane must not take
+	// the written ones off the list.
+	if auto := config.AutoWorkspaceDir(); auto != "" {
+		if st, err := os.Stat(auto); err == nil && st.IsDir() {
+			add(auto)
+		}
 	}
 	return out
 }

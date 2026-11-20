@@ -48,8 +48,8 @@ import { usePaint } from "./paint";
 import { useZoomKeys } from "./zoomkeys";
 import { rememberActivePane, savedActivePane } from "./activepane";
 import { Sidebar } from "./Sidebar";
-import { PeerThreadsProvider } from "./peerthreads";
 import { WallpaperStage } from "./WallpaperStage";import { useAddWorkspace } from "./addws";
+import { useHidesAmounts } from "./wallet";
 import { AddWorkspacePrompt } from "./AddWorkspacePrompt";
 import { PaneTabs } from "./PaneTabs";
 import { paneReader } from "../state/paneread";
@@ -61,7 +61,7 @@ import { Welcome } from "./Welcome";
 import { useSessionSwitch } from "./sessionswitch";
 import { singleFlight } from "./singleflight";
 import { useTreeRead } from "./useTreeRead";
-import { useSidebarOpen } from "./sidebaropen";
+import { useSidebarOpen, type SidebarOpenRequest } from "./sidebaropen";
 import { useOpenPane } from "./useOpenPane";
 import { useOpenRemotePane } from "./useOpenRemotePane";
 import { useNewConversation } from "./useNewConversation";
@@ -107,6 +107,12 @@ export function App({ hub }: { hub: HubPort }) {
   const [runtimes, setRuntimes] = useState<RuntimeView[]>([]);
   const [panesRead, setPanesRead] = useState(false);
   const [active, setActive] = useState(savedActivePane);
+  // A window that has just opened has not been entered yet. The pane the kernel
+  // launches with is the room, not a conversation: nothing is read into it and
+  // the composer does not take typing until the person picks a row on the left
+  // or starts a new one. A reload is different — there the tab already says
+  // which conversation it was showing, and that is what it goes back to.
+  const [entered, setEntered] = useState(() => !!savedActivePane());
   const treeWindow = useTreeWindow();
   const { tree, treeRead, answered, readTree, reloadTree, retryTree } = useTreeRead(hub, treeWindow);
   // Null until asked, and null again where this kernel refuses remote panes —
@@ -154,7 +160,12 @@ export function App({ hub }: { hub: HubPort }) {
   const sw = useSessionSwitch();
   const activeRef = useRef("");
   activeRef.current = active;
-  useEffect(() => rememberActivePane(active), [active]);
+  // Only a conversation the person entered is remembered: the auto-selected
+  // first row of a fresh launch is the room, and remembering it would make the
+  // next cold start reopen exactly what this change exists to keep out.
+  useEffect(() => {
+    if (entered) rememberActivePane(active);
+  }, [active, entered]);
   const reportsRef = useRef<Record<string, PaneReport>>({});
   const runsRef = useRef(runs);
   runsRef.current = runs;
@@ -268,7 +279,17 @@ export function App({ hub }: { hub: HubPort }) {
     [hub],
   );
 
-  const openRemotePane = useOpenRemotePane({ hub, reloadPanes, reloadRemotes, sw, setActive, setOpening });
+  const openRemoteRaw = useOpenRemotePane({ hub, reloadPanes, reloadRemotes, sw, setActive, setOpening });
+  // A conversation on another machine is entered the same way as one here: the
+  // pane it lands in reads its record and takes typing from that moment.
+  const openRemotePane = useCallback(
+    async (...args: Parameters<typeof openRemoteRaw>) => {
+      const view = await openRemoteRaw(...args);
+      setEntered(true);
+      return view;
+    },
+    [openRemoteRaw],
+  );
 
   // One port per pane, held across renders — a fresh instance would resubscribe
   // the event stream and drop the frames in between.
@@ -282,6 +303,8 @@ export function App({ hub }: { hub: HubPort }) {
   const machineRt = runtimes.find((rt) => !rt.host);
   const localRt = runtimes.find((rt) => rt.id === active && !rt.host) ?? machineRt;
   const localWorkspacePort = useMemo(() => hub.machinePort(localRt?.id), [hub, localRt?.id]);
+  const hidesAmounts = useHidesAmounts();
+  const [palette, setPalette] = useState(false);
 
   useLaunchHealth(activePort, setup, welcomed);
 
@@ -306,16 +329,24 @@ export function App({ hub }: { hub: HubPort }) {
   // Transition made a simple sidebar click pay for a full-page texture before
   // the active id changed. Selection feedback should be immediate.
   const reloadBooks = useCallback(() => Promise.all([reloadTree(), reloadRemoteTrees()]), [reloadTree, reloadRemoteTrees]);
-  const viewed = useViewed({ runtimes, ports: panePorts, active: settings || feedback ? "" : active, tree, remote: remoteTrees, reload: reloadBooks });
+  // A launch nobody has entered yet has no conversation in front: the row the
+  // window happened to auto-select must not be marked read behind the person's
+  // back, and the unread badge has to still say what it said before.
+  const viewed = useViewed({ runtimes, ports: panePorts, active: settings || feedback || !entered ? "" : active, tree, remote: remoteTrees, reload: reloadBooks });
   useUnreadBadge(viewed.tree, viewed.remote);
   const focusPane = useCallback(
     (id: string) => {
       sw.cancel();
       setActive(id);
       viewed.view(id);
+      // Focusing a pane is choosing the conversation it holds.
+      setEntered(true);
     },
     [sw.cancel, viewed.view],
   );
+  // Stable, because a pane hands it to a memo whose whole point is not to
+  // rebuild the pill for every render of the window.
+  const enterSession = useCallback(() => setEntered(true), []);
   // Settings is the next layer over the whole screen and had entry but no exit: it
   // simply vanished on unmount. A view transition can animate out an element that
   // is absent from the new state, so the tree need not stay mounted.
@@ -365,10 +396,26 @@ export function App({ hub }: { hub: HubPort }) {
     [hub, reloadPanes],
   );
 
-  const openPeerSession = useCallback((path: string) => void openPane({ sessionPath: path }).catch(fail), [openPane, fail]);
-
-  const openFromSidebar = useSidebarOpen<PaneView>(runtimes, openPane, setActive, setViewRequests, "flow");
-  const adder = useAddWorkspace(hub, reloadTree, fail, (workspace) => openPane({ root: workspace.root }));
+  const openRow = useSidebarOpen<PaneView>(runtimes, openPane, setActive, setViewRequests, "flow");
+  // Picking a row on the left is entering: from here on the pane reads its
+  // record and the composer takes typing. Set after the open lands, so a
+  // refusal leaves the window where it was.
+  const openFromSidebar = useCallback(
+    (req: SidebarOpenRequest) => openRow(req).then(() => { setEntered(true); }),
+    [openRow],
+  );
+  // Pane memoizes on projectTree, and the picker reads only these fields: a
+  // reload that changed none of them must hand back the object it already had,
+  // or every pane redraws for a tree the picker cannot see.
+  const pickerSig = tree.map((w) => `${w.root}${w.name}${w.remembered ? 1 : 0}${w.missing ? 1 : 0}`).join("");
+  const pickerTree = useRef({ sig: "", tree });
+  if (pickerTree.current.sig !== pickerSig) pickerTree.current = { sig: pickerSig, tree };
+  // The adder is handed to every pane, and a fresh closure here would redraw all
+  // of them on every render: the ref keeps it stable while still calling the
+  // latest openPane.
+  const openPaneRef = useRef(openPane);
+  openPaneRef.current = openPane;
+  const adder = useAddWorkspace(hub, reloadTree, fail, useCallback((workspace) => openPaneRef.current({ root: workspace.root }), []));
   // 每个窗口都有一个根 —— 没选过项目时那是它碰巧启动的地方。两者读起来一样，
   // 于是「从哪加项目」这句问题永远问不出口；只有内核说的 remembered 分得开。
   const [claimed, setClaimed] = useState(() => localStorage.getItem("rx-claim") === "off");
@@ -463,7 +510,13 @@ export function App({ hub }: { hub: HubPort }) {
   const { errorBar, note, bar } = useWindowNotices({ error, setError, onReport: reportError, tree, port: machineRt ? machinePort : null, feedbackOpen: feedback !== null });
   const activeWorkspace = tree.find((ws) => !activeRuntime?.host && workspaceContains(ws, activeRuntime?.root)) ?? tree[0];
   const newSessionRoot = activeWorkspace?.root;
-  const startConversation = useNewConversation(active, runtimes, newSessionRoot, openPane, openRemotePane);
+  const newConversation = useNewConversation(active, runtimes, newSessionRoot, openPane, openRemotePane);
+  // Asking for a new conversation is entering too: the pane it lands in reads
+  // its (empty) record and takes typing from there.
+  const startConversation = useCallback(
+    () => newConversation().then((v) => { setEntered(true); return v; }),
+    [newConversation],
+  );
 
   usePaneForSheets({
     settings: !!settings,
@@ -530,7 +583,6 @@ export function App({ hub }: { hub: HubPort }) {
 
   return (
     <CompositionNewContext.Provider value={(id) => {const rt=runtimes.find((v)=>v.id===active);void (rt?.host?openRemotePane(rt.host,rt.root,undefined,id):openPane({root:newSessionRoot,agentComposition:id})).catch(fail);}}>
-    <PeerThreadsProvider port={activePort} hub={hub} onOpen={openPeerSession}>
     <div
       className="app"
       data-run={report.run}
@@ -552,6 +604,7 @@ export function App({ hub }: { hub: HubPort }) {
         status={report.status}
         workspace={report.workspace}
         title={tabs.find((tab) => tab.rt.id === active)?.title ?? report.title}
+        entered={entered}
         steer={report.steer}
         theme={scheme}
         onTheme={() => setTheme(scheme === "dark" ? "light" : "dark")}
@@ -568,21 +621,25 @@ export function App({ hub }: { hub: HubPort }) {
             at={settings === false ? null : settings === true ? "" : settings}
             onGo={showPrefs}
             onFiles={openFiles}
-            onHome={hidePrefs}
-            onRail={() => setRail((v) => !v)}
             onFeedback={() => setFeedback(feedbackEntryTab(feedbackUnread))}
+            onSearch={() => setPalette(true)}
             onNew={() => {
               hidePrefs();
               void startConversation().catch(fail);
             }}
             feedbackUnread={feedbackUnread}
             shown={navRail.shown}
+            wallet={report.wallet}
+            approval={report.status?.toolApprovalMode}
+            online={(remotes ?? []).filter((h) => h.status === "connected" || h.status === "degraded").length}
+            hideAmounts={hidesAmounts}
           />
         )}
         <Sidebar
           hub={hub}
           collapsed={!rail}
           navShown={navRail.shown}
+          palette={[palette, setPalette]}
           tree={viewed.tree}
           treeRead={treeRead}
           answered={answered}
@@ -665,6 +722,11 @@ export function App({ hub }: { hub: HubPort }) {
                   side={false}
                   onFocus={focusFor(rt.id)}
                   visible={rt.id === active}
+                  // Only the pane in front can be "not entered": the ones behind
+                  // are not on screen, and flipping a state they do not read
+                  // would redraw every transcript on the way in.
+                  locked={!entered && rt.id === active}
+                  onEnter={enterSession}
                   onReport={onReport}
                   onTurnDone={viewed.turnDone}
                   // Panes, not just the tree: the first turn gives this pane a
@@ -684,6 +746,11 @@ export function App({ hub }: { hub: HubPort }) {
                   needsProject={needsProject}
                   onOpenProject={openProject}
                   onKeepHere={keepHere}
+                  projectTree={pickerTree.current.tree}
+                  remotes={remotes}
+                  remoteTrees={remoteTrees}
+                  runtimes={runtimes}
+                  adder={adder}
                   onSettings={openSettings}
                   onFeedback={FEEDBACK_RETIRED ? undefined : openFeedback}
                   onOpenSession={openSessionFor(rt.id)}
@@ -765,7 +832,6 @@ export function App({ hub }: { hub: HubPort }) {
       <RailToggle rail={rail} onRail={() => setRail((v) => !v)} />
       <StopHint armed={stopArmed} />
     </div>
-    </PeerThreadsProvider>
     </CompositionNewContext.Provider>
   );
 }

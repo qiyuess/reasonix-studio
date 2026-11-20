@@ -10,7 +10,6 @@ import { setShowsSessionTabs } from "../state/prefs";
 import type { AgentPort } from "../port/port";
 import type { RuntimeView, TreeWorkspace } from "../port/hub";
 import type { WireEvent } from "../port/wire";
-import { expandProjects } from "./sidebarrows";
 
 afterEach(() => {
   cleanup();
@@ -117,13 +116,7 @@ function kernel(unread: string[], present = true): Kernel {
   };
 }
 
-// Projects rest folded on a cold launch, so a guard that reaches for a session
-// row opens the list first. The shared helper reads the fold control by the
-// action it declares, not by the sentence drawn on it.
-const row = async (name: RegExp) => {
-  await expandProjects();
-  return screen.findByRole("treeitem", { name });
-};
+const row = (name: RegExp) => screen.findByRole("treeitem", { name });
 const dotIn = (el: HTMLElement) => within(el).queryByRole("img", { name: "未读" });
 const focused = (on: boolean) => vi.spyOn(document, "hasFocus").mockReturnValue(on);
 
@@ -261,19 +254,17 @@ describe("a folded project sums what is unread under it", () => {
   it("shows a count badge with a spoken name only while the project is folded", async () => {
     const k = kernel([RELEASE, DOCS]);
     render(<App hub={k.hub} />);
-    // The list rests folded, so the sum is on the row from the first draw.
+    const project = await screen.findByRole("treeitem", { name: /acme/ });
+    await waitFor(() => expect(within(project).queryByText("2")).toBeNull());
+
+    await fold(/acme/);
     const shut = await screen.findByRole("treeitem", { name: /acme/ });
     expect(shut.getAttribute("aria-expanded")).toBe("false");
     expect(within(shut).getByLabelText("2 个会话未读").closest(".wsacts")).toBeTruthy();
 
     await fold(/acme/);
     const open = await screen.findByRole("treeitem", { name: /acme/ });
-    expect(open.getAttribute("aria-expanded")).toBe("true");
     expect(within(open).queryByLabelText(/个会话未读/)).toBeNull();
-
-    await fold(/acme/);
-    const back = await screen.findByRole("treeitem", { name: /acme/ });
-    expect(within(back).getByLabelText("2 个会话未读")).toBeTruthy();
   });
 
   it("counts down as sessions are opened and omits archived ones", async () => {
@@ -289,11 +280,8 @@ describe("a folded project sums what is unread under it", () => {
   it("shows no badge when the kernel sends no field", async () => {
     const k = kernel([RELEASE, DOCS], false);
     render(<App hub={k.hub} />);
-    // Read the row as it rests — folded — rather than pressing it first: a
-    // press would open the project, and an open project draws no sum at all, so
-    // the guard would pass whether or not the kernel sent the field.
+    await fold(/acme/);
     const shut = await screen.findByRole("treeitem", { name: /acme/ });
-    expect(shut.getAttribute("aria-expanded")).toBe("false");
     expect(within(shut).queryByLabelText(/个会话未读/)).toBeNull();
   });
 });

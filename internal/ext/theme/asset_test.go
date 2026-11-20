@@ -22,7 +22,7 @@ func TestAssetRefusesAnIDThatEscapes(t *testing.T) {
 
 func TestAssetRefusesAnUnknownKind(t *testing.T) {
 	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
-	if _, _, err := Asset("official-noir-gold", Kind("../theme.json")); err == nil {
+	if _, _, err := Asset("official-clear-blue", Kind("../theme.json")); err == nil {
 		t.Fatal("an unknown asset kind resolved")
 	}
 	if _, ok := KindOf("manifest"); ok {
@@ -30,39 +30,24 @@ func TestAssetRefusesAnUnknownKind(t *testing.T) {
 	}
 }
 
-// A shipped pack carries both images, and they are what a picker previews and
-// the window draws.
-func TestShippedPackServesItsImages(t *testing.T) {
+// An installed pack serves the images it carries. The shipped themes are all
+// token-only — foundation palettes with no artwork — so this builds the pack it
+// needs rather than reading one off the embedded set.
+func TestInstalledPackServesItsImages(t *testing.T) {
 	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
-	raw, ctype, err := Asset("official-noir-gold", assetBackground)
+	writePack(t, Dir(), "artwork", `{"schemaVersion":1,"name":"Artwork",
+	  "background":{"image":"background.webp","focusX":0.5,"focusY":0.5},
+	  "tokens":{"light":{"bg":"#FFFFFF"},"dark":{"bg":"#000000"}}}`)
+	dir := Dir()
+	png := []byte("\x89PNG\r\n\x1a\n mine")
+	if err := os.WriteFile(filepath.Join(dir, "artwork", "background.png"), png, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	raw, ctype, err := Asset("artwork", assetBackground)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(raw) == 0 || ctype != "image/webp" {
-		t.Fatalf("background = %d bytes, %q", len(raw), ctype)
-	}
-	if _, _, err := Asset("official-noir-gold", assetPreview); err != nil {
-		t.Fatalf("preview: %v", err)
-	}
-}
-
-// An installed pack shadows a shipped one for images too, so a user who
-// replaced the picture gets theirs rather than the one that ships.
-func TestInstalledImageShadowsTheShippedOne(t *testing.T) {
-	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
-	dir := filepath.Join(Dir(), "official-noir-gold")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	mine := []byte("\x89PNG\r\n\x1a\n mine")
-	if err := os.WriteFile(filepath.Join(dir, "background.png"), mine, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	raw, ctype, err := Asset("official-noir-gold", assetBackground)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(raw) != string(mine) || ctype != "image/png" {
+	if string(raw) != string(png) || ctype != "image/png" {
 		t.Fatalf("asset = %d bytes %q, want the installed png", len(raw), ctype)
 	}
 }

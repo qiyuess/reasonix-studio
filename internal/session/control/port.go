@@ -433,20 +433,6 @@ type ToolCallStopper interface {
 	CancelToolCall(id string) bool
 }
 
-// PeerMail is messages between sessions: who can be written to, sending, what
-// other sessions sent and the user has not decided, and the decision.
-type PeerMail interface {
-	PeersEnabled() bool
-	Peers() []PeerView
-	PeerThreads() []PeerThread
-	SendPeerMessage(to, text string) (PeerReceipt, error)
-	HeldPeerMessages() []PeerHeld
-	ResolvePeerMessage(id string, approve bool) error
-	ResolvePeerMessageRemembering(id string, approve bool, remember PeerRemember) error
-	PeersSettings() PeersSettings
-	SavePeersSettings(patch PeersPatch) (PeersSettings, error)
-}
-
 // SubagentView reads the sub-agent runs of the session: the ones it spawned,
 // running or finished, and any one run's conversation.
 type SubagentView interface {
@@ -598,7 +584,6 @@ type SessionAPI interface {
 	BackgroundJobs
 	ToolCallStopper
 	SubagentView
-	PeerMail
 	Mods
 	Schedules
 	MCPSignIn
@@ -652,7 +637,6 @@ var (
 	_ BackgroundJobs     = (*Controller)(nil)
 	_ ToolCallStopper    = (*Controller)(nil)
 	_ SubagentView       = (*Controller)(nil)
-	_ PeerMail           = (*Controller)(nil)
 	_ Mods               = (*Controller)(nil)
 	_ Schedules          = (*Controller)(nil)
 	_ MCPSignIn          = (*Controller)(nil)

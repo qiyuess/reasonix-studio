@@ -101,10 +101,13 @@ func TestMachineSettingsAssetsStayLocalWithRemoteFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A pack with artwork installed into this home: the shipped themes are
+	// palettes only, and this test needs image routes to answer at all.
+	writeThemePack(t, "artwork")
 	if err := os.WriteFile(filepath.Join(home, "config.toml"), []byte("[desktop.appearance.wallpaper]\nfile = \""+name+"\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/themes/official-noir-gold/preview", "/themes/official-noir-gold/background", "/appearance/wallpaper/" + name} {
+	for _, path := range []string{"/themes/artwork/background", "/appearance/wallpaper/" + name} {
 		w := httptest.NewRecorder()
 		operatorHandler(h).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://localhost"+path, nil))
 		if w.Code != http.StatusOK || w.Body.Len() == 0 {

@@ -87,6 +87,9 @@ var ErrModsWithheld = errors.New("the Claude Code mods switch is not available y
 // ErrModsBudgetInvalid is a hook budget outside 0..55000.
 var ErrModsBudgetInvalid = errors.New("a hook budget is 0 to 55000 milliseconds")
 
+// ErrModsUnwritable is a user file that could not be read back or saved.
+var ErrModsUnwritable = errors.New("could not save the mods settings")
+
 // ModsSettings reads the switch and the budget from the user file.
 func (c *Controller) ModsSettings() ModsSettings {
 	return modsSettingsFrom(config.UserMods())
@@ -115,7 +118,7 @@ func (c *Controller) SaveModsSettings(patch ModsPatch) (ModsSettings, error) {
 		return nil
 	})
 	if err != nil {
-		return c.ModsSettings(), fmt.Errorf("%w: %w", ErrPeerSettingsUnwritable, err)
+		return c.ModsSettings(), fmt.Errorf("%w: %w", ErrModsUnwritable, err)
 	}
 	if patch.Enabled != nil && !*patch.Enabled {
 		modhost.Default.Forget()

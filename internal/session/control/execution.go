@@ -13,7 +13,6 @@ import (
 // every path that starts one gives its tools the same durable turn identity —
 // the only thing a delegation opened mid-turn can be recorded against.
 func (c *Controller) beginTurn(ctx context.Context, startMessageIndex int, preserveUser bool) (context.Context, sessionstore.InFlightTurnMeta) {
-	c.applyPeerSwitches()
 	c.settings.proposals.Store(0)
 	marker := c.markInFlightTurn(startMessageIndex, preserveUser)
 	if marker.ID != "" {

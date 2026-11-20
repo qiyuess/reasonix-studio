@@ -43,10 +43,6 @@ var mirroredWireTypesTail = []wireMirror{
 	{"internal/ext/configbackup/apply.go", "PluginRef", tsBackupFile, "BackupPluginRef"},
 	// boundary
 	{"internal/session/control/config_problem.go", "ConfigProblem", tsBoundaryFile, "ConfigProblem"},
-	{"internal/session/control/peer_mail_send.go", "PeerView", tsBoundaryFile, "PeerView"},
-	{"internal/session/control/peer_mail.go", "PeerHeld", tsBoundaryFile, "PeerHeld"},
-	{"internal/session/control/peer_threads.go", "PeerThread", tsBoundaryFile, "PeerThread"},
-	{"internal/session/control/peer_mail_send.go", "PeerReceipt", tsBoundaryFile, "PeerReceipt"},
 	{"internal/runtime/persona/presets.go", "Preset", tsBoundaryFile, "PersonaPreset"},
 	{"internal/session/control/persona_settings.go", "PersonaSettings", tsBoundaryFile, "PersonaSettings"},
 	{"internal/contract/config/unconverted_prices.go", "UnconvertedPrice", tsBoundaryFile, "UnconvertedPrice"},

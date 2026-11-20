@@ -6,8 +6,8 @@ import (
 )
 
 func TestARefusalRendersTheSettingThatWouldLiftIt(t *testing.T) {
-	r := Refusal{Code: "peer.disabled", Message: "Messages between sessions are off.", Remedy: &Remedy{Op: RemedyPropose, Setting: "peers.enabled", Value: json.RawMessage(`true`)}}
-	want := "Messages between sessions are off. (refusal: peer.disabled) (fix: tool:setting op=propose id=peers.enabled value=true)"
+	r := Refusal{Code: "tools.disabled", Message: "That tool is off in this session.", Remedy: &Remedy{Op: RemedyPropose, Setting: "tools.disabled", Value: json.RawMessage(`[]`)}}
+	want := "That tool is off in this session. (refusal: tools.disabled) (fix: tool:setting op=propose id=tools.disabled value=[])"
 	if got := r.String(); got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}

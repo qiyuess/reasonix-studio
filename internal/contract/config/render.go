@@ -83,7 +83,8 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 
 		renderProgressWatchSection(&b, c)
 		renderAutoArchiveSection(&b, c)
-		renderServeAndPeers(&b, c)
+		renderServeSection(&b, c)
+		renderModsSection(&b, c)
 		renderObservabilitySection(&b, c)
 		renderNotificationsSection(&b, c)
 	}

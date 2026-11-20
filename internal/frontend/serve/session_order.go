@@ -105,18 +105,76 @@ func midpointRank(group []sessionstore.SessionInfo, at int) (map[string]float64,
 	return map[string]float64{group[at].Path: rank}, true
 }
 
+// rankUpdatesForOrder places group[at] and answers the ranks that change. While
+// every row is placed and there is room, only the moved row changes; otherwise
+// the partition is numbered in its new order.
+func rankUpdatesForOrder(group []sessionstore.SessionInfo, at int) (map[string]float64, bool) {
+	if len(group) < 2 {
+		return nil, false
+	}
+	if updates, ok := midpointRank(group, at); ok {
+		return updates, true
+	}
+	updates := make(map[string]float64, len(group))
+	for i, s := range group {
+		if rank := float64(i+1) * rankStep; rank != s.ManualRank {
+			updates[s.Path] = rank
+		}
+	}
+	return updates, true
+}
+
+// rankUpdatesForPlace inserts path before before ("" for the end of its
+// partition) and answers the ranks that change. A drag names a place rather
+// than a step, which is what makes it land where the pointer let go.
+func rankUpdatesForPlace(listed []sessionstore.SessionInfo, path, before string) (map[string]float64, bool) {
+	at := slices.IndexFunc(listed, func(s sessionstore.SessionInfo) bool { return s.Path == path })
+	if at < 0 {
+		return nil, false
+	}
+	group := make([]sessionstore.SessionInfo, 0, len(listed))
+	for _, s := range listed {
+		if s.Archived == listed[at].Archived {
+			group = append(group, s)
+		}
+	}
+	from := slices.IndexFunc(group, func(s sessionstore.SessionInfo) bool { return s.Path == path })
+	if from < 0 {
+		return nil, false
+	}
+	to := len(group)
+	if before != "" {
+		target := slices.IndexFunc(group, func(s sessionstore.SessionInfo) bool { return s.Path == before })
+		if target < 0 || target == from {
+			return nil, false
+		}
+		to = target
+	}
+	moved := group[from]
+	next := slices.Delete(slices.Clone(group), from, from+1)
+	insert := to
+	if to > from {
+		insert--
+	}
+	next = slices.Insert(next, insert, moved)
+	return rankUpdatesForOrder(next, insert)
+}
+
 // moveSession places one conversation a step up or down in its project's list.
 // The list is the kernel's, so the window shows the same order after a reload.
 func (h *Hub) moveSession(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Path      string `json:"path"`
-		Direction int    `json:"direction"`
+		Path      string  `json:"path"`
+		Direction int     `json:"direction"`
+		Before    *string `json:"before"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		badBody(w)
 		return
 	}
-	if body.Direction != -1 && body.Direction != 1 {
+	// A drag names a place, a keyboard nudge names a step: either may arrive,
+	// and one of them must.
+	if body.Before == nil && body.Direction != -1 && body.Direction != 1 {
 		badValue(w, "direction", "-1", "1")
 		return
 	}
@@ -136,7 +194,25 @@ func (h *Hub) moveSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sortSessions(order)
-	updates, ok := rankUpdatesForStep(order, path, body.Direction)
+	var updates map[string]float64
+	if body.Before != nil {
+		before := ""
+		if raw := strings.TrimSpace(*body.Before); raw != "" {
+			beforeAbs, absErr := filepath.Abs(raw)
+			if absErr != nil {
+				refuse(w, http.StatusBadRequest, codeSessionBadPath, "the target path could not be resolved", nil)
+				return
+			}
+			before, ok = h.listedSessionPaths()[sessionstore.CanonicalSessionPath(beforeAbs)]
+			if !ok {
+				refuse(w, http.StatusConflict, "session.order_boundary", "the target is not in this project's order", nil)
+				return
+			}
+		}
+		updates, ok = rankUpdatesForPlace(order, path, before)
+	} else {
+		updates, ok = rankUpdatesForStep(order, path, body.Direction)
+	}
 	if !ok {
 		w.WriteHeader(http.StatusNoContent)
 		return

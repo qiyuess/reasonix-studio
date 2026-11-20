@@ -186,7 +186,6 @@ func CaptureRuntimeMigration(old control.SessionAPI) RuntimeMigration {
 func ApplyRuntimeMigration(ctrl, old *control.Controller, m RuntimeMigration) error {
 	carried := spliceFreshSystemPrompt(m.carried, ctrl.History())
 	path := sessionstore.ContinueSessionPath(m.prevPath, ctrl.SessionDir(), ctrl.Label())
-	ctrl.InheritDispatchSession(old, path)
 	ctrl.AdoptHistory(carried, path)
 	// Same conversation, different model: the carried blocks were composed
 	// for the model being replaced, so this one is owed them once.

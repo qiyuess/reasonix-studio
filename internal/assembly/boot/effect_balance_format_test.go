@@ -29,7 +29,7 @@ func buildWithWallet(t *testing.T, balanceFormat string) (*atomic.Int64, billing
 	home := statedBootHome(t)
 	dir := testenv.TempDir(t)
 	kind := "boot-wallet-" + strings.ReplaceAll(t.Name(), "/", "-") + "-" + balanceFormat + "-fmt"
-	provider.Register(kind, func(provider.Config) (provider.Provider, error) { return &peerRecorder{}, nil })
+	provider.Register(kind, func(provider.Config) (provider.Provider, error) { return &effectRecordingProvider{}, nil })
 	format := ""
 	if balanceFormat != "" {
 		format = "balance_format = \"" + balanceFormat + "\"\n"

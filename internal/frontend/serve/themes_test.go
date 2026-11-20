@@ -29,8 +29,33 @@ func installPack(t *testing.T, id, name string) {
 	}
 }
 
-func themeServer(t *testing.T) *httptest.Server {
+// writeThemePack installs a pack that carries artwork, which is what the image
+// routes and the placement fields need. The shipped themes are palettes only, so
+// a test that wants a picture has to put one in the user's library.
+func writeThemePack(t *testing.T, id string) {
 	t.Helper()
+	dir := filepath.Join(theme.Dir(), id)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"schemaVersion":1,"name":"Artwork",
+	  "background":{"image":"background.png","focusX":0.5,"focusY":0.5,"safeArea":"left","homeOpacity":0.95,"taskOpacity":0.2},
+	  "tokens":{"light":{"bg":"#FFFFFF","fg":"#111111"},"dark":{"bg":"#0B0B0B","fg":"#EEEEEE"}}}`
+	if err := os.WriteFile(filepath.Join(dir, "theme.json"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A real PNG signature plus padding: enough that the route hands back image
+	// bytes and the length assertion has something to count.
+	png := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 256)...)
+	if err := os.WriteFile(filepath.Join(dir, "background.png"), png, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "preview.png"), png, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func themeServer(t *testing.T) *httptest.Server {	t.Helper()
 	srv := httptest.NewServer(operatorHandler(New(&extensionCtl{}, NewBroadcaster(), config.ServeConfig{})))
 	t.Cleanup(srv.Close)
 	return srv
@@ -163,11 +188,14 @@ func find(t *testing.T, packs []themeRow, id string) themeRow {
 
 // The window draws the background straight from this URL, so it has to answer
 // with the image bytes and its own type — not JSON, and not the SPA shell.
-func TestThemeAssetServesTheShippedImage(t *testing.T) {
+// The shipped themes are token-only palettes, so the pack with artwork is built
+// into this test's home rather than read off the embedded set.
+func TestThemeAssetServesTheInstalledImage(t *testing.T) {
 	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	writeThemePack(t, "artwork")
 	srv := themeServer(t)
 
-	resp, err := http.Get(srv.URL + "/themes/official-noir-gold/background")
+	resp, err := http.Get(srv.URL + "/themes/artwork/background")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,11 +203,11 @@ func TestThemeAssetServesTheShippedImage(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET background = %d", resp.StatusCode)
 	}
-	if ct := resp.Header.Get("Content-Type"); ct != "image/webp" {
+	if ct := resp.Header.Get("Content-Type"); ct != "image/png" {
 		t.Fatalf("content type = %q", ct)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if len(body) < 1000 {
+	if len(body) < 100 {
 		t.Fatalf("background is %d bytes", len(body))
 	}
 }
@@ -188,12 +216,13 @@ func TestThemeAssetServesTheShippedImage(t *testing.T) {
 // or in the reader — never as a file read outside the pack directory.
 func TestThemeAssetRefusesTraversalAndUnknownKinds(t *testing.T) {
 	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	writeThemePack(t, "artwork")
 	srv := themeServer(t)
 
 	for _, path := range []string{
 		"/themes/..%2F..%2Fetc/background",
-		"/themes/official-noir-gold/manifest",
-		"/themes/official-noir-gold/theme.json",
+		"/themes/artwork/manifest",
+		"/themes/artwork/theme.json",
 		"/themes/nope/background",
 	} {
 		resp, err := http.Get(srv.URL + path)
@@ -211,9 +240,10 @@ func TestThemeAssetRefusesTraversalAndUnknownKinds(t *testing.T) {
 // a picker can show the two opacities before anything is activated.
 func TestThemesListCarriesBackgroundPlacement(t *testing.T) {
 	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
-	got := find(t, listThemes(t, themeServer(t).URL), "official-noir-gold")
+	writeThemePack(t, "artwork")
+	got := find(t, listThemes(t, themeServer(t).URL), "artwork")
 	if got.Background == nil || !got.Background.Image {
-		t.Fatalf("background = %+v, want the shipped image", got.Background)
+		t.Fatalf("background = %+v, want the installed image", got.Background)
 	}
 	if got.Background.TaskOpacity >= got.Background.HomeOpacity {
 		t.Fatalf("opacities = %+v, want the image to recede while working", got.Background)

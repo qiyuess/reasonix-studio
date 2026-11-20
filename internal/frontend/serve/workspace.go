@@ -74,6 +74,7 @@ func (s *Server) workspace(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Path     string             `json:"path"`
+		Auto     bool               `json:"auto"`
 		Isolate  bool               `json:"isolate"`
 		Worktree *worktreeSelection `json:"worktree,omitempty"`
 	}
@@ -89,6 +90,13 @@ func (s *Server) workspace(w http.ResponseWriter, r *http.Request) {
 	published := false
 	if controllerHasActiveRuntimeWork(s.ctl()) {
 		writeErr(w, http.StatusConflict, busyErr("busy.change_workspace", "cannot change the workspace while active work or background jobs are running"))
+		return
+	}
+	// The app's own folder and a worktree are two different answers to where this
+	// conversation lives. The Auto branch overwrites dir after a worktree has
+	// already been cut, which would leave it on disk with nothing pointing at it.
+	if body.Auto && (body.Isolate || body.Worktree != nil) {
+		badValue(w, "auto", "auto without isolate")
 		return
 	}
 	if body.Worktree != nil && (!body.Isolate || body.Worktree.Ref == "" || body.Worktree.SourceRoot != s.ctl().WorkspaceRoot() || !emptyConversation(s.ctl())) {
@@ -126,10 +134,22 @@ func (s *Server) workspace(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	dir, err := resolveWorkspaceDir(dir)
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, err)
-		return
+	var err error
+	if body.Auto {
+		// The pill's 不使用项目 answer: the pane joins the app's own folder, the
+		// same one a brand-new conversation opens in. It is nobody's project, so
+		// it is resolved here rather than through a path the window named.
+		dir = ensureAutoWorkspace()
+		if dir == "" {
+			writeErr(w, http.StatusInternalServerError, errors.New("the app's own folder could not be created"))
+			return
+		}
+	} else {
+		dir, err = resolveWorkspaceDir(dir)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
 	}
 	if err := s.switchWorkspaceLocked(r.Context(), dir); err != nil {
 		writeErr(w, http.StatusConflict, err)

@@ -66,6 +66,10 @@ export function MeterRail({ tps, trail, running, speed, metrics, ctx, mcp, compa
   const overviewRef = useRef<HTMLDivElement>(null);
   const closeOverview = useCallback(() => setOverviewOpen(false), []);
   useDismiss(overviewOpen, overviewRef, closeOverview);
+  const [turnsOpen, setTurnsOpen] = useState(false);
+  const turnsRef = useRef<HTMLDivElement>(null);
+  const closeTurns = useCallback(() => setTurnsOpen(false), []);
+  useDismiss(turnsOpen, turnsRef, closeTurns);
   // The same rate the overview states: from the ledger when the kernel sends it,
   // so the meter and the card cannot disagree about one number.
   const ratio = usage && usage.requests > 0 ? rateOf(usage.cacheHit, usage.cacheMiss, usage.cacheUnknown ?? 0) : rateOf(metrics.hit, metrics.miss);
@@ -118,7 +122,19 @@ export function MeterRail({ tps, trail, running, speed, metrics, ctx, mcp, compa
         </div>
       )}
       {tariff && <TariffChip tariff={tariff} onFlip={onTariffFlip ?? (() => {})} />}
-      {typeof authoredTurns === "number" && Number.isFinite(authoredTurns) && <span className="studio-meter-static studio-meter-turns"><span>{t("composer.turn_count")}</span><b>{authoredTurns}</b></span>}
+      {typeof authoredTurns === "number" && Number.isFinite(authoredTurns) && (
+        <div className="studio-turns-anchor" ref={turnsRef} data-open={turnsOpen ? "" : undefined}>
+          <button className="studio-meter-turns" type="button" data-action="metrics.details" data-value="turns" aria-expanded={turnsOpen} aria-haspopup="dialog"
+            aria-label={t("composer.turn_count_about")} title={t("composer.turn_count_about")}
+            onClick={() => { setOverviewOpen(false); setMeterOpen(false); setTurnsOpen((open) => !open); }}>
+            <StudioIcon name="repeat" /><span>{t("composer.turn_count")}</span><b>{authoredTurns}</b>
+          </button>
+          <div className="studio-turns-detail" role="dialog" aria-label={t("composer.turn_count")}>
+            <header><b>{t("composer.turn_count")}</b><small>{t("composer.turns_count_n", { n: authoredTurns })}</small></header>
+            <p>{t("composer.turn_count_explain")}</p>
+          </div>
+        </div>
+      )}
       {cost.length > 0 && <span className="studio-meter-cost"><StudioIcon name="coin" /><span>{t("common.this_session_2")}</span>{hideAmounts ? <b>{MASK}</b> : cost.map((m) => <b key={m.currency}>{money(m.amount, m.currency)}</b>)}</span>}
       {cost.length > 0 && turnCost.some((m) => m.amount > 0) && <span className="studio-meter-cost"><span>{t("composer.this_turn")}</span>{hideAmounts ? <b>{MASK}</b> : turnCost.map((m) => <b key={m.currency}>{money(m.amount, m.currency)}</b>)}</span>}
       <button className="studio-meter-mask" type="button" data-action="metrics.hide-amounts" aria-pressed={hideAmounts} aria-label={hideAmounts ? t("composer.show_amounts") : t("composer.hide_amounts")} title={hideAmounts ? t("composer.show_amounts") : t("composer.hide_amounts")} onClick={() => setHidesAmounts(!hideAmounts)}><StudioIcon name={hideAmounts ? "eyeoff" : "eye"} /></button>

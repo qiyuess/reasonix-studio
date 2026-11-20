@@ -205,8 +205,6 @@ type Controller struct {
 	// inbox is the durable session-level instruction queue. Disk I/O never
 	// runs under c.mu; the store owns its own lock.
 	inbox inboxState
-	// peers is this controller's side of messages between sessions; nil-safe off.
-	peers *peerMail
 	// settings counts the setting proposals of the current turn.
 	settings settingsState
 }
@@ -327,8 +325,6 @@ type Options struct {
 	SystemPrompt        string
 	SessionDir          string
 	SessionPath         string
-	// Peers opens this session to messages from other sessions; zero is off.
-	Peers PeersOptions
 	// Settings, when set, is bound to this controller so the setting tool can reach it.
 	Settings      *tool.SettingsLink
 	Host          *plugin.Host
@@ -504,9 +500,7 @@ func New(opts Options) *Controller {
 	// Checkpoints: bind a store to the session and route writer pre-edits into it.
 	c.rebindCheckpoints(opts.SessionPath)
 	c.setActiveJobSession(opts.SessionPath)
-	c.peers = newPeerMail(opts.Peers)
 	c.rebindInbox()
-	c.startPeers()
 	c.startSettings(opts.Settings)
 	// Observe Steer / unapplied-steer for durable inbox state transitions.
 	// Must wrap both the controller sink and the executor sink: agent.Steer

@@ -53,6 +53,9 @@ import { useCompactNow } from "./CompactNow";
 import { DOCK, Gutter } from "./Gutter";
 import { Find } from "./Find";
 import { useFind } from "./usefind";
+import { ProjectChoiceContext } from "./projectchoice";
+import { pickerProjects } from "./useNewSessionPicker";
+import { WorkspacePill } from "./WorkspacePill";
 import { RunAnalysis } from "./RunAnalysis";
 import { useBrowserTabs } from "./BrowserPanel";
 import { useWorkspaceInfo } from "./useWorkspaceInfo";
@@ -62,7 +65,6 @@ import { useBrowserFull } from "./browserfull";
 import { refreshTodos } from "../state/restore";
 import { speedOf } from "./speed";
 import { RuntimeBar } from "./RuntimeBar";
-import { PeerHeldBar } from "./PeerHeldBar";
 import { PostureNote, postureNote } from "./PostureNote";
 import { MemorySuggestRow } from "./MemorySuggestRow";
 import { SidePanel } from "./SidePanel";
@@ -105,7 +107,7 @@ const totalsOf = (st: SessionStatus) => ({
   incompleteReason: st.sessionCostQuote?.incompleteReason,
 });
 
-function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFocus, onReport, onSessionChanged, onTurnDone, pulse, findPulse, findTogglePulse = 0, filesPulse = 0, terminalPulse = 0, viewRequest, sessionRef, onSettings, onFeedback, onOpenSession, needsProject, onOpenProject, onKeepHere, connect, theme, dockW, dockMax, onDockW, manualBrowser = false, onManualBrowser, alert, failure }: PaneProps) {
+function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFocus, onReport, onSessionChanged, onTurnDone, pulse, findPulse, findTogglePulse = 0, filesPulse = 0, terminalPulse = 0, viewRequest, sessionRef, onSettings, onFeedback, onOpenSession, onOpenProject, projectTree, remotes, remoteTrees, runtimes, adder, connect, theme, dockW, dockMax, onDockW, manualBrowser = false, onManualBrowser, alert, failure, locked = false, onEnter }: PaneProps) {
   const [s, dispatch] = useReducer(reduce, initialState);
   const [traj, trajDispatch] = useReducer(reduceTraj, initialTraj);
   const [sessionRead, setSessionRead] = useState<SessionRead>({ kind: "pending" });
@@ -279,12 +281,17 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
 
   useEffect(() => {
     let alive = true;
-    port.trajectory().then((r) => alive && replayTrajectory(r)).catch(() => {});
-    // The record and the numbers over it are two reads, not one. /status can go
-    // to the network — the provider's wallet endpoint rides it — and pairing the
-    // two made the conversation wait on a round trip that has nothing to do with
-    // it. Whichever lands first shows what it knows.
-    void readHistory(() => alive).catch(() => {});
+    // A window that has just opened shows the room and nothing in it: reading
+    // the record here would put a conversation on screen nobody asked for, and
+    // the person has not chosen one yet. The read happens when they do.
+    if (!locked) {
+      port.trajectory().then((r) => alive && replayTrajectory(r)).catch(() => {});
+      // The record and the numbers over it are two reads, not one. /status can go
+      // to the network — the provider's wallet endpoint rides it — and pairing the
+      // two made the conversation wait on a round trip that has nothing to do with
+      // it. Whichever lands first shows what it knows.
+      void readHistory(() => alive).catch(() => {});
+    }
     port.status().then((st) => {
       if (!alive) return;
       applyStatus(st);
@@ -295,7 +302,7 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
     return () => {
       alive = false;
     };
-  }, [port, applyStatus, readHistory, replayTrajectory]);
+  }, [port, applyStatus, readHistory, replayTrajectory, locked]);
 
   useEffect(() => {
     if (!running) {
@@ -521,6 +528,20 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
     });
   }, [rt.id, onReport, status, workspace, title, queue, run, running, blocked, trustWaiting, cost, contextPercent, ctx, mcp, walletDisplay, s.interactions, docked, tab, traj.rows.length]);
 
+  // The composer's project pill reads its place and its machine from here —
+  // provided once instead of threading the pane's rows through the composer's
+  // props. A switch re-reads the pane and the window through reloadSession.
+  // A launch nobody has entered is in no project: the folder the pane happens
+  // to work in was chosen by nobody, so the pill carries the invitation rather
+  // than naming a place the person never picked.
+  const choiceSurface = useMemo(() => ({
+    port, host: rt.host, root: locked ? "" : status?.workspaceRoot ?? rt.root,
+    canSwitch: workspace?.canSwitch ?? true, running,
+    projects: pickerProjects(projectTree ?? [], remotes ?? null, remoteTrees ?? {}, runtimes ?? [])
+      .filter((p) => p.host === rt.host),
+    adder, onChanged: refreshStatus, onSwitched: () => { reloadSession(); onEnter?.(); }, onError: notify,
+  }), [port, rt.host, rt.root, locked, status?.workspaceRoot, workspace?.canSwitch, running, projectTree, remotes, remoteTrees, runtimes, adder, refreshStatus, reloadSession, onEnter, notify]);
+
   return (
     <section
       className="pane"
@@ -577,9 +598,6 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
         onCommitRewind={onCommitRewind}
         onPrepareFileRevert={onPrepareFileRevert}
         onCommitFileRevert={onCommitFileRevert}
-        needsProject={needsProject}
-        onOpenProject={onOpenProject}
-        onKeepHere={onKeepHere}
         onSuggest={(text) => setInserted((was) => ({ n: was.n + 1, text }))}
       />
       </ThoughtFolds.Provider></JobsLiveContext.Provider></AgentRunOpener.Provider></PlanLiveContext.Provider>
@@ -606,7 +624,7 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
         <Gutter edge="r" span={DOCK} width={dockW} max={dockMax} label={t("app.resize_the_browser")} open={docked}
           onWidth={onDockW} onOpen={(on) => onManualBrowser?.(on)} />
       )}
-      <div className="scroll" data-pane="browser" hidden={tab === "analysis"} inert={!workbench}>
+      <div className="scroll" data-pane="browser" hidden={tab === "analysis" || locked} inert={!workbench}>
           <JobsLiveContext.Provider value={jobsLive}>
           <TerminalHostContext.Provider value={rt.host ?? ""}>
           <WorkbenchPanel
@@ -617,7 +635,7 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
             tabs={pages}
             fullMode={docked ? { full: browserSize.size === "full", onToggle: browserSize.toggleFull } : undefined}
             manual={manualBrowser}
-            shown={visible && workbench}
+            shown={visible && workbench && !locked}
             onActiveFile={onActiveFile}
             scheme={theme === "light" ? "light" : "dark"}
             changes={tree?.changes ?? []} onTreeChanged={refreshTree} revealChanges={revealChanges} revealFiles={revealFiles} toggleFiles={toggleFiles} terminalRequest={terminalPulse}
@@ -648,11 +666,19 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
         <PlanFold plan={s.plan} goal={status?.goal} goalStatus={status?.goalStatus} goalRuntime={status?.goalRuntime} shown={tab === "flow"} running={running} paused={blocked}
           cardInView={!!planStarted && planSeen} onJump={planStarted ? () => setLandAt((was) => ({ item: planStarted, n: (was?.n ?? 0) + 1 })) : undefined}
           onGoal={(command) => void port.submit(`/goal ${command}`).then(refreshStatus, notify)} />
-        {tab === "flow" && <RunLine label={worktreePhase ? t(["failed", "cleanup_failed"].includes(worktreePhase) ? "app.creation_failed" : worktreePhase === "cancelled" ? "app.creation_cancelled" : "app.preparing_workspace") : chipLabel(s, running)} running={running} blocked={blocked} since={s.running ? s.runSince : undefined} sent={sent} received={received} estimated={s.outLive > 0}>
+        {/* Where this conversation lives sits on the same line as the agent it
+            runs with: the two answers a turn needs, side by side. The pill used
+            to ride a row of its own above the card, which put the project's name
+            an inch away from the agent's and read as two separate settings.
+            RunLine keeps its own status — the run clock and token counts — pushed
+            to the right edge; the pill is a sibling of that status rather than of
+            RunLine, because RunLine drops its children when the agent picker is
+            switched off and the project must still show. */}
+        {tab === "flow" && <RunLine label={worktreePhase ? t(["failed", "cleanup_failed"].includes(worktreePhase) ? "app.creation_failed" : worktreePhase === "cancelled" ? "app.creation_cancelled" : "app.preparing_workspace") : chipLabel(s, running)} running={running} blocked={blocked} since={s.running ? s.runSince : undefined} sent={sent} received={received} estimated={s.outLive > 0}
+          aside={<ProjectChoiceContext.Provider value={choiceSurface}><WorkspacePill /></ProjectChoiceContext.Provider>}>
           <AgentCompositionPicker port={port} binding={status?.agentComposition} locked={status?.agentCompositionLocked} running={running} onChanged={refreshStatus} onSettings={() => onSettings("persona")} onError={notify} />
         </RunLine>}
         <div className="composeaux">
-          <PeerHeldBar port={port} project={rt.host ? undefined : { path: rt.root, name: rt.name }} />
           {connect && <ConnectNote offer={connect} />}
           {!connect && <PostureNote port={port} status={status} onChanged={refreshStatus} />}
           {!connect && !rt.readOnly && <MemorySuggestRow port={port} running={running} onError={notify} />}
@@ -676,7 +702,7 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
         {alert && <div className="cmpalert">{alert}</div>}
         <RootMissingBanner items={s.items} onPick={onOpenProject} />
         {pill && <ChangedFilesPill changes={tree?.changes ?? []} onOpen={openChanges} />}
-        <Composer queueStrip={<Queue queue={queue} running={running} shown={steerShown} onSendNow={onQueueSendNow} onToSteer={onQueueToSteer} onCancel={onQueueCancel} onRetry={onQueueRetry} onPause={onQueuePause} />} queued={waiting(queue).length > 0} worktreeTarget={worktreeTarget} onWorktreePhase={setWorktreePhase} port={port} workspace={workspace} fresh={ready && !historyPaging.hasMore && !historyPaging.busy && !historyPaging.failed && !rt.host && s.items.length === 0} status={status} running={running} quote={quote} restore={restored} inject={inserted} focus={askFocus} onSubmit={submit} onChanged={refreshStatus} onError={notify} onSettings={onSettings} side={sideAsk} onSide={() => setSideAsk((on) => !on)} sidePanel={sideAsk ? <SidePanel port={port} onClose={() => setSideAsk(false)} onQuote={(text) => setInserted((was) => ({ n: was.n + 1, text }))} /> : null} changeCount={changeCount} countElsewhere={pill} git={git} repo={repoDir} onTreeChanged={refreshTree} pulse={pulse} draftKey={draftKey(rt.host ?? "", rt.root, rt.sessionPath || status?.sessionPath || "")} />
+        <Composer queueStrip={<Queue queue={queue} running={running} shown={steerShown} onSendNow={onQueueSendNow} onToSteer={onQueueToSteer} onCancel={onQueueCancel} onRetry={onQueueRetry} onPause={onQueuePause} />} queued={waiting(queue).length > 0} worktreeTarget={worktreeTarget} onWorktreePhase={setWorktreePhase} port={port} workspace={workspace} fresh={!locked && ready && !historyPaging.hasMore && !historyPaging.busy && !historyPaging.failed && !rt.host && s.items.length === 0} locked={locked} status={status} running={running} quote={quote} restore={restored} inject={inserted} focus={askFocus} onSubmit={submit} onChanged={refreshStatus} onError={notify} onSettings={onSettings} side={sideAsk} onSide={() => setSideAsk((on) => !on)} sidePanel={sideAsk ? <SidePanel port={port} onClose={() => setSideAsk(false)} onQuote={(text) => setInserted((was) => ({ n: was.n + 1, text }))} /> : null} changeCount={changeCount} countElsewhere={pill} git={git} onTreeChanged={refreshTree} pulse={pulse} draftKey={draftKey(rt.host ?? "", rt.root, rt.sessionPath || status?.sessionPath || "")} />
         <MeterRail
           tps={tps} trail={trail} running={running} speed={speed} metrics={s.metrics} ctx={ctx} mcp={mcp} compact={compact} cost={cost} turnCost={s.metrics.coverage === "none" ? NO_COST : s.metrics.turn}
           wallet={wallet} hideAmounts={hideAmounts} tasks={rail.tasks} jobs={jobs} onSettings={onSettings}

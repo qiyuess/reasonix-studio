@@ -84,14 +84,6 @@ class BenchPort extends MockPort {
     if (CHANGES > 0) {
       this.changeList = Array.from({ length: CHANGES }, (_, i) => ({ path: `pkg${i % 60}/dir${i % 9}/file${i}.go`, status: "??", unstaged: true }));
     }
-    // ?peerset=1 starts with session messages on and two projects already allowed through.
-    if (query.has("peerset")) {
-      this.peerSettings = {
-        enabled: true, dispatch: true, max_dispatch_depth: 1, max_dispatched_sessions: 8, open_nested: false, applies: "next_turn", pending: query.has("pending"), available: true,
-        path: "/Users/you/.reasonix/config.toml",
-        release_projects: [{ path: "/Users/you/work/site", name: "site" }, { path: "/Users/you/work/api-gateway", name: "api-gateway" }],
-      };
-    }
     // ?git=multi is a folder of projects: three repositories, each with changes of its own.
     if (query.get("git") === "multi") {
       this.repoRows = [
@@ -229,24 +221,6 @@ class BenchPort extends MockPort {
 
   async providerSetup() {
     return ONBOARDING ? { required: true, noProvider: true, provider: "", model: "" } : null;
-  }
-
-  async peers() {
-    if (query.has("peerthreads")) {
-      const states = ["waiting", "working", "replied", "declined"] as const;
-      return {
-        enabled: true,
-        peers: [],
-        held: [],
-        threads: states.map((state, i) => ({ key: `s-${i}`, title: ["文档整理", "发布脚本", "拾音", "旧迁移"][i], project: "rx-archive", sessionPath: `/sessions/w0-s${i}.jsonl`, state, since: "2026-10-16T10:00:00Z", messageId: `m-${i}` })),
-      };
-    }
-    if (!query.has("peers")) return super.peers();
-    return {
-      enabled: true,
-      peers: [{ key: "s-1a2b3c4d", title: "拾音", project: "rx-archive" }, { key: "s-5e6f7a8b", title: "文档整理", project: "docs" }],
-      held: [{ id: "m-1", fromSession: "s-1a2b3c4d", fromTitle: "拾音", fromProject: "rx-archive", sentAt: "2026-10-16T12:00:00Z", body: "迁移脚本跑完了，结果在 out/report.md，请你核对第三节再继续。" }],
-    };
   }
 
   async webAccessSettings() {
@@ -647,13 +621,13 @@ function settingCardFrame(kind: string): WireEvent {
     return { kind: "notice", level: "info", code: "setting_open", text: "助手需要改动 permissions.mode，只有你本人能改。", detail: "permissions.mode" } as WireEvent;
   }
   const elevated = kind === "elevated";
-  const id = elevated ? "peers.dispatch" : "ui.show_changed_files";
+  const id = elevated ? "tools.video_url_passthrough" : "ui.show_changed_files";
   return {
     kind: "approval_request",
     approval: {
       id: "s1", tool: elevated ? "setting_change_elevated" : "setting_change", subject: id, kind: "tool", fresh: true,
       allowsSession: !elevated, allowsPersist: false,
-      reason: `助手请求把设置 ${id} 从 false 改为 true。${elevated ? "从下一回合起生效。" : "立即生效。"}\n它给出的理由：要把任务交给另一个项目里的会话。`,
+      reason: `助手请求把设置 ${id} 从 false 改为 true。${elevated ? "从下一回合起生效。" : "立即生效。"}\n它给出的理由：要直接访问这个图片地址。`,
     },
   } as WireEvent;
 }

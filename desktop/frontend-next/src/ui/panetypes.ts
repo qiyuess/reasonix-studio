@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import type { AgentPort, ContextBreakdown, McpEntry, SessionStatus, WorkspaceInfo } from "../port/port";
-import type { HubPort, RuntimeView } from "../port/hub";
+import type { HubPort, RuntimeView, TreeWorkspace } from "../port/hub";
+import type { RemoteHost } from "../port/remote";
 import type { ConnectOffer } from "./ConnectNote";
+import type { Adder } from "./addws";
 import type { PaneView } from "../state/paneview";
 
 // PaneReport is what the window's own chrome needs from whichever pane has
@@ -67,6 +69,14 @@ export interface PaneProps {
   needsProject: boolean;
   onOpenProject: () => void;
   onKeepHere: () => void;
+  // The composer's project pill reads the window's folders through these: the
+  // tree of projects that can be picked, the machines in the book behind them,
+  // and the folder adder the 创建项目 row hands the question to.
+  projectTree?: TreeWorkspace[];
+  remotes?: RemoteHost[] | null;
+  remoteTrees?: Record<string, TreeWorkspace[] | null>;
+  runtimes?: RuntimeView[];
+  adder?: Adder;
   connect?: ConnectOffer;
   // A prop, not a document read: this pane is memoised past an attribute flip.
   theme: string;
@@ -81,4 +91,13 @@ export interface PaneProps {
   // The window's refused-action reason, handed only to the pane in front; it joins
   // the stack above the composer rather than a corner the composer paints over.
   failure?: ReactNode;
+  // A fresh launch has a pane on screen but nobody has entered it yet: the
+  // history is not read and the composer does not take typing until the person
+  // picks a conversation on the left or starts a new one.
+  locked?: boolean;
+  // Something in this pane is now the person's choice rather than the kernel's
+  // guess — picking where the conversation works counts, the same as picking a
+  // conversation and starting one. The window stops calling the launch
+  // un-entered, so the pill names the place from then on.
+  onEnter?: () => void;
 }

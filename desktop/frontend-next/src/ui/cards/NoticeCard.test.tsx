@@ -324,8 +324,8 @@ describe("a notice about a setting the model named", () => {
   });
 
   it("does not draw a button for a change that already happened, and names the setting once", () => {
-    const box = draw({ level: "info", code: "setting_changed", text: "设置 peers.enabled 已从 false 改为 true。", detail: "peers.enabled" });
+    const box = draw({ level: "info", code: "setting_changed", text: "设置 tools.video_url_passthrough 已从 false 改为 true。", detail: "tools.video_url_passthrough" });
     expect(box.querySelector("button")).toBeNull();
-    expect(box.querySelector(".nrule")?.textContent).toBe("peers.enabled");
+    expect(box.querySelector(".nrule")?.textContent).toBe("tools.video_url_passthrough");
   });
 });

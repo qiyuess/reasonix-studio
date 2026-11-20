@@ -19,7 +19,7 @@ func tariffOf(t *testing.T, baseURL string, price string) bool {
 	home := statedBootHome(t)
 	dir := testenv.TempDir(t)
 	kind := fmt.Sprintf("boot-tariff-%s-%d", strings.ReplaceAll(t.Name(), "/", "-"), tariffKinds.Add(1))
-	provider.Register(kind, func(provider.Config) (provider.Provider, error) { return &peerRecorder{}, nil })
+	provider.Register(kind, func(provider.Config) (provider.Provider, error) { return &effectRecordingProvider{}, nil })
 	body := `
 default_model = "test-model"
 

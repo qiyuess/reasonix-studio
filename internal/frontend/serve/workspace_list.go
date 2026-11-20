@@ -3,11 +3,13 @@ package serve
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"reasonix/internal/contract/config"
 	"reasonix/internal/state/workspacelist"
@@ -54,6 +56,56 @@ func LaunchWorkspaces() []string {
 }
 
 func readWorkspaceList(path string) (workspaceList, error) { return workspacelist.Read(path) }
+
+// workspaceNames are the display names projects read by in the sidebar, keyed by
+// project identity so a folder spelled two ways still finds the name it was
+// given — the write side normalizes, so the read side must too.
+func workspaceNames() map[string]string {
+	list, _ := readWorkspaceList(workspacesPath())
+	out := map[string]string{}
+	for dir, name := range list.Names {
+		if id := projectIdentity(dir); id != "" {
+			out[id] = name
+		}
+	}
+	return out
+}
+
+// workspacePinned is the set of projects that lead the list, keyed by identity
+// so a folder spelled two ways still reads as the one that was pinned.
+func workspacePinned() map[string]bool {
+	list, _ := readWorkspaceList(workspacesPath())
+	out := map[string]bool{}
+	for _, dir := range list.Pinned {
+		if id := projectIdentity(dir); id != "" {
+			out[id] = true
+		}
+	}
+	return out
+}
+
+// storedWorkspacePath names the path exactly as the list carries it, so a
+// metadata write lands on the entry the sidebar reads.
+func storedWorkspacePath(list workspaceList, dir string) string {
+	for _, stored := range list.Paths {
+		if strings.EqualFold(strings.TrimSpace(stored), strings.TrimSpace(dir)) {
+			return stored
+		}
+	}
+	return dir
+}
+
+// workspaceMetaPath resolves the folder a metadata write names — a rename or a
+// pin changes the list, not the disk. Stat'ing it here would refuse both for a
+// project the person can still see in the tree as missing, which is exactly
+// when removing or renaming it matters.
+func workspaceMetaPath(raw string) (string, error) {
+	dir := strings.TrimSpace(raw)
+	if dir == "" {
+		return "", fmt.Errorf("missing path")
+	}
+	return filepath.Abs(dir)
+}
 
 func updateWorkspaceList(ctx context.Context, repair bool, mutate func(*workspaceList) error) error {
 	return workspacelist.Update(ctx, workspacesPath(), repair, mutate)

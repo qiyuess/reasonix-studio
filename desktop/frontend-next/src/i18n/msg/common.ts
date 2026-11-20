@@ -151,7 +151,7 @@ export const COMMON: Messages = {
   "common.refuse": { zh: "拒绝", en: "Refuse" },
   "common.reload": { zh: "重新加载", en: "Reload" },
   "common.remove": { zh: "移除", en: "Remove" },
-  "common.remove_from_the_list": { zh: "从列表移除", en: "Remove from the list" },
+  "common.remove_from_the_list": { zh: "移除", en: "Remove" },
   "common.remove_name": { zh: "移除 {name}", en: "Remove {name}" },
   "common.rename_this_session": { zh: "重命名该会话", en: "Rename this session" },
   "common.renamed": { zh: "重命名", en: "Renamed" },

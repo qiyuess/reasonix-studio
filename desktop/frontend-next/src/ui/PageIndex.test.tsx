@@ -24,9 +24,9 @@ describe("the index at the top of a settings page", () => {
     const go = vi.fn();
     const items = entries("session");
     render(<PageIndex items={items} onGo={go} />);
-    const peers = items.find((e) => e.anchor === "peers")!;
-    await userEvent.click(document.querySelector(`[data-target="peers"]`) as HTMLElement);
-    expect(go).toHaveBeenCalledWith(peers);
+    const target = items.find((e) => e.anchor === "ask-timeout")!;
+    await userEvent.click(document.querySelector(`[data-target="ask-timeout"]`) as HTMLElement);
+    expect(go).toHaveBeenCalledWith(target);
   });
 
   it("says nothing on a page too small to need it", () => {

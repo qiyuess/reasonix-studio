@@ -15,10 +15,9 @@
 @import "./skillpin.css" layer(legacy);
 @import "./waitnote.css" layer(legacy);
 @import "./bring.css" layer(legacy);
-@import "./peerthreads.css" layer(legacy);
 @import "./line.css" layer(legacy);
 @import "./notice.css" layer(legacy);
-@import "./peers.css" layer(legacy);
+@import "./formparts.css" layer(legacy);
 @import "./contentmatches.css" layer(legacy);
 @import "./jsontext.css" layer(legacy);
 @import "./narrow.css" layer(legacy);

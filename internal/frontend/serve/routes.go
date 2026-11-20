@@ -92,7 +92,6 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /trajectory", s.trajectory)
 	s.registerShellRoutes(mux)
 	s.registerBoundaryRoutes(mux)
-	s.registerPeerRoutes(mux)
 	s.registerModRoutes(mux)
 	mux.HandleFunc("GET /hooks", s.hooks)
 	mux.HandleFunc("POST /hooks", s.saveHooks)
