@@ -44,6 +44,52 @@ function git(args) {
   return result.status === 0 ? (result.stdout || "").trim() : "";
 }
 
+// The bundle is asked what version it carries, rather than trusted to have taken
+// the one it was handed. The dotted-path flag is documented and still stopped
+// landing once: a bare `--` upstream ended the option list, yargs read the rest
+// as positional arguments, and the installer shipped 0.0.0 while the log printed
+// the right number. Reading it back is the only check that fails on the machine
+// doing the packaging.
+//
+// The asar header is read directly — a length-prefixed JSON index, then a
+// length-prefixed file — so this needs no dependency of its own.
+function checkPackagedVersion(expected) {
+  const fs = require("node:fs");
+  const app = path.join(REPO, "dist", "win-unpacked", "resources", "app.asar");
+  if (!fs.existsSync(app)) return; // nothing unpacked: not a win `--dir`/nsis run
+
+  const fd = fs.openSync(app, "r");
+  try {
+    const head = Buffer.alloc(16);
+    fs.readSync(fd, head, 0, 16, 0);
+    if (head.readUInt32LE(0) !== 4) fail("app.asar does not start with an asar header");
+    const headerSize = head.readUInt32LE(12);
+    const header = Buffer.alloc(headerSize);
+    fs.readSync(fd, header, 0, headerSize, 16);
+    const index = JSON.parse(header.toString("utf8"));
+    const entry = index.files?.["package.json"];
+    // `offset` arrives as a string of digits in an asar index, not a number, and
+    // the bytes it points at carry a small length prefix before the JSON.
+    if (!entry || entry.offset === undefined) fail("app.asar carries no package.json");
+    const window = Buffer.alloc(entry.size + 16);
+    fs.readSync(fd, window, 0, window.length, 16 + headerSize + Number(entry.offset));
+    const at = window.indexOf(0x7b); // "{"
+    if (at < 0) fail("app.asar's package.json does not start with JSON");
+    const text = window.subarray(at).toString("utf8");
+    const carried = JSON.parse(text.slice(0, text.lastIndexOf("}") + 1)).version;
+    if (carried !== expected) {
+      fail(
+        `the bundle carries ${carried}, not ${expected}: the version flag did not land.\n` +
+          "  Something before it on electron-builder's command line ended the option list.\n" +
+          "  Do not ship installers from this run.",
+      );
+    }
+    console.log(`bundle carries version ${carried}`);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 // --build-version is this script's; the rest is electron-builder's. Named apart
 // from --version so electron-builder's own use of that flag still passes through.
 const argv = process.argv.slice(2);
@@ -52,6 +98,13 @@ let statedMissing = false;
 const passthrough = [];
 for (let i = 0; i < argv.length; i++) {
   const arg = argv[i];
+  // `pnpm run pack -- --win nsis` hands the script a bare `--`, because that is
+  // how pnpm separates its own flags from the script's. It cannot go on to
+  // electron-builder: yargs reads a bare `--` as the end of options and treats
+  // everything after it as positional arguments, so `--config.…` is never parsed
+  // as a flag. The bundle then ships 0.0.0 while this script prints the number it
+  // was told — which is exactly the failure the check below exists to prevent.
+  if (arg === "--") continue;
   if (arg === "--build-version") {
     // A flag with nothing after it is a mistake, not a request to go guessing:
     // falling back to the tag here is how a build ships a number nobody chose.
@@ -98,10 +151,10 @@ console.log(`packaging Reasonix Studio ${number}`);
 // The kernel spells it with the tag's prefix; the bundle carries the bare
 // number electron's app.getVersion() reports.
 run(path.join(HERE, "packaging", "build-host.js"), [], { REASONIX_VERSION: `v${number}` });
-// `--config.`, not `-c.`. electron-builder parses its command line with yargs,
-// and a one-letter option is read as a short flag: `-c.extraMetadata.version=…`
-// arrives as the string in `argv.c`, which nothing reads, so extraMetadata stays
-// empty and the bundle ships 0.0.0 while the log still prints the version it was
-// told. Only the long name expands the dotted path into an object — verified
-// against the yargs this build resolves to.
+// The dotted path is the documented way to set a package.json field, and it works
+// only while nothing before it ends the option list — see the bare `--` dropped
+// above. The number is also read back from the bundle afterwards by
+// checkPackagedVersion, so a spelling that stops landing fails here rather than
+// in someone's updater.
 run(require.resolve("electron-builder/cli.js"), [...passthrough, `--config.extraMetadata.version=${number}`]);
+checkPackagedVersion(number);
