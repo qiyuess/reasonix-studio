@@ -386,6 +386,7 @@ export const KERNEL: Messages = {
   "kernel.the_arguments_break_this_tools": { zh: "参数不符合该工具的约定，本次调用没有执行；请按工具说明补全或更正参数后重试", en: "The arguments break this tool's contract, so the call did not run; complete or correct them per the tool description and retry" },
   "kernel.the_attachment_could_not_be": { zh: "附件未能保存到工作区的 .reasonix/attachments：{detail}。请检查该目录的写入权限和磁盘空间。", en: "The attachment could not be saved to .reasonix/attachments in the workspace: {detail}. Check that folder's write permission and the free disk space." },
   "kernel.the_attachment_upload_limit_could": { zh: "无法读取附件上传上限，请修复用户 config.toml 后重试。", en: "The attachment upload limit could not be read. Repair your user config.toml and try again." },
+  "kernel.the_apps_own_folder_could": { zh: "无法创建应用自己的目录，无项目的会话要在这里打开。请检查 Reasonix 主目录的写入权限", en: "The app's own folder could not be created, and a session with no project opens there. Check that Reasonix's home folder is writable" },
   "kernel.the_auto_archive_settings_were": { zh: "自动归档设置未能保存：{detail}", en: "The auto-archive settings were not saved: {detail}" },
   "kernel.the_backup_is_over_the": { zh: "备份超出了大小上限", en: "The backup is over the size limit" },
   "kernel.the_backup_limit_is_reached": { zh: "备份数量已达上限，请先删除一份旧备份", en: "The backup limit is reached; delete an older backup first" },

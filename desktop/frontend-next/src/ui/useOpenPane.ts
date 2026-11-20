@@ -34,7 +34,7 @@ interface Deps {
 // only the latest one moves focus and a failure of an older one changes nothing.
 export function useOpenPane({ hub, runtimes, panePorts, active, reportsRef, runsRef, setRuntimes, setActive, setTakeover, reloadPanes, sw }: Deps) {
   const placePane = useCallback(
-    async (req: { root?: string; sessionPath?: string; agentComposition?: string }): Promise<Placed> => {
+    async (req: { root?: string; sessionPath?: string; agentComposition?: string; noProject?: boolean }): Promise<Placed> => {
       const composition = newTaskComposition(req.agentComposition, req.sessionPath);
       const defaulted = composition !== undefined && req.agentComposition === undefined;
       if (defaulted) req = { ...req, agentComposition: composition };
@@ -43,10 +43,12 @@ export function useOpenPane({ hub, runtimes, panePorts, active, reportsRef, runs
       const blank = runtimes.find(
         (rt) => !rt.host && !rt.sessionPath && !reportsRef.current[rt.id]?.status?.sessionPath && !runsRef.current[rt.id]?.live,
       );
-      // Asking for a new session when an unused one is already open in that
-      // folder: it is the pane being asked for. Rebuilding it would cost a full
-      // assembly to arrive back where we started.
-      if (blank && !req.sessionPath && blank.root === req.root) {
+      // Asking for a new session when an unused one is already open in the same
+      // place: it is the pane being asked for. A request for no project and a
+      // pane that belongs to none are that same place, even though neither names
+      // a folder — an empty pane inside someone's project is somewhere else.
+      const samePlace = !!blank && (req.noProject ? !!blank.noProject : blank.root === req.root);
+      if (samePlace && !req.sessionPath) {
         if (req.agentComposition !== undefined) {
           try {
             await panePorts.get(blank.id)?.selectAgentComposition(req.agentComposition);
@@ -137,7 +139,7 @@ export function useOpenPane({ hub, runtimes, panePorts, active, reportsRef, runs
 
   const flights = useRef(new Map<string, Promise<Placed>>());
   const openPane = useCallback(
-    async (req: { root?: string; sessionPath?: string; agentComposition?: string }) => {
+    async (req: { root?: string; sessionPath?: string; agentComposition?: string; noProject?: boolean }) => {
       const wanted = req.sessionPath ?? "";
       if (wanted && sw.opening(wanted)) return;
       const ticket = sw.begin(wanted);

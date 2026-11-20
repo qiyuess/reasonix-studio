@@ -271,6 +271,7 @@ const SAID: Record<string, string> = {
   "workspace.running": "kernel.a_conversation_in_this_folder",
   "remote.running": "kernel.a_conversation_on_this_machine",
   "workspace.none": "kernel.there_is_no_folder_yet",
+  "workspace.auto_unavailable": "kernel.the_apps_own_folder_could",
   "provider.no_current_model": "kernel.no_model_is_in_use",
   "context.window_after_this_turn": "kernel.the_window_is_saved_it",
   "provider.saved_while_running": "kernel.saved_this_conversation_still_has",

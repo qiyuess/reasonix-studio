@@ -146,10 +146,22 @@ func (h *Hub) resolveRoot(req OpenRequest) (string, error) {
 	if root := strings.TrimSpace(req.Root); root != "" {
 		return resolveWorkspaceDir(root)
 	}
+	// A conversation being opened owns the question before either guess below:
+	// it lives where it was written, whatever the caller asked for.
 	if path := strings.TrimSpace(req.SessionPath); path != "" {
 		if root := workspaceRootForSession(path); root != "" {
 			return root, nil
 		}
+	}
+	// 不使用项目, asked for up front. It answers with the app's own folder — the
+	// one the tree never lists — rather than with the first pane's project,
+	// which is a guess and not an answer.
+	if req.NoProject {
+		dir := ensureAutoWorkspace()
+		if dir == "" {
+			return "", refusal(http.StatusInternalServerError, "workspace.auto_unavailable", errors.New("the app's own folder could not be created"), nil)
+		}
+		return dir, nil
 	}
 	h.mu.RLock()
 	first := ""

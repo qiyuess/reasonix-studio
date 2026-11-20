@@ -510,7 +510,7 @@ export function App({ hub }: { hub: HubPort }) {
   const { errorBar, note, bar } = useWindowNotices({ error, setError, onReport: reportError, tree, port: machineRt ? machinePort : null, feedbackOpen: feedback !== null });
   const activeWorkspace = tree.find((ws) => !activeRuntime?.host && workspaceContains(ws, activeRuntime?.root)) ?? tree[0];
   const newSessionRoot = activeWorkspace?.root;
-  const newConversation = useNewConversation(active, runtimes, newSessionRoot, openPane, openRemotePane);
+  const newConversation = useNewConversation(active, runtimes, openPane, openRemotePane);
   // Asking for a new conversation is entering too: the pane it lands in reads
   // its (empty) record and takes typing from there.
   const startConversation = useCallback(
@@ -582,7 +582,7 @@ export function App({ hub }: { hub: HubPort }) {
   }
 
   return (
-    <CompositionNewContext.Provider value={(id) => {const rt=runtimes.find((v)=>v.id===active);void (rt?.host?openRemotePane(rt.host,rt.root,undefined,id):openPane({root:newSessionRoot,agentComposition:id})).catch(fail);}}>
+    <CompositionNewContext.Provider value={(id) => {const rt=runtimes.find((v)=>v.id===active);void (rt?.host?openRemotePane(rt.host,rt.root,undefined,id):openPane({noProject:true,agentComposition:id})).catch(fail);}}>
     <div
       className="app"
       data-run={report.run}

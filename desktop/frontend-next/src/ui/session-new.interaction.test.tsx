@@ -10,14 +10,15 @@ import { expandProjects } from "./sidebarrows";
 afterEach(cleanup);
 
 // The second folder the fixture knows. Working in it is what focuses it, and a
-// new session from the head has to land there rather than in the first row.
+// new session must still not inherit it.
 const SECOND = "~/projects/my-website";
 
-// Where a new session lands is the whole claim: the fake kernel records which
-// folder every open asked for, so a head button reading a different answer than
-// the workspace on screen shows up as the wrong folder rather than as styling.
-describe("a new session opens in the workspace on screen", () => {
-  it("does not fall back to the first folder in the tree", async () => {
+// Where a new session lands is the whole claim: the fake kernel records what
+// every open asked for. A new conversation belongs to no project — the pill on
+// its composer is where one is chosen — so starting one while working in a
+// folder must ask for no project rather than for that folder.
+describe("a new session belongs to no project", () => {
+  it("does not inherit the folder the window is working in", async () => {
     const hub = new MockHub();
     const asked: (string | undefined)[] = [];
     const open = hub.open.bind(hub);
@@ -46,11 +47,12 @@ describe("a new session opens in the workspace on screen", () => {
     await waitFor(() => expect(asked).toEqual([SECOND]));
 
     asked.length = 0;
-    // The button in the rail's head, which is the one that has no folder of its
-    // own to belong to — the rows below name theirs.
+    // The button in the rail's head. It starts a conversation, and a
+    // conversation that has no project yet asks for none: the folder the window
+    // was working in is not inherited.
     const head = document.querySelector(".studio-rail-head") as HTMLElement;
     await userEvent.click(within(head).getByRole("button", { name: /新建会话/ }));
-    await waitFor(() => expect(asked).toEqual([SECOND]));
+    await waitFor(() => expect(asked).toEqual([undefined]));
   });
 
   it("keeps a conversation's composer mounted while another is in front", async () => {

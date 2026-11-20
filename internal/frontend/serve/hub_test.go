@@ -237,6 +237,54 @@ func TestHubOpensTheAutoWorkspaceWhenNothingIsChosenOrRemembered(t *testing.T) {
 	}
 }
 
+// A new conversation answers 不使用项目 up front: with panes of several
+// projects open, asking for none has to land in the app's own folder rather than
+// in whichever pane happened to be first.
+func TestHubOpensTheAutoWorkspaceWhenNoProjectIsAskedFor(t *testing.T) {
+	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	first := testenv.TempDir(t)
+	rememberWorkspace(first)
+
+	h := NewHub(HubOptions{})
+	plain, err := h.resolveRoot(OpenRequest{})
+	if err != nil {
+		t.Fatalf("resolveRoot without NoProject: %v", err)
+	}
+	if plain != first {
+		t.Fatalf("a rootless open = %q, want the remembered folder %q", plain, first)
+	}
+	got, err := h.resolveRoot(OpenRequest{NoProject: true})
+	if err != nil {
+		t.Fatalf("resolveRoot with NoProject: %v", err)
+	}
+	if want := config.AutoWorkspaceDir(); got != want {
+		t.Fatalf("resolveRoot with NoProject = %q, want the auto workspace %q", got, want)
+	}
+}
+
+// A conversation already written lives where it was written. Asking for it with
+// NoProject set is a window answering a question it does not have — the session
+// owns the answer, and the flag must not move it.
+func TestHubKeepsASessionsOwnFolderWhenNoProjectIsAskedFor(t *testing.T) {
+	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	root := testenv.TempDir(t)
+	rememberWorkspace(root)
+	path := filepath.Join(SessionDirFor(root), "written.jsonl")
+	writeSessionAt(t, path)
+
+	h := NewHub(HubOptions{})
+	got, err := h.resolveRoot(OpenRequest{SessionPath: path, NoProject: true})
+	if err != nil {
+		t.Fatalf("resolveRoot for a written session: %v", err)
+	}
+	if isAutoWorkspace(got) {
+		t.Fatalf("resolveRoot moved a written session into the auto workspace: %q", got)
+	}
+	if projectIdentity(got) != projectIdentity(root) {
+		t.Fatalf("resolveRoot = %q, want the folder the session was written in, %q", got, root)
+	}
+}
+
 // When even the app's own folder cannot be made, the refusal says what is
 // missing by code, so a window in any language can say it and offer to add a
 // folder.

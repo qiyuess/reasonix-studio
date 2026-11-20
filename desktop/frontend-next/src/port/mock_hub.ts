@@ -40,17 +40,20 @@ export class MockHub implements HubPort {
     return Promise.resolve([...this.views]);
   }
 
-  async open(req: { root?: string; sessionPath?: string; agentComposition?:string }) {
+  async open(req: { root?: string; sessionPath?: string; agentComposition?:string; noProject?: boolean }) {
     const held = req.sessionPath ? this.views.find((v) => v.sessionPath === req.sessionPath) : undefined;
     if (held) return Promise.resolve(held);
     this.seq++;
-    const root = req.root || this.roots[0];
+    // A pane with no project joins the app's own folder, exactly as
+    // {auto:true} answers — a folder the project tree never lists.
+    const root = req.noProject ? "~/workspaces/auto" : (req.root || this.roots[0]);
     const view: RuntimeView = {
       id: `r${this.seq}`,
       base: `/rt/r${this.seq}`,
       root,
       name: root.split("/").pop() ?? root,
       sessionPath: req.sessionPath,
+      noProject: req.noProject || undefined,
     };
     const port=this.portFor(view);
     if (req.agentComposition) await port.selectAgentComposition(req.agentComposition);

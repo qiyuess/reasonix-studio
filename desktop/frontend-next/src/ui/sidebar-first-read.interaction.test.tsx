@@ -74,9 +74,9 @@ it("offers a new session in the main area when there are no folders", async () =
   expect(start).toBeTruthy();
   expect(empty.querySelector('button[data-action="workspace.add"]')).toBeTruthy();
 
-  // The pane opens at once and the open asks for no root at all — the kernel
-  // answers with its own auto workspace, which is what the prompt says.
+  // The pane opens at once and the open asks for no project — the kernel answers
+  // with its own auto workspace, which is what the prompt says.
   await act(async () => { start!.click(); });
-  await waitFor(() => expect(opened).toEqual([{ root: undefined }]));
+  await waitFor(() => expect(opened).toEqual([{ noProject: true }]));
   expect(screen.queryByRole("dialog", { name: "选择项目" })).toBeNull();
 });

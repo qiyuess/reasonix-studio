@@ -519,14 +519,16 @@ func (rt *Runtime) view() RuntimeView {
 		}
 	}
 	ctrl := rt.Server.Controller()
+	root := ctrl.WorkspaceRoot()
 	return RuntimeView{
 		AgentComposition: compositionControllerView(ctrl),
 		ID:               rt.ID,
 		Base:             runtimePrefix + rt.ID,
-		Root:             ctrl.WorkspaceRoot(),
-		Name:             fileutil.RootName(ctrl.WorkspaceRoot()),
+		Root:             root,
+		Name:             fileutil.RootName(root),
 		SessionPath:      ctrl.SessionPath(),
 		ReadOnly:         !rt.writable(),
+		NoProject:        isAutoWorkspace(root),
 	}
 }
 

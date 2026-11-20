@@ -65,7 +65,7 @@ interface Props {
   paging: TreePaging;
   adder: Adder;
   opening?: string;
-  onOpen: (req: { root?: string; sessionPath?: string }) => Promise<void>;
+  onOpen: (req: { root?: string; sessionPath?: string; noProject?: boolean }) => Promise<void>;
   onNew?: () => Promise<void>;
   onOpenRemote: (host: string, workspace?: string, sessionPath?: string) => Promise<void>;
   onFocusPane: (id: string) => void;
@@ -161,10 +161,12 @@ export function Sidebar({
   );
   const online = (remotes ?? []).filter((h) => h.status === "connected" || h.status === "degraded").length;
   const newSessionRoot = activeWorkspace?.root;
+  // A new conversation belongs to no project; the pill on its composer is where
+  // one is chosen. Only a pane on another machine keeps that machine's folder.
   const startConversation = () => {
     if (onNew) return onNew();
     const runtime = runtimes.find((rt) => rt.id === active);
-    return runtime?.host ? onOpenRemote(runtime.host, runtime.root) : onOpen({ root: newSessionRoot });
+    return runtime?.host ? onOpenRemote(runtime.host, runtime.root) : onOpen({ noProject: true });
   };
   const paletteSettings = useMemo(() => {
     return SETTINGS.filter((x) => !x.hidden).map((x) => ({ id: `${x.section}:${x.anchor}`, label: t(x.title), path: t(SECTION_NAME[x.section] ?? x.section), keywords: (x.keywords ?? []).join(" ") }));

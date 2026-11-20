@@ -32,6 +32,10 @@ export interface RuntimeView {
   // write lease for. It reads and scrolls like any other; what it cannot do is
   // add to it.
   readOnly?: boolean;
+  // Set on a pane belonging to no project — the app's own folder. A new
+  // conversation asks for one, so the next 新建会话 may reuse that pane: it is
+  // the same answer, where an empty pane in a project is not.
+  noProject?: boolean;
 }
 
 export interface TreeSession {
@@ -209,7 +213,7 @@ export interface HistorySearch {
 
 export interface HubPort extends SharePort {
   runtimes(): Promise<RuntimeView[]>;
-  open(req: { root?: string; sessionPath?: string; agentComposition?: string }): Promise<RuntimeView>;
+  open(req: { root?: string; sessionPath?: string; agentComposition?: string; noProject?: boolean }): Promise<RuntimeView>;
   close(id: string): Promise<void>;
   tree(window?: TreeWindow): Promise<TreeWorkspace[]>;
   /** Conversations, in every workspace, that say these words. */
@@ -379,8 +383,8 @@ export class SseHub implements HubPort {
     return (await res.json()) as RuntimeView[];
   }
 
-  open(req: { root?: string; sessionPath?: string; agentComposition?: string }) {
-    return this.post<RuntimeView>("/runtimes", { root: req.root ?? "", sessionPath: req.sessionPath ?? "", agentComposition: req.agentComposition });
+  open(req: { root?: string; sessionPath?: string; agentComposition?: string; noProject?: boolean }) {
+    return this.post<RuntimeView>("/runtimes", { root: req.root ?? "", sessionPath: req.sessionPath ?? "", agentComposition: req.agentComposition, noProject: req.noProject });
   }
 
   async close(id: string) {
