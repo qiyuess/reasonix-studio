@@ -30,7 +30,6 @@
 - [Embedded documentation retrieval](#embedded-documentation-retrieval)
 - [@ references](#-references)
 - [Two-model collaboration](#two-model-collaboration)
-- [Cross-project task dispatch](#cross-project-task-dispatch)
 - [Letting the model change a setting](#letting-the-model-change-a-setting)
 - [Google Gemini, native (experimental)](#google-gemini-native-experimental)
 
@@ -147,14 +146,6 @@ allow = ["Bash(go test:*)"]                  # never prompted
 # forbid_read    = ["${HOME}/.ssh"]   # paths the agent must not read or list
 # allow_devices  = ["/dev/nvidia*"]   # host device nodes bound into the Linux bash sandbox (user config only)
 # egress_unlisted = "allow"    # unattended long tasks (user config only): hosts outside allowed_domains pass without asking, said once each; denied_domains still refuse
-
-[peers]
-# enabled = true               # your sessions on this machine can message each other; unpaired messages wait for the receiving session's user to approve them; also a switch in Settings, applied at the next turn (user config only)
-# dispatch = true              # the model may hand a task to a session in another of your projects, via dispatch_to_project (the session it opens sends its final answer back on its own), and ask you to open folders as projects with open_projects (one card lists every path; nothing is added or trusted until you approve it, and no mode answers it for you, except the open_nested switch below); needs enabled; turning it on is your consent for those sessions' tasks and replies, no card, and a project in your sidebar you have not decided about is trusted by being named; the opened session keeps the sender's model, preset, approval mode and planning, so a YOLO sender opens a YOLO session that answers the target project's ask rules too (deny rules still hold) (user config only)
-# max_dispatch_depth = 1       # how many sessions deep a dispatch may chain; 0 removes the ceiling (user config only)
-# max_dispatched_sessions = 8  # sessions one session may keep open from its dispatches; 0 removes the ceiling (user config only)
-# open_nested = false          # open_projects adds folders inside the session's own workspace without a card; also a switch in Settings (user config only)
-# release_projects = []        # projects that take messages from your other sessions without the card; their own approvals and sandbox still apply; they start over a pause the host set itself (session switch, unreadable @ reference, reopen) but never over one you pressed (user config only)
 
 [mods]
 # enabled = false              # run the hooks module of installed Claude Code mods; full trust, no sandbox (user config only)
@@ -2575,128 +2566,14 @@ Not built, and why:
 - Gemini: its video input is in the native Gemini API (inline data, the Files API, YouTube URLs); the OpenAI-compatible page does not list a video content part, and Reasonix reaches Gemini through that endpoint.
 - Zhipu GLM: the documentation shows `video_url` with a public HTTPS address only and says nothing about base64 or limits, so a local file cannot be sent without Reasonix uploading it somewhere.
 
-## Cross-project task dispatch
-
-Use this when one project needs an answer from another project's session, rather
-than letting the current session edit across project roots. Session messaging
-and dispatch are experimental and enabled by default. An explicit user setting
-of `false` remains disabled after upgrading.
-
-Start from a **local session in Reasonix Studio
-or the web UI**; terminal/protocol sessions and SSH-driven panes cannot open the
-receiving session.
-
-1. Add the target folder to your projects in the sidebar and open it. Answer its
-   workspace trust question there before dispatching. The target must be an
-   existing directory in your project list; use its full path if several projects
-   share a folder name.
-2. If you previously disabled either switch, open **Settings → Agent behavior →
-   Messages between sessions (experimental)** in the sending session. Enable
-   **Turn on session messages** and **Let the model hand a task to another session**.
-
-   These save to your user config, not
-   `reasonix.toml`. They apply between turns; if a turn is running, send the task
-   on the next turn after saving. No session restart is needed for these UI
-   switches.
-3. Make a concrete request, including the context the other project needs:
-
-   > In `/work/shop-web`, we need to show an order's delivery status. Hand a task
-   > to the `shop-api` project at `/work/shop-api`: inspect its order-status API,
-   > report the endpoint, response fields and possible status values, and do not
-   > change files. Bring its answer back here and explain how this frontend
-   > should call it.
-
-   The model uses `dispatch_to_project` to open a session in the target project.
-   Later dispatches from this sender to the same project reuse that dispatched
-   session while it remains open; they do not take over an arbitrary existing
-   conversation.
-4. You can inspect the work in the target project's session. When its turn ends,
-   its final answer is sent back automatically to the **sending session**, as a
-   message labelled as data from the other session.
-
-   Return to the sending
-   conversation for the reply and the model's continuation. The initial dispatch
-   receipt only confirms delivery, not completion.
-
-   If you paused the receiving
-   queue yourself, standing consent does not resume it: resume it to process the
-   queued task or reply.
-
-The default user configuration is equivalent to the following. Set `dispatch`
-to `false` to disable task dispatch, or `enabled` to `false` to disable all
-session messaging:
-
-```toml
-[peers]
-enabled = true
-dispatch = true
-```
-
-**Consent and permissions.** Enabling dispatch is standing consent for tasks and
-replies between the paired sessions: there is no separate message-approval card
-for each one.
-
-Ordinary messages between unpaired sessions still need approval
-unless you separately release the receiving project under **Projects allowed through**.
-
-That list is optional for dispatch and is not workspace trust; releasing a
-project skips incoming-message consent, not tool permissions or sandbox rules.
-You can revoke a released project there.
-
-A newly dispatched session inherits the sender's model, preset, approval mode
-and planning mode.
-
-In particular, a YOLO sender opens a YOLO session: the target
-project's `ask` permission rules are auto-allowed in that mode, while `deny`
-rules still hold.
-
-Workspace permissions and sandbox restrictions still apply;
-dispatch consent is not a promise that no files will change. Choose the sender's
-mode and task scope accordingly.
-
-**Trust and limits.** Naming an undecided project already in your sidebar can
-trust it automatically where whole-workspace trust is allowed. A declined
-project is refused.
-
-If trust needs a user answer, its pane opens with the trust
-question and the task is **not sent**: answer there, then ask to dispatch again.
-
-For a folder not yet in your project list, add it yourself, or let the model
-request `open_projects`; its card lists the paths and requires your explicit
-approval even in YOLO mode before adding or trusting them.
-
-One setting relaxes this:
-
-- With the user-only `peers.open_nested = true` (also a switch in Settings), a call whose folders are all strictly inside the asking session's own workspace, after links are resolved, is added and trusted without the card, and a notice lists the paths.
-- Any folder outside the workspace brings the card for the whole call.
-- It is off by default, and a project's `reasonix.toml` cannot turn it on.
-- A trusted folder's configuration can run programs, so turn it on only for a repository you trust.
-
-`open_projects` is unavailable in plan mode until the plan is approved.
-
-Dispatch refuses unknown or ambiguous projects and the current project itself
-(work locally or use a sub-agent instead).
-
-The default ceilings are one dispatch
-level and eight open dispatched sessions per sender; user-only
-`peers.max_dispatch_depth` and `peers.max_dispatched_sessions` can change them
-(`0` removes a ceiling).
-
-A workspace-bound agent composition cannot dispatch
-into another workspace.
-
-Disabling dispatch also stops automatic replies. Pairings and replies survive
-model switches and extension reloads within the same conversation. They are
-held in memory, so do not rely on them surviving an application restart.
-
 ## Letting the model change a setting
 
-The model has a `setting` tool. When something it needs is switched off, such as handing a task to another project, it can ask you to turn the switch on instead of sending you to Settings.
+The model has a `setting` tool. When something it needs is switched off, such as a web search backend, it can ask you to turn the switch on instead of sending you to Settings.
 
 A refusal that a setting would lift ends with `(fix: setting ...)`. The tool can also list settings by the words of their id.
 
 - Nothing changes until you answer a card. It names the setting, the old and the new value, and when the change takes effect. It is worded by Reasonix; the model's own reason is only quoted under it.
-- Every setting has a class in the code. A preference (a font, a retry count) can be agreed once for the rest of the session. An elevated setting (messaging between sessions, dispatching to another project, a protection the model could otherwise loosen) is asked every time, in every approval mode including YOLO.
+- Every setting has a class in the code. A preference (a font, a retry count) can be agreed once for the rest of the session. An elevated setting (a web search backend, another model service, a protection the model could otherwise loosen) is asked every time, in every approval mode including YOLO.
 - Boundary settings (approval mode, sandbox, network, rules, hooks, provider keys and addresses, safety limits, and the switch for this tool) are never changed by the model. It can only point you at them (`op=open`).
 - The card shows the whole new value; a value too long to show is refused instead of cut. The change is written to your user file, a project file cannot grant it, and values are checked with the same rules as the Settings screen.
 - At most three proposals are put to you per turn, and none while plan mode is on (the model can still look at settings and point you at one).
