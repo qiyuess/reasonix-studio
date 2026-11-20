@@ -1030,10 +1030,6 @@ function WorkspacesView({ hub, tree, treeRead, answered = null, runtimes, active
                             autoNaming={busy === "name:" + session.path}
                             onPin={() => mutate(session, "pin")}
                             onMarkRead={session.unread ? () => mutate(session, "read") : undefined}
-                            onMoveUp={subtitle ? undefined : () => { reorder.moveBy(ws.root, session.path, -1); setSessionMenu(""); }}
-                            onMoveDown={subtitle ? undefined : () => { reorder.moveBy(ws.root, session.path, 1); setSessionMenu(""); }}
-                            moveUpDisabled={!!needle || mutations.pending.has(session.path) || !reorder.canMove(ws.root, session.path, -1)}
-                            moveDownDisabled={!!needle || mutations.pending.has(session.path) || !reorder.canMove(ws.root, session.path, 1)}
                             onRename={() => { setSessionMenu(""); onRename(session.path, session.title || session.name); }}
                             onAutoName={() => void autoName(session)}
                             onPause={() => { onPause(session.runtimeId!); setSessionMenu(""); }}

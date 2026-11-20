@@ -32,15 +32,9 @@ const row = (title: string) => screen.getByRole("treeitem", { name: new RegExp(t
 const openMenu = (title: string) => {
   fireEvent.contextMenu(row(title));
 };
-const moveRow = (direction: "up" | "down") =>
-  screen.getByRole("menuitem", { name: direction === "up" ? "上移" : "下移" }) as HTMLButtonElement;
 
-it("offers the one-slot move in the menu, and the row's keyboard steps too", async () => {
+it("moves one slot from the row's own keyboard steps", async () => {
   const { placeSession, reload } = draw();
-  openMenu("beta review");
-  expect(moveRow("up")).toBeTruthy();
-  expect(moveRow("down")).toBeTruthy();
-  await userEvent.keyboard("{Escape}");
   row("beta review").focus();
   await userEvent.keyboard("{Alt>}{ArrowUp}{/Alt}");
   await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
@@ -81,15 +75,18 @@ it("moves with Alt+Arrow on the focused row, and ignores a step that has nowhere
   expect(placeSession).toHaveBeenCalledTimes(1);
 });
 
-it("the run's edges disable the menu's move instead of offering a dead step", async () => {
+// Reordering is the row's drag and Alt+Arrow. The menu used to carry the same
+// two steps, which made a menu of nine actions advertise a move the drag already
+// did better; it no longer does.
+it("leaves the one-slot move out of the menu, which carries actions a drag cannot", async () => {
   draw();
-  openMenu("gamma notes"); // the foot: no slot below
-  expect(moveRow("up").disabled).toBe(false);
-  expect(moveRow("down").disabled).toBe(true);
-  await userEvent.keyboard("{Escape}");
-  openMenu("alpha plan"); // the head: no slot above
-  expect(moveRow("up").disabled).toBe(true);
-  expect(moveRow("down").disabled).toBe(false);
+  for (const title of ["gamma notes", "alpha plan"]) {
+    openMenu(title);
+    expect(screen.queryByRole("menuitem", { name: "上移" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "下移" })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "置顶会话" })).toBeTruthy();
+    await userEvent.keyboard("{Escape}");
+  }
 });
 
 it("says so when the kernel refuses a move and leaves the list as it was", async () => {

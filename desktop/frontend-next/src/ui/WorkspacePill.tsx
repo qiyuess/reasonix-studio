@@ -95,7 +95,7 @@ export function WorkspacePill() {
   }, [choice, put, close]);
 
   return <div className="studio-branch-pop">
-    <button ref={trigger} type="button" className="mode plain studio-branch worktree-trigger" data-action="workspace.configure"
+    <button ref={trigger} type="button" className="mode plain studio-branch worktree-trigger project-pill" data-action="workspace.configure"
       title={`${t("session.the_sessions_project")}\n${label}\n${root}`}
       aria-haspopup="dialog" aria-expanded={choice}
       disabled={!canSwitch || running || switching}
