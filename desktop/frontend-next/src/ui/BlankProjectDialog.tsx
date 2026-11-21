@@ -8,10 +8,13 @@ import { pinToViewport } from "./place";
 
 export interface BlankAdder {
   pickFolder: (preferred?: string) => Promise<string | null>;
-  addNamed: (name: string, parent: string) => Promise<TreeWorkspace>;
+  addFolder: (path: string, displayName?: string) => Promise<TreeWorkspace>;
 }
 
-/** 新建空白项目: an empty, named folder inside the folder the picker returned.
+/** 新建空白项目: the folder the picker returned *is* the project. A name typed
+ *  in the first field renames it in the sidebar only — the folder keeps the name
+ *  it has on disk, so one called shop-web can read as 订单服务.
+ *
  *  The dialog is shared — the composer's pill and the sidebar's 项目 plus both
  *  land a new project with it — and `onDone` carries the workspace that was
  *  made, so each caller decides what to do with it afterwards. */
@@ -21,7 +24,10 @@ export function BlankProjectDialog({ adder, onDone, onClose, onError }: {
   onClose: () => void;
   onError: (e: unknown) => void;
 }) {
-  const [name, setName] = useState(t("session.untitled_project"));
+  // Starts empty, not prefilled: a name identical to the folder's is the one
+  // answer that changes nothing, and prefilling it made the field read as "this
+  // is the folder about to be created".
+  const [name, setName] = useState("");
   const [parent, setParent] = useState("");
   const [noPicker, setNoPicker] = useState(false);
   const [working, setWorking] = useState(false);
@@ -67,9 +73,9 @@ export function BlankProjectDialog({ adder, onDone, onClose, onError }: {
   const createBlank = () => {
     const named = name.trim();
     const at = noPicker ? parent.trim() : parent;
-    if (!named || !at || working) return;
+    if (!at || working) return;
     setWorking(true);
-    void adder.addNamed(named, at)
+    void adder.addFolder(at, named)
       .then(async (workspace) => {
         await onDone(workspace);
         onClose();
@@ -85,7 +91,8 @@ export function BlankProjectDialog({ adder, onDone, onClose, onError }: {
     <h2>{t("session.new_blank_project")}</h2>
     <label className="workspace-blank-field">
       <span>{t("session.project_name")}</span>
-      <input value={name} onChange={(ev) => setName(ev.currentTarget.value)}
+      <input value={name} placeholder={t("session.defaults_to_folder_name")}
+        onChange={(ev) => setName(ev.currentTarget.value)}
         onKeyDown={(ev) => { if (ev.key === "Enter") createBlank(); }} />
     </label>
     <div className="workspace-blank-field">
@@ -109,7 +116,7 @@ export function BlankProjectDialog({ adder, onDone, onClose, onError }: {
     <p className="workspace-blank-hint">{t("session.name_a_folder_first")}</p>
     <div className="workspace-blank-go">
       <button type="button" data-action="layer.dismiss" disabled={working} onClick={onClose}>{t("common.cancel")}</button>
-      <button type="button" className="pick" data-action="workspace.create" disabled={working || !name.trim() || !(parent.trim())}
+      <button type="button" className="pick" data-action="workspace.create" disabled={working || !parent.trim()}
         onClick={createBlank}>{t("session.create_the_project")}</button>
     </div>
   </div>, document.body);

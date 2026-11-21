@@ -135,25 +135,34 @@ func rememberWorkspace(dir string) {
 	}
 }
 
-func addRememberedWorkspace(ctx context.Context, dir string) error {
+// addRememberedWorkspace remembers a folder, and the name the sidebar reads it
+// by when one is given. Both go into one list write, so a project does not
+// appear under its folder name and get renamed a moment later.
+func addRememberedWorkspace(ctx context.Context, dir string, displayName ...string) error {
 	if dir == "" || isAutoWorkspace(dir) {
 		return nil
 	}
+	name := ""
+	if len(displayName) > 0 {
+		name = strings.TrimSpace(displayName[0])
+	}
 	return updateWorkspaceList(ctx, true, func(list *workspaceList) error {
-		if slices.Contains(list.Paths, dir) {
-			return nil
+		if !slices.Contains(list.Paths, dir) {
+			if workspaceListFull(len(rememberedProjects(list.Paths))) && !hasWorkspaceProject(list.Paths, dir) {
+				return refusal(http.StatusConflict, "workspace.limit_reached", errWorkspaceListFull, nil)
+			}
+			identity := projectIdentity(dir)
+			at := slices.IndexFunc(list.Paths, func(path string) bool { return projectIdentity(path) == identity })
+			if at < 0 {
+				list.Paths = append([]string{dir}, list.Paths...)
+			} else {
+				list.Paths = slices.Insert(list.Paths, at+1, dir)
+			}
+			list.Launch = dir
 		}
-		if workspaceListFull(len(rememberedProjects(list.Paths))) && !hasWorkspaceProject(list.Paths, dir) {
-			return refusal(http.StatusConflict, "workspace.limit_reached", errWorkspaceListFull, nil)
+		if name != "" {
+			list.SetName(storedWorkspacePath(*list, dir), name)
 		}
-		identity := projectIdentity(dir)
-		at := slices.IndexFunc(list.Paths, func(path string) bool { return projectIdentity(path) == identity })
-		if at < 0 {
-			list.Paths = append([]string{dir}, list.Paths...)
-		} else {
-			list.Paths = slices.Insert(list.Paths, at+1, dir)
-		}
-		list.Launch = dir
 		return nil
 	})
 }

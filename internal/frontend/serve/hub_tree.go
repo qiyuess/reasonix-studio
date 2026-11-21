@@ -441,12 +441,13 @@ func (h *Hub) setWorkspacePinned(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true})
 }
 
-// addWorkspace remembers a folder without opening it. Adding and opening are
-// separate acts: the sidebar lists what you work on, panes are what you drive.
+// addWorkspace remembers a folder without opening it: the sidebar lists what you
+// work on. displayName is what it reads as; a name makes a folder inside Path.
 func (h *Hub) addWorkspace(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Path string `json:"path"`
-		Name string `json:"name"`
+		Path        string `json:"path"`
+		Name        string `json:"name"`
+		DisplayName string `json:"displayName"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		badBody(w)
@@ -460,10 +461,9 @@ func (h *Hub) addWorkspace(w http.ResponseWriter, r *http.Request) {
 	// madeHere is the folder this request created, so a failure after it can
 	// take it back: a project nobody was told about should not be left on disk.
 	madeHere := ""
-	// A named add makes the folder first: a blank project is an empty, chosen
-	// folder inside the one the picker returned, never a rename of it. Without
-	// this the parent the picker handed back is what gets remembered, and the
-	// project a person just named does not exist.
+	// A named add makes the folder first: a blank project is an empty folder
+	// inside the one the picker returned, never a rename of it — otherwise the
+	// parent is what gets remembered and the project does not exist.
 	if name := strings.TrimSpace(body.Name); name != "" {
 		if strings.ContainsAny(name, `/\`) || name == "." || name == ".." {
 			refuse(w, http.StatusBadRequest, "workspace.bad_name", "that name cannot be a folder", nil)
@@ -487,7 +487,7 @@ func (h *Hub) addWorkspace(w http.ResponseWriter, r *http.Request) {
 		}
 		dir = created
 	}
-	if err := addRememberedWorkspace(r.Context(), dir); err != nil {
+	if err := addRememberedWorkspace(r.Context(), dir, body.DisplayName); err != nil {
 		// The folder was made for a project that could not be remembered. It is
 		// removed only when it is still empty and this request made it, so a
 		// folder someone already works in is never touched.
@@ -503,7 +503,7 @@ func (h *Hub) addWorkspace(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, treeWorkspace{Root: dir, Name: fileutil.RootName(dir), Sessions: []treeSession{}})
+	writeJSON(w, treeWorkspace{Root: dir, Name: fileutil.RootName(dir), DisplayName: strings.TrimSpace(body.DisplayName), Sessions: []treeSession{}})
 }
 
 // removeWorkspace drops a folder from the sidebar. Nothing on disk is touched —

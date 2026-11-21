@@ -219,7 +219,7 @@ export interface HubPort extends SharePort {
   /** Conversations, in every workspace, that say these words. */
   searchHistory(query: string): Promise<HistorySearch>;
   onTreeChanged(listener: () => void): () => void;
-  addWorkspace(path: string, name?: string): Promise<TreeWorkspace>;
+  addWorkspace(path: string, name?: string, displayName?: string): Promise<TreeWorkspace>;
   removeWorkspace(path: string): Promise<void>;
   /** Show a listed project's folder in the system file manager. */
   revealWorkspace(path: string): Promise<void>;
@@ -411,8 +411,8 @@ export class SseHub implements HubPort {
     return this.get<HistorySearch>("/history/search?q=" + encodeURIComponent(query));
   }
 
-  addWorkspace(path: string, name?: string) {
-    return this.post<TreeWorkspace>("/tree/workspaces", { path, name: name ?? "" });
+  addWorkspace(path: string, name?: string, displayName?: string) {
+    return this.post<TreeWorkspace>("/tree/workspaces", { path, name: name ?? "", displayName: displayName ?? "" });
   }
 
   async revealWorkspace(path: string) {

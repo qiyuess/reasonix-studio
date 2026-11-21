@@ -233,9 +233,10 @@ export class MockHub implements HubPort {
     }));
   }
 
-  addWorkspace(path: string) {
+  addWorkspace(path: string, _name?: string, displayName?: string) {
     if (!this.roots.includes(path)) this.roots.push(path);
-    return Promise.resolve<TreeWorkspace>({ root: path, name: path.split("/").pop() ?? path, remembered: true, sessions: [] });
+    return Promise.resolve<TreeWorkspace>({ root: path, name: path.split("/").pop() ?? path,
+      displayName: displayName?.trim() || undefined, remembered: true, sessions: [] });
   }
 
   async revealWorkspace() {}
