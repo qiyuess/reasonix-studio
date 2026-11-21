@@ -21,6 +21,12 @@ type steerEntry struct {
 	host bool
 	// via is the paired device the guidance was sent from; nil is the window.
 	via *provider.Via
+	// loadImages reads the pictures this guidance carries, called only when the
+	// entry is consumed for the same reason load is: a data URL is megabytes, and
+	// the agent must not hold every steer's pictures in its heap.
+	loadImages func() ([]string, error)
+	// images is what loadImages answered at consume time.
+	images []string
 }
 
 // steerInbox is the guidance admitted while a Run is executing. The queue and
@@ -142,7 +148,15 @@ func (s *steerInbox) close() []steerEntry {
 // attribution travels with the entry rather than with the call site, so every
 // path that renders or persists it later says the same thing about who spoke.
 func (a *Agent) SteerHostItem(itemID string, load func() (string, error)) bool {
-	return a.queueSteer(steerEntry{itemID: itemID, load: load, host: true})
+	return a.SteerHostItemImages(itemID, load, nil)
+}
+
+// SteerHostItemImages is SteerHostItem for guidance that carries pictures.
+// loadImages is called at consume time, like load, and its answer rides the
+// message the model reads — so a picture the person sent with the words is in
+// the same place the words are.
+func (a *Agent) SteerHostItemImages(itemID string, load func() (string, error), loadImages func() ([]string, error)) bool {
+	return a.queueSteer(steerEntry{itemID: itemID, load: load, loadImages: loadImages, host: true})
 }
 
 // RecordUnappliedHostSteer is RecordUnappliedSteer for runtime-authored
@@ -204,7 +218,14 @@ func (a *Agent) SteerItemFrom(itemID string, load func() (string, error), via *p
 }
 
 func (a *Agent) SteerDisplayedItemFrom(itemID string, load func() (string, error), display string, via *provider.Via) bool {
-	return a.queueSteer(steerEntry{itemID: itemID, load: load, display: display, via: via})
+	return a.SteerDisplayedItemImages(itemID, load, nil, display, via)
+}
+
+// SteerDisplayedItemImages is SteerDisplayedItemFrom for guidance carrying
+// pictures, which land on the same user message as the words that came with
+// them rather than as something the turn has to be told to look for.
+func (a *Agent) SteerDisplayedItemImages(itemID string, load func() (string, error), loadImages func() ([]string, error), display string, via *provider.Via) bool {
+	return a.queueSteer(steerEntry{itemID: itemID, load: load, loadImages: loadImages, display: display, via: via})
 }
 
 func (a *Agent) queueSteer(e steerEntry) bool {
@@ -226,9 +247,25 @@ func (a *Agent) consumeSteer() (text string, e steerEntry, ok bool) {
 		if err != nil {
 			return "", e, false
 		}
+		e.images = e.pictures()
 		return t, e, true
 	}
+	e.images = e.pictures()
 	return e.text, e, true
+}
+
+// pictures reads the guidance's images, if it has any. A body that will not read
+// is not a reason to drop guidance the person already sent: the text still
+// arrives, and the turn's own attachment accounting reports the loss.
+func (e steerEntry) pictures() []string {
+	if e.loadImages == nil {
+		return nil
+	}
+	images, err := e.loadImages()
+	if err != nil {
+		return nil
+	}
+	return images
 }
 
 // closeSteerIntakeIfIdle atomically closes the normal-completion race between
@@ -276,7 +313,7 @@ func (a *Agent) steerQueueLen() int {
 }
 
 func (a *Agent) landSteer(text string, entry steerEntry) {
-	a.sess.conversation.Add(provider.Message{Role: provider.RoleUser, Content: a.withTurnPreferences(sessionstore.MidTurnSteerMessage(text, entry.host)), RawContent: entry.display, Via: entry.via})
+	a.sess.conversation.Add(provider.Message{Role: provider.RoleUser, Content: a.withTurnPreferences(sessionstore.MidTurnSteerMessage(text, entry.host)), RawContent: entry.display, Via: entry.via, Images: entry.images})
 	display := entry.display
 	if display == "" {
 		display = text

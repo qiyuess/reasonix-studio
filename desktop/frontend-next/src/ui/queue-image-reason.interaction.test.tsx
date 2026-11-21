@@ -24,13 +24,24 @@ function rows(items: QueueItem[]) {
 describe("why a queued line has not been delivered", () => {
   const reason = t("composer.has_an_image_sent_when");
 
-  it("says so on a line that carries a picture", () => {
+  // Guidance carries its own pictures, so a picture is no longer why a steer
+  // waits: the line says it is queued as guidance like any other.
+  it("does not blame a picture for a line waiting to go in as guidance", () => {
     rows([item({ images: true })]);
+    const text = document.querySelector(".queue")?.textContent ?? "";
+    expect(text).not.toContain(reason);
+    expect(text).toContain(t("composer.steer_queued"));
+  });
+
+  // A follow-up runs as a whole turn, so it really does wait for this one to end,
+  // and that wait is what the picture line names.
+  it("says so on a follow-up that carries a picture", () => {
+    rows([item({ images: true, intent: "followup" })]);
     expect(document.querySelector(".queue")?.textContent).toContain(reason);
   });
 
   it("keeps the ordinary state word on a text-only line, next to a picture line", () => {
-    rows([item({ id: "a", images: true }), item({ id: "b", preview: "words only" })]);
+    rows([item({ id: "a", images: true, intent: "followup" }), item({ id: "b", preview: "words only" })]);
     const text = document.querySelector(".queue")?.textContent ?? "";
     expect(text.split(reason).length - 1).toBe(1);
     expect(text).toContain(t("composer.steer_queued"));

@@ -32,10 +32,12 @@ const theirs = (it: QueueItem) => it.origin !== "host" || it.state === "blocked"
 const RETRY_SAFE = new Set(["steer_unapplied"]);
 const retryable = (it: QueueItem) =>
   it.state === "blocked" || (it.state === "uncertain" && !!it.blockCode && RETRY_SAFE.has(it.blockCode));
-// Only plain text can become guidance: a picture or a frozen file reference
-// travels with a whole turn.
+// Guidance carries its own pictures, so a line holding one can become a steer.
+// A frozen file reference cannot: becoming guidance means being read back and
+// sent again, and readQueued answers with the body alone — the explicit refs a
+// whole turn carries would be dropped on the way.
 const steerable = (it: QueueItem) =>
-  it.origin !== "host" && it.state === "queued" && it.intent === "followup" && !it.images && !it.refs?.length;
+  it.origin !== "host" && it.state === "queued" && it.intent === "followup" && !it.refs?.length;
 
 /** What the strip draws: the lines nobody has acted on yet. The header's count
  *  of guidance in flight reads this too, so it can never name a line the strip
@@ -60,8 +62,12 @@ function label(it: QueueItem, n: number): string {
     case "uncertain":
       return t("composer.uncertain");
     default:
-      if (it.images && it.state === "queued") return t("composer.has_an_image_sent_when");
+      // A picture is no longer a reason a line waits: guidance carries its own
+      // attachments, so an intent=steer line says it is queued as guidance. A
+      // follow-up carrying a picture still waits for the turn to end, which is
+      // what makes that wait worth naming.
       if (it.intent === "steer") return t("composer.steer_queued");
+      if (it.images && it.state === "queued") return t("composer.has_an_image_sent_when");
       return `${t("common.queued")} ${n}`;
   }
 }

@@ -153,30 +153,42 @@ func (c *Controller) steerInboxItem(id string, holdIfPaused bool) (sessioninbox.
 		if text == "" {
 			return "", fmt.Errorf("inbox item %s has empty body", itemID)
 		}
-		materialized, images, block, materializeErr := applyInboxReferences(env)
+		materialized, _, block, materializeErr := applyInboxReferences(env)
 		if materializeErr != nil {
 			return "", materializeErr
 		}
 		if block != "" {
 			return "", fmt.Errorf("frozen reference unavailable: %s", block)
 		}
-		if len(images) > 0 {
-			return "", fmt.Errorf("image guidance requires a follow-up turn")
-		}
 		return firstNonEmptyStr(materialized, text), nil
+	}
+	// The pictures ride the same message as the words, read at consume time for
+	// the same reason the body is: a data URL is megabytes per picture, and the
+	// agent must not hold every queued steer's attachments in its heap.
+	imagesLoader := func() ([]string, error) {
+		_, env, err := storeRef.ReadItem(itemID)
+		if err != nil {
+			return nil, err
+		}
+		_, images, _, materializeErr := applyInboxReferences(env)
+		return images, materializeErr
 	}
 	// Persist the admission boundary before exposing the loader to the agent.
 	// Holding c.mu for the short in-memory enqueue serializes active tracking
 	// with finishGuardedTurn, so TurnDone cannot overtake an accepted steer.
 	c.inbox.trackAdmission(id)
 	defer c.inbox.untrackAdmission(id)
-	if len(env.FrozenImages) == 0 {
-		if err := st.SetState(id, sessioninbox.StateSteerAccepted, ""); err != nil {
-			return sessioninbox.InboxReceipt{}, err
-		}
+	if err := st.SetState(id, sessioninbox.StateSteerAccepted, ""); err != nil {
+		return sessioninbox.InboxReceipt{}, err
 	}
+	// A picture is only worth steering when this turn's model can read it. When it
+	// cannot, the follow-up path below is the honest answer: that one runs as a
+	// whole turn and says the attachment never reached the model, whereas a steer
+	// would drop the picture silently on the way to the provider. Read before the
+	// lock: answering it loads config from disk.
+	reads := len(env.FrozenImages) == 0 || c.imageInputEnabled()
 	c.mu.Lock()
-	accepted := !c.gate.closed && !c.gate.rotating && c.gate.running && c.executor != nil && len(env.FrozenImages) == 0 && c.steerItemAs(meta.Origin, id, loader, env.Via, env.DisplayText)
+	accepted := reads && !c.gate.closed && !c.gate.rotating && c.gate.running && c.executor != nil && c.steerItemAs(meta.Origin, id, loader, imagesLoader, env.Via, env.DisplayText)
 	if accepted {
 		c.inbox.mu.Lock()
 		c.inbox.trackActive(id)
@@ -214,11 +226,11 @@ func (c *Controller) steerInboxItem(id string, holdIfPaused bool) (sessioninbox.
 
 // steerItemAs queues the item under the attribution the manifest recorded, so a
 // host-authored item is never delivered as something the user said. Holds c.mu.
-func (c *Controller) steerItemAs(origin sessioninbox.PromptOrigin, id string, loader func() (string, error), via *provider.Via, display string) bool {
+func (c *Controller) steerItemAs(origin sessioninbox.PromptOrigin, id string, loader func() (string, error), imagesLoader func() ([]string, error), via *provider.Via, display string) bool {
 	if origin.IsHost() {
-		return c.executor.SteerHostItem(id, loader)
+		return c.executor.SteerHostItemImages(id, loader, imagesLoader)
 	}
-	return c.executor.SteerDisplayedItemFrom(id, loader, display, via)
+	return c.executor.SteerDisplayedItemImages(id, loader, imagesLoader, display, via)
 }
 
 // TrySteer queues mid-turn guidance only when the active agent turn accepts it.

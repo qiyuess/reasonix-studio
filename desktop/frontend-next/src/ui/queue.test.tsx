@@ -67,8 +67,8 @@ describe("queue strip", () => {
     expect(html).toContain("排队 2");
   });
 
-  it("offers no steer conversion on a line that carries a picture or frozen files", () => {
-    expect(draw(snapshot({ items: [item({ state: "queued", intent: "followup", images: true })] }))).not.toContain("queue.to-steer");
+  it("offers steer conversion on a line carrying a picture, and none on frozen files", () => {
+    expect(draw(snapshot({ items: [item({ state: "queued", intent: "followup", images: true })] }))).toContain("queue.to-steer");
     expect(draw(snapshot({ items: [item({ state: "queued", intent: "followup", refs: [{ path: "a.go" }] })] }))).not.toContain("queue.to-steer");
   });
 
