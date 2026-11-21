@@ -233,13 +233,19 @@ export function App({ hub }: { hub: HubPort }) {
     void reloadRemoteTrees();
   }, [hub, readPanes, reloadTree, reloadRemoteTrees]);
   const refreshPanes = useMemo(() => singleFlight(reloadPanes), [reloadPanes]);
+  // Closing a pane makes the kernel announce a tree change, and the listener
+  // below reloads on it — before the caller has had its say. That reload is
+  // what draws the "nothing is open" card for a frame when the last
+  // conversation closes and a room is about to replace it. While a close is in
+  // flight the announcement is held; the caller reloads once, at the end.
+  const heldRefresh = useRef(0);
 
   useEffect(() => {
     void refreshPanes();
   }, [refreshPanes]);
 
   useEffect(() => {
-    const refresh = () => { void refreshPanes(); };
+    const refresh = () => { if (heldRefresh.current > 0) return; void refreshPanes(); };
     const stop = hub.onTreeChanged?.(refresh);
     const stopWake = watchTreeWake(refresh);
     return () => { stop?.(); stopWake(); };
@@ -390,20 +396,24 @@ export function App({ hub }: { hub: HubPort }) {
   // folder's worth of panes must not pay for that once each.
   const closePanes = useCallback(
     async (ids: string[]) => {
-      for (const id of ids) await hub.close(id);
-      // The room has to be there before the empty list is committed. Reloading
-      // first publishes `runtimes = []` at the next await, which draws the card
-      // explaining nothing is open for a frame — the flicker between two
-      // screens that mean the same thing. So the replacement is opened in the
-      // kernel first, and one reload lands both facts together.
-      const left = await readPanes();
-      if (left && left.length === 0) {
-        setEntered(false);
-        await hub.open({ noProject: true });
+      // Hold the tree listener for the whole close: the kernel announces each
+      // closed pane, and a reload on that announcement publishes `runtimes = []`
+      // — the card explaining nothing is open — before the room below replaces
+      // it. One reload at the end lands the close and the replacement together.
+      heldRefresh.current++;
+      try {
+        for (const id of ids) await hub.close(id);
+        const left = await readPanes();
+        if (left && left.length === 0) {
+          setEntered(false);
+          await hub.open({ noProject: true });
+        }
+      } finally {
+        heldRefresh.current--;
       }
-      await reloadPanes();
+      await refreshPanes();
     },
-    [hub, reloadPanes, readPanes],
+    [hub, readPanes, refreshPanes],
   );
 
   const openRow = useSidebarOpen<PaneView>(runtimes, openPane, setActive, setViewRequests, "flow");
