@@ -44,7 +44,9 @@ describe("a file the conversation spelled from another directory", () => {
     const resolve = vi.spyOn(port, "workspaceResolvePath").mockResolvedValue({ path: real });
     await draw(port, spelled);
 
-    await waitFor(() => expect(resolve).toHaveBeenCalledWith(spelled));
+    // The wait is bounded, so the call carries a signal the lookup can be
+    // abandoned with.
+    await waitFor(() => expect(resolve).toHaveBeenCalledWith(spelled, expect.anything()));
     await waitFor(() => expect(tabs()).toContain("app.exe"));
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -65,6 +67,38 @@ describe("a file the conversation spelled from another directory", () => {
     await draw(port, "target/release/gone.exe");
     await waitFor(() => expect(resolve).toHaveBeenCalled());
     expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  // Two presses in quick succession: the slower answer belongs to the older
+  // press, and letting it land would show a file nobody asked for last.
+  it("keeps the later link when the earlier answer arrives too late", async () => {
+    const port = new MockPort();
+    let releaseFirst: (v: { path: string } | null) => void = () => {};
+    const first = new Promise<{ path: string } | null>((resolve) => { releaseFirst = resolve; });
+    vi.spyOn(port, "workspaceResolvePath")
+      .mockImplementationOnce(() => first)
+      .mockImplementationOnce(async () => ({ path: "second/notes.md" }));
+
+    function TwoLinks() {
+      const files = useConversationFiles(port, "/w", false, true, () => {}, () => {});
+      return (
+        <>
+          <button onClick={() => files.refs.link?.("slow/one.md")?.()}>first</button>
+          <button onClick={() => files.refs.link?.("second/two.md")?.()}>second</button>
+          <WorkbenchPanel scheme="dark" shown manual tabs={[]} changes={[]} onCloseManual={vi.fn()} onExternal={vi.fn()}
+            port={port} fileRequest={files.request} workspaceRoot="/w" />
+        </>
+      );
+    }
+    render(<TwoLinks />);
+    await userEvent.click(screen.getByText("first"));
+    await userEvent.click(screen.getByText("second"));
+    await waitFor(() => expect(tabs()).toContain("notes.md"));
+
+    // Now let the stale answer land. It must not reach the panel.
+    releaseFirst({ path: "slow/one.md" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(tabs()).toEqual(["notes.md"]);
   });
 
   it("does not ask a remote workspace, whose path names its own disk", async () => {

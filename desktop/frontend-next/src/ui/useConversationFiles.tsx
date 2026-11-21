@@ -6,31 +6,54 @@ import { GRANTED, conversationFile, isLocalPathShape } from "./filelinks";
 import { GRANTED_FILE, grantedFileKey, grantedFilePath } from "./grantedfiles";
 import { WorkbenchFileMenu, absoluteWorkspacePath, type FileMenu } from "./WorkbenchFileMenu";
 
+// How long a spelled path may be looked up before the tab opens with it as
+// written. A correct spelling answers in one stat; this only bounds the wrong
+// ones, where the answer is a walk of the workspace.
+const RESOLVE_WAIT_MS = 1500;
+
 export function useConversationFiles(port: AgentPort, root: string, remote: boolean, shown: boolean, reveal: () => void, fail: (e: unknown) => void) {
   const [request, setRequest] = useState<{ path: string; port: AgentPort; root: string; consumed: () => void }>();
   const [menu, setMenu] = useState<(FileMenu & { id: number; port: AgentPort; root: string }) | null>(null);
   const menuID = useRef(0);
+  const askID = useRef(0);
   // A link opens its file once: the workbench reports it taken, so a later press
   // on Files, or anything else that re-renders it, finds nothing to replay.
   //
   // A path the conversation spelled is read against the workspace root, though
   // the model writes it against whatever directory its shell ran in: `cd crate
   // && cargo build` leaves `target/release/app.exe`, and the file is under
-  // `crate/`. The workspace is asked where the tail really lives before the tab
-  // opens, so a file that is there opens as itself instead of being reported
-  // gone — and a path that is already right costs one stat, not a walk.
+  // `crate/`. The workspace is therefore asked where the tail really lives
+  // before the tab opens — and the tab opens exactly once, with the answer, so a
+  // path that was wrong leaves no failed tab behind to close by hand.
+  //
+  // Asking costs one stat when the spelling is already right, which is the usual
+  // case. A spelling that is wrong is the expensive one, so the wait is bounded:
+  // past RESOLVE_WAIT_MS the tab opens with what was written, which is what would
+  // have happened without any of this.
   const ask = useCallback((path: string) => {
-    const req = { path, port, root, consumed: () => setRequest((now) => (now === req ? undefined : now)) };
-    setRequest(req);
+    const mine = ++askID.current;
+    let settled = false;
     reveal();
-    if (remote) return;
-    void port.workspaceResolvePath?.(path).then((found) => {
-      if (!found) return;
-      const at = found.root ? grantedFilePath(found.root, found.path) : found.path;
-      if (!at || at === path) return;
-      const moved = { path: at, port, root, consumed: () => setRequest((now) => (now === moved ? undefined : now)) };
-      setRequest(moved);
-    }).catch(() => {});
+    const open = (at: string) => {
+      if (settled) return;
+      settled = true;
+      // A second link pressed while the first is still being looked up owns the
+      // panel: the slower answer must not replace the newer request.
+      if (askID.current !== mine) return;
+      const req = { path: at, port, root, consumed: () => setRequest((now) => (now === req ? undefined : now)) };
+      setRequest(req);
+    };
+    if (remote || !port.workspaceResolvePath) return open(path);
+    const controller = new AbortController();
+    const timer = setTimeout(() => { controller.abort(); open(path); }, RESOLVE_WAIT_MS);
+    void port.workspaceResolvePath(path, controller.signal).then((found) => {
+      clearTimeout(timer);
+      const at = found ? (found.root ? grantedFilePath(found.root, found.path) : found.path) : "";
+      open(at || path);
+    }).catch(() => {
+      clearTimeout(timer);
+      open(path);
+    });
   }, [port, root, reveal, remote]);
   useEffect(() => () => setRequest(undefined), [port, root]);
   const [platform, setPlatform] = useState("");

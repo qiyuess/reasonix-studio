@@ -227,7 +227,10 @@ func renderQueueList(snap InboxSnapshot) string {
 		if it.Origin == "host" {
 			fmt.Fprintf(&b, " (%s)", i18n.M.QueueHostTag)
 		}
-		if it.Images && it.State == "queued" {
+		// A picture no longer keeps a line waiting: guidance carries its own
+		// attachments now, so only a real follow-up waits for this turn to end.
+		// Saying otherwise here would describe a rule the kernel stopped applying.
+		if it.Images && it.State == "queued" && it.Intent != "steer" {
 			fmt.Fprintf(&b, " (%s)", i18n.M.QueueImageWait)
 		}
 		b.WriteByte('\n')

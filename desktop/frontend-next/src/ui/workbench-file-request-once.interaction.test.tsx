@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from "react";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "./testkit";
@@ -45,9 +45,13 @@ describe("a file linked from the conversation opens once", () => {
   it("opens the same link again when it is clicked again", async () => {
     render(<Harness port={new MockPort()} />);
     await userEvent.click(screen.getByText("link"));
+    await waitFor(() => expect(tabs()).toEqual(["notes.md"]));
     await closeTab();
+    expect(tabs()).toEqual([]);
     await userEvent.click(screen.getByText("link"));
-    expect(tabs()).toEqual(["notes.md"]);
+    // The tab opens with the answer to "where does this path really live", so it
+    // arrives a tick later than the press.
+    await waitFor(() => expect(tabs()).toEqual(["notes.md"]));
   });
 
   it("returns to the file tree when a file picked from the explorer is closed", async () => {
