@@ -47,9 +47,15 @@ function git(args) {
 // electron-builder revalidates its download against SHASUMS256.txt on every run,
 // which needs GitHub and fails after 34s when the network stalls. pnpm has
 // already unpacked the same Electron under node_modules, so a local build points
-// at it instead. The version and the executable's architecture are checked
-// first: reusing a dist that does not match would ship the wrong shell silently.
-function electronDistFlag() {
+// at it instead. Reusing a dist that does not match would ship the wrong shell
+// silently, so two things are checked first: the version it states, and the
+// machine its executable was built for.
+//
+// The architecture is only readable on Windows here — that is where a local
+// build of this shell runs today, and reading it elsewhere would need a
+// different reader per platform. On other hosts the version check stands alone
+// rather than pretending to have checked more.
+function electronDistFlag(arch = targetArch()) {
   const fs = require("node:fs");
   const dist = path.join(HERE, "node_modules", "electron", "dist");
   const wanted = JSON.parse(fs.readFileSync(path.join(HERE, "package.json"), "utf8")).devDependencies?.electron;
@@ -59,7 +65,44 @@ function electronDistFlag() {
     console.log(`electron: local dist is ${actual}, wanted ${wanted}; letting electron-builder fetch it`);
     return "";
   }
+  const exe = path.join(dist, "electron.exe");
+  if (process.platform === "win32" && fs.existsSync(exe)) {
+    const want = require("./pe.js").MACHINE[arch === "x64" ? "amd64" : arch];
+    const got = peMachineOf(exe);
+    if (want !== undefined && got !== 0 && got !== want) {
+      console.log(`electron: local dist is 0x${got.toString(16)}, wanted ${arch}; letting electron-builder fetch it`);
+      return "";
+    }
+  }
   return `--config.electronDist=${path.relative(HERE, dist).replace(/\\/g, "/")}`;
+}
+
+// targetArch is the architecture this run builds for: electron-builder takes it
+// from the flags it was handed, and otherwise from the machine doing the build.
+function targetArch(flags = passthrough) {
+  if (flags.includes("--arm64")) return "arm64";
+  if (flags.includes("--x64")) return "x64";
+  return process.arch === "arm64" ? "arm64" : "x64";
+}
+
+// peMachineOf reads a PE image's machine field without slurping the binary: the
+// COFF header sits near the front of the file.
+function peMachineOf(file) {
+  const fs = require("node:fs");
+  let fd;
+  try {
+    fd = fs.openSync(file, "r");
+    const head = Buffer.alloc(4096);
+    const read = fs.readSync(fd, head, 0, head.length, 0);
+    if (read < 0x40 || head.readUInt16LE(0) !== 0x5a4d) return 0;
+    const at = head.readUInt32LE(0x3c);
+    if (at + 6 > read) return 0;
+    return head.readUInt16LE(at + 4);
+  } catch {
+    return 0;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
 }
 
 // The interface ships as built output under `desktop/frontend-next/dist`, which
