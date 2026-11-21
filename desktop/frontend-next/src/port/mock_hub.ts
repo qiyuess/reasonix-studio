@@ -204,6 +204,7 @@ export class MockHub implements HubPort {
       this.recentTree(this.decorate(this.roots.map<TreeWorkspace>((root, i) => ({
         root,
         name: root.split("/").pop() ?? root,
+        displayName: this.names.get(root),
         open: this.views.some((v) => v.root === root),
         remembered: true,
         sessions: this.placed(root,
@@ -235,8 +236,10 @@ export class MockHub implements HubPort {
 
   addWorkspace(path: string, _name?: string, displayName?: string) {
     if (!this.roots.includes(path)) this.roots.push(path);
+    const named = displayName?.trim();
+    if (named) this.names.set(path, named);
     return Promise.resolve<TreeWorkspace>({ root: path, name: path.split("/").pop() ?? path,
-      displayName: displayName?.trim() || undefined, remembered: true, sessions: [] });
+      displayName: named || undefined, remembered: true, sessions: [] });
   }
 
   async revealWorkspace() {}

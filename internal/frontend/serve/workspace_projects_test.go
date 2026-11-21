@@ -95,6 +95,79 @@ func TestANamedAddCreatesTheFolderAndRemembersIt(t *testing.T) {
 	}
 }
 
+// The folder the picker returns is the project. No folder is made inside it,
+// which is what a person who already created their project folder expects.
+func TestAddUsesThePickedFolderAsTheProject(t *testing.T) {
+	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	picked := testenv.TempDir(t)
+	before, err := os.ReadDir(picked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := NewHub(HubOptions{})
+	hubRuntime(t, h, picked)
+	srv := httptest.NewServer(operatorHandler(h))
+	defer srv.Close()
+
+	resp := postJSON(t, srv.URL+"/tree/workspaces", map[string]string{"path": picked})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST /tree/workspaces = %d, want 200", resp.StatusCode)
+	}
+	if got := Workspaces(); len(got) != 1 || got[0] != picked {
+		t.Fatalf("remembered %v, want the picked folder %q", got, picked)
+	}
+	after, err := os.ReadDir(picked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != len(before) {
+		t.Fatalf("the picked folder gained entries: %d -> %d", len(before), len(after))
+	}
+}
+
+// A name given at the moment of adding is what the sidebar reads it by, and the
+// folder keeps the name it has on disk.
+func TestAddRemembersTheNameApartFromTheFolder(t *testing.T) {
+	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	picked := testenv.TempDir(t)
+	h := NewHub(HubOptions{})
+	hubRuntime(t, h, picked)
+	srv := httptest.NewServer(operatorHandler(h))
+	defer srv.Close()
+
+	resp := postJSON(t, srv.URL+"/tree/workspaces", map[string]string{"path": picked, "displayName": "orders"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST /tree/workspaces = %d, want 200", resp.StatusCode)
+	}
+	if got := workspaceNames()[projectIdentity(picked)]; got != "orders" {
+		t.Fatalf("display name = %q, want %q", got, "orders")
+	}
+	if st, err := os.Stat(picked); err != nil || !st.IsDir() {
+		t.Fatalf("the picked folder is gone: %v", err)
+	}
+}
+
+// Re-adding a folder that is already listed is not a request to rename it: the
+// name it has is the one a person gave it, whenever they gave it.
+func TestReAddingAFolderKeepsTheNameItHas(t *testing.T) {
+	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	picked := testenv.TempDir(t)
+	h := NewHub(HubOptions{})
+	hubRuntime(t, h, picked)
+	srv := httptest.NewServer(operatorHandler(h))
+	defer srv.Close()
+
+	if resp := postJSON(t, srv.URL+"/tree/workspaces", map[string]string{"path": picked, "displayName": "orders"}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("first add = %d, want 200", resp.StatusCode)
+	}
+	if resp := postJSON(t, srv.URL+"/tree/workspaces", map[string]string{"path": picked, "displayName": "something else"}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("second add = %d, want 200", resp.StatusCode)
+	}
+	if got := workspaceNames()[projectIdentity(picked)]; got != "orders" {
+		t.Fatalf("display name = %q, want the first name %q", got, "orders")
+	}
+}
+
 // The name becomes a folder inside the parent, so anything that walks out of
 // it is refused rather than joined.
 func TestANamedAddRefusesANameThatIsAPath(t *testing.T) {

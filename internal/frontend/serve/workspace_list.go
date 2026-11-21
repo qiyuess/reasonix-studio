@@ -147,7 +147,11 @@ func addRememberedWorkspace(ctx context.Context, dir string, displayName ...stri
 		name = strings.TrimSpace(displayName[0])
 	}
 	return updateWorkspaceList(ctx, true, func(list *workspaceList) error {
-		if !slices.Contains(list.Paths, dir) {
+		// The name is the answer to "what does this project read as". A folder
+		// that is already listed has one — set when it was added, or renamed
+		// later — and re-adding it is not a request to change that.
+		fresh := !slices.Contains(list.Paths, dir)
+		if fresh {
 			if workspaceListFull(len(rememberedProjects(list.Paths))) && !hasWorkspaceProject(list.Paths, dir) {
 				return refusal(http.StatusConflict, "workspace.limit_reached", errWorkspaceListFull, nil)
 			}
@@ -160,7 +164,7 @@ func addRememberedWorkspace(ctx context.Context, dir string, displayName ...stri
 			}
 			list.Launch = dir
 		}
-		if name != "" {
+		if fresh && name != "" {
 			list.SetName(storedWorkspacePath(*list, dir), name)
 		}
 		return nil

@@ -13,8 +13,7 @@ export interface Adder {
    *  dialog picks the folder a new project is made inside, then adds it apart. */
   pickFolder: (preferred?: string) => Promise<string | null>;
   /** Remember the folder itself as the project. `displayName`, when given, is
-   *  what the sidebar calls it — the folder keeps the name it has on disk, so a
-   *  folder named shop-web can read as 订单服务. */
+   *  what the sidebar calls it — the folder keeps the name it has on disk. */
   addFolder: (path: string, displayName?: string) => Promise<TreeWorkspace>;
 }
 

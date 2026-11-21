@@ -55,9 +55,8 @@ export function WorkspacePill() {
     run(at === null ? () => port.setWorkspaceAuto() : () => port.setWorkspace(at.root));
   };
 
-  // 新建空白项目: an empty, named folder inside the folder the picker returned,
-  // then the pane moves there — that is the project it was asking for. The
-  // dialog itself is shared with the sidebar's 项目 plus.
+  // The dialog picks a folder, then the pane moves there — that folder is the
+  // project it was asking for. Shared with the sidebar's plus.
   const openBlank = () => {
     setBlank(true);
     setChoice(false);

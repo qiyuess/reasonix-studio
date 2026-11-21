@@ -11,22 +11,20 @@ export interface BlankAdder {
   addFolder: (path: string, displayName?: string) => Promise<TreeWorkspace>;
 }
 
-/** 新建空白项目: the folder the picker returned *is* the project. A name typed
- *  in the first field renames it in the sidebar only — the folder keeps the name
- *  it has on disk, so one called shop-web can read as 订单服务.
+/** The folder the picker returned *is* the project. A name typed in the first
+ *  field renames it in the sidebar only — the folder keeps the name it has on
+ *  disk, so one called shop-web can read as a completely different label.
  *
- *  The dialog is shared — the composer's pill and the sidebar's 项目 plus both
- *  land a new project with it — and `onDone` carries the workspace that was
- *  made, so each caller decides what to do with it afterwards. */
+ *  The dialog is shared — the composer's pill and the sidebar's plus both land a
+ *  new project with it — and `onDone` carries the workspace that was made. */
 export function BlankProjectDialog({ adder, onDone, onClose, onError }: {
   adder: BlankAdder;
   onDone: (workspace: TreeWorkspace) => void | Promise<void>;
   onClose: () => void;
   onError: (e: unknown) => void;
 }) {
-  // Starts empty, not prefilled: a name identical to the folder's is the one
-  // answer that changes nothing, and prefilling it made the field read as "this
-  // is the folder about to be created".
+  // Starts empty: a name identical to the folder's changes nothing, so the
+  // field stays out of the way until someone wants a different label.
   const [name, setName] = useState("");
   const [parent, setParent] = useState("");
   const [noPicker, setNoPicker] = useState(false);
