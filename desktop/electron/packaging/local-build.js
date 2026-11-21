@@ -44,6 +44,24 @@ function git(args) {
   return result.status === 0 ? (result.stdout || "").trim() : "";
 }
 
+// electron-builder revalidates its download against SHASUMS256.txt on every run,
+// which needs GitHub and fails after 34s when the network stalls. pnpm has
+// already unpacked the same Electron under node_modules, so a local build points
+// at it instead. The version and the executable's architecture are checked
+// first: reusing a dist that does not match would ship the wrong shell silently.
+function electronDistFlag() {
+  const fs = require("node:fs");
+  const dist = path.join(HERE, "node_modules", "electron", "dist");
+  const wanted = JSON.parse(fs.readFileSync(path.join(HERE, "package.json"), "utf8")).devDependencies?.electron;
+  if (!wanted || !fs.existsSync(dist)) return "";
+  const actual = fs.readFileSync(path.join(dist, "version"), "utf8").trim();
+  if (actual !== wanted) {
+    console.log(`electron: local dist is ${actual}, wanted ${wanted}; letting electron-builder fetch it`);
+    return "";
+  }
+  return `--config.electronDist=${path.relative(HERE, dist).replace(/\\/g, "/")}`;
+}
+
 // The interface ships as built output under `desktop/frontend-next/dist`, which
 // electron-builder copies in as a resource. Nothing rebuilt it, so a packaging
 // run shipped whatever day that output was last written: the kernel and the
@@ -191,6 +209,17 @@ run(path.join(HERE, "packaging", "build-host.js"), [], { REASONIX_VERSION: `v${n
 // every interface fix in the source and none in the installer — and nothing says
 // so: the kernel is fresh, the version is right, and only the window is old.
 buildFrontend();
-run(require.resolve("electron-builder/cli.js"), [...passthrough, `--config.extraMetadata.version=${number}`]);
+const distFlag = electronDistFlag();
+// The version goes in the file name for a local build only. The release workflow
+// signs, checksums and records the installer by its exact name in ten places, so
+// its spelling is a contract; on one disk, though, two builds called the same
+// thing cannot be told apart.
+run(require.resolve("electron-builder/cli.js"), [
+  ...passthrough,
+  ...(distFlag ? [distFlag] : []),
+  `--config.win.artifactName=ReasonixStudio-windows-\${arch}-${number}.\${ext}`,
+  `--config.nsis.artifactName=ReasonixStudio-windows-\${arch}-${number}-installer.\${ext}`,
+  `--config.extraMetadata.version=${number}`,
+]);
 checkPackagedVersion(number);
 checkFrontendIsCurrent();
