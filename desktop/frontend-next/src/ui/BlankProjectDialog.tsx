@@ -12,11 +12,8 @@ export interface BlankAdder {
 }
 
 /** The folder the picker returned *is* the project. A name typed in the first
- *  field renames it in the sidebar only — the folder keeps the name it has on
- *  disk, so one called shop-web can read as a completely different label.
- *
- *  The dialog is shared — the composer's pill and the sidebar's plus both land a
- *  new project with it — and `onDone` carries the workspace that was made. */
+ *  field is what the sidebar calls it; the folder keeps its own name on disk.
+ *  Shared by the composer's pill and the sidebar's plus. */
 export function BlankProjectDialog({ adder, onDone, onClose, onError }: {
   adder: BlankAdder;
   onDone: (workspace: TreeWorkspace) => void | Promise<void>;

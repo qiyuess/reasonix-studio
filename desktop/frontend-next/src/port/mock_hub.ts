@@ -236,10 +236,12 @@ export class MockHub implements HubPort {
 
   addWorkspace(path: string, _name?: string, displayName?: string) {
     if (!this.roots.includes(path)) this.roots.push(path);
+    // Same rule the kernel keeps: a folder already named keeps that name —
+    // re-adding it is not a request to rename. An unnamed one takes its first.
     const named = displayName?.trim();
-    if (named) this.names.set(path, named);
+    if (named && !this.names.get(path)?.trim()) this.names.set(path, named);
     return Promise.resolve<TreeWorkspace>({ root: path, name: path.split("/").pop() ?? path,
-      displayName: named || undefined, remembered: true, sessions: [] });
+      displayName: this.names.get(path)?.trim() || undefined, remembered: true, sessions: [] });
   }
 
   async revealWorkspace() {}

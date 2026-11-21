@@ -233,11 +233,8 @@ export function App({ hub }: { hub: HubPort }) {
     void reloadRemoteTrees();
   }, [hub, readPanes, reloadTree, reloadRemoteTrees]);
   const refreshPanes = useMemo(() => singleFlight(reloadPanes), [reloadPanes]);
-  // Closing a pane makes the kernel announce a tree change, and the listener
-  // below reloads on it — before the caller has had its say. That reload is
-  // what draws the "nothing is open" card for a frame when the last
-  // conversation closes and a room is about to replace it. While a close is in
-  // flight the announcement is held; the caller reloads once, at the end.
+  // A reload in the middle of a close publishes `runtimes = []`, which draws the
+  // "nothing is open" card for a frame. The close holds it and reloads once.
   const heldRefresh = useRef(0);
 
   useEffect(() => {
@@ -396,10 +393,8 @@ export function App({ hub }: { hub: HubPort }) {
   // folder's worth of panes must not pay for that once each.
   const closePanes = useCallback(
     async (ids: string[]) => {
-      // Hold the tree listener for the whole close: the kernel announces each
-      // closed pane, and a reload on that announcement publishes `runtimes = []`
-      // — the card explaining nothing is open — before the room below replaces
-      // it. One reload at the end lands the close and the replacement together.
+      // Held for the whole close: the kernel announces each closed pane, and a
+      // reload on that announcement publishes an empty list for a frame.
       heldRefresh.current++;
       try {
         for (const id of ids) await hub.close(id);

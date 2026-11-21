@@ -10,7 +10,7 @@ export interface Adder {
   addPath: (path: string) => void;
   closePath: () => void;
   /** The system folder picker, for a caller that asks twice — the blank-project
-   *  dialog picks the folder a new project is made inside, then adds it apart. */
+   *  dialog picks the project folder itself, then adds it. */
   pickFolder: (preferred?: string) => Promise<string | null>;
   /** Remember the folder itself as the project. `displayName`, when given, is
    *  what the sidebar calls it — the folder keeps the name it has on disk. */
