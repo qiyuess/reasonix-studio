@@ -392,8 +392,16 @@ export function App({ hub }: { hub: HubPort }) {
     async (ids: string[]) => {
       for (const id of ids) await hub.close(id);
       await reloadPanes();
+      // Closing the last conversation leaves the window where a launch starts:
+      // a room whose composer is locked, waiting to be given a conversation —
+      // not a card explaining that nothing is open.
+      const left = await readPanes();
+      if (left && left.length === 0) {
+        setEntered(false);
+        await openPane({ noProject: true });
+      }
     },
-    [hub, reloadPanes],
+    [hub, reloadPanes, readPanes, openPane],
   );
 
   const openRow = useSidebarOpen<PaneView>(runtimes, openPane, setActive, setViewRequests, "flow");
