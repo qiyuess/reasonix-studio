@@ -140,58 +140,7 @@ func (c *Controller) steerInboxItem(id string, holdIfPaused bool) (sessioninbox.
 		return sessioninbox.InboxReceipt{ItemID: id, Disposition: sessioninbox.DispositionRejectedRotating, Capacity: cap}, nil
 	}
 	// Capture only the store pointer + item id. Load body from disk at consume.
-	storeRef := st
-	itemID := id
-	// One read serves both the body and the pictures: they come from the same
-	// stored envelope, and materializing it twice would resolve its references
-	// twice per steer. The answer is memoized because the agent asks for the body
-	// and then for the pictures, on the same consume.
-	var once sync.Once
-	type loadedSteer struct {
-		text   string
-		images []string
-		err    error
-	}
-	var loaded loadedSteer
-	read := func() loadedSteer {
-		once.Do(func() {
-			_, env, err := storeRef.ReadItem(itemID)
-			if err != nil {
-				loaded.err = err
-				return
-			}
-			text := strings.TrimSpace(env.SubmitText)
-			if text == "" {
-				text = strings.TrimSpace(env.DisplayText)
-			}
-			if text == "" {
-				loaded.err = fmt.Errorf("inbox item %s has empty body", itemID)
-				return
-			}
-			materialized, images, block, materializeErr := applyInboxReferences(env)
-			if materializeErr != nil {
-				loaded.err = materializeErr
-				return
-			}
-			if block != "" {
-				loaded.err = fmt.Errorf("frozen reference unavailable: %s", block)
-				return
-			}
-			loaded.text, loaded.images = firstNonEmptyStr(materialized, text), images
-		})
-		return loaded
-	}
-	loader := func() (string, error) {
-		got := read()
-		return got.text, got.err
-	}
-	// The pictures ride the same message as the words, read at consume time for
-	// the same reason the body is: a data URL is megabytes per picture, and the
-	// agent must not hold every queued steer's attachments in its heap.
-	imagesLoader := func() ([]string, error) {
-		got := read()
-		return got.images, got.err
-	}
+	loader, imagesLoader := steerLoaders(st, id)
 	// Persist the admission boundary before exposing the loader to the agent.
 	// Holding c.mu for the short in-memory enqueue serializes active tracking
 	// with finishGuardedTurn, so TurnDone cannot overtake an accepted steer.
@@ -200,11 +149,9 @@ func (c *Controller) steerInboxItem(id string, holdIfPaused bool) (sessioninbox.
 	if err := st.SetState(id, sessioninbox.StateSteerAccepted, ""); err != nil {
 		return sessioninbox.InboxReceipt{}, err
 	}
-	// A picture is only worth steering when this turn's model can read it. When it
-	// cannot, the follow-up path below is the honest answer: that one runs as a
-	// whole turn and says the attachment never reached the model, whereas a steer
-	// would drop the picture silently on the way to the provider. Read before the
-	// lock: answering it loads config from disk.
+	// A picture is only worth steering when this turn's model can read it; when
+	// it cannot, the follow-up path below runs a whole turn and says the
+	// attachment never reached the model. Read before the lock: it loads config.
 	reads := len(env.FrozenImages) == 0 || c.imageInputEnabled()
 	c.mu.Lock()
 	accepted := reads && !c.gate.closed && !c.gate.rotating && c.gate.running && c.executor != nil && c.steerItemAs(meta.Origin, id, loader, imagesLoader, env.Via, env.DisplayText)
@@ -223,11 +170,9 @@ func (c *Controller) steerInboxItem(id string, holdIfPaused bool) (sessioninbox.
 			Capacity:    cap,
 		}, nil
 	}
-	// Rejected: keep as follow-up. The state goes back unconditionally, because
-	// the admission boundary above was also written unconditionally: leaving a
-	// picture-carrying item in steer_accepted would strand it in a state
-	// ConvertIntent does not accept, and the orphan recovery would then pause the
-	// whole queue over one undelivered image.
+	// Rejected: keep as follow-up. The state goes back unconditionally, matching
+	// the boundary written above it: leaving steer_accepted would strand the item
+	// in a state ConvertIntent rejects, and orphan recovery would pause the queue.
 	if err := st.SetState(id, sessioninbox.StateQueued, ""); err != nil {
 		_ = st.ForcePause(true, 1)
 		return sessioninbox.InboxReceipt{}, err
@@ -243,6 +188,50 @@ func (c *Controller) steerInboxItem(id string, holdIfPaused bool) (sessioninbox.
 		Paused:      st.Snapshot().Paused,
 		Capacity:    cap,
 	}, nil
+}
+
+// steerLoaders answers one item's body and its pictures. One read serves both:
+// they come from the same stored envelope, and materializing it twice would
+// resolve its references twice per consume.
+func steerLoaders(st *sessioninbox.Store, id string) (func() (string, error), func() ([]string, error)) {
+	var once sync.Once
+	var text string
+	var images []string
+	var err error
+	read := func() {
+		once.Do(func() {
+			_, env, readErr := st.ReadItem(id)
+			if readErr != nil {
+				err = readErr
+				return
+			}
+			body := strings.TrimSpace(env.SubmitText)
+			if body == "" {
+				body = strings.TrimSpace(env.DisplayText)
+			}
+			if body == "" {
+				err = fmt.Errorf("inbox item %s has empty body", id)
+				return
+			}
+			materialized, pictures, block, materializeErr := applyInboxReferences(env)
+			if materializeErr != nil {
+				err = materializeErr
+				return
+			}
+			if block != "" {
+				err = fmt.Errorf("frozen reference unavailable: %s", block)
+				return
+			}
+			text, images = firstNonEmptyStr(materialized, body), pictures
+		})
+	}
+	return func() (string, error) {
+			read()
+			return text, err
+		}, func() ([]string, error) {
+			read()
+			return images, err
+		}
 }
 
 // steerItemAs queues the item under the attribution the manifest recorded, so a

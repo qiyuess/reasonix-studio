@@ -113,11 +113,9 @@ func TestSteerCarryingAPictureRidesTheSameTurn(t *testing.T) {
 }
 
 // A turn whose model cannot read pictures must not swallow the picture, so the
-// line goes in as a follow-up: that runs as a whole turn and says the attachment
-// never reached the model. What must not happen is the item being left in a state
-// the store cannot act on — the orphan sweep would then pause the entire queue
-// over one undelivered image, and the caller would get an error instead of an
-// honest "held as a follow-up".
+// line goes in as a follow-up. What must not happen is the item being left in a
+// state the store cannot act on: orphan recovery would then pause the entire
+// queue over one undelivered image.
 func TestPictureSteerToATextOnlyModelFallsBackToAFollowUp(t *testing.T) {
 	c, _, prov, done, _ := steeringPictureTurn(t, "custom/text-only")
 

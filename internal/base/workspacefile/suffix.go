@@ -8,15 +8,11 @@ import (
 	"strings"
 )
 
-// skipScanDir names the folders a suffix search never enters. It is matched
+// skipScanDir names the folders a suffix search never enters, matched
 // case-insensitively: Windows lets a folder be spelled Node_Modules, and a walk
-// that does not skip it pays for the whole dependency tree.
-//
-// Build output is deliberately absent. `target/release/app.exe` is the example
-// this whole search exists for, so skipping target/ or dist/ would answer "no
-// such file" about the one path a conversation most often writes. Size is
-// handled by the entry budget below instead, which bounds work without
-// pretending a directory cannot hold the answer.
+// that does not skip it pays for the whole dependency tree. Build output is
+// absent on purpose — `target/release/app.exe` is what this search exists for —
+// and size is bounded by the entry budget instead.
 var skipScanDir = map[string]bool{
 	".git": true, ".hg": true, ".svn": true, "node_modules": true, "vendor": true,
 	".venv": true, "venv": true, "__pycache__": true, ".mypy_cache": true,

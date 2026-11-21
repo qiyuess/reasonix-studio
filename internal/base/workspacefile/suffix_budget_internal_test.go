@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"reasonix/internal/base/testenv"
 )
 
 // A conversation can name a path that is simply not there. Answering "no" must
@@ -14,7 +16,7 @@ import (
 // building a tree large enough to exhaust the real one — twenty thousand files
 // per test is not a price this assertion is worth.
 func TestSuffixStopsAtItsBudgetInsteadOfWalkingForever(t *testing.T) {
-	root := t.TempDir()
+	root := testenv.TempDir(t)
 	for i := range 60 {
 		at := filepath.Join(root, "dir", "f"+string(rune('a'+i%26))+string(rune('a'+i/26))+".txt")
 		if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
@@ -39,7 +41,7 @@ func TestSuffixStopsAtItsBudgetInsteadOfWalkingForever(t *testing.T) {
 // about how much work an unanswered search may cost, not a cap on what can be
 // found.
 func TestSuffixAnswersWhatItFoundBeforeTheBudget(t *testing.T) {
-	root := t.TempDir()
+	root := testenv.TempDir(t)
 	at := filepath.Join(root, "a", "release", "app.exe")
 	if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
 		t.Fatal(err)

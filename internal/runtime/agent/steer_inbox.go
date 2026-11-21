@@ -255,13 +255,10 @@ func (a *Agent) consumeSteer() (text string, e steerEntry, ok bool) {
 }
 
 // pictures reads the guidance's images, if it has any. A body that will not read
-// is not a reason to drop guidance the person already sent: the text still
-// arrives, and this answers with no pictures rather than failing the whole steer.
-//
-// The cost is real and is not reported anywhere: a picture that fails to load
-// here reaches nobody, and the turn carries no note about it. Failing the steer
-// instead would lose the words as well, which is worse — but nothing should read
-// this as "the loss is accounted for elsewhere", because it is not.
+// is not a reason to drop guidance the person already sent: the words still
+// arrive and this answers with no pictures. The loss is unreported — a picture
+// that fails here reaches nobody — but failing the steer would drop the words
+// too, and nothing else accounts for it.
 func (e steerEntry) pictures() []string {
 	if e.loadImages == nil {
 		return nil
