@@ -147,9 +147,8 @@ func addRememberedWorkspace(ctx context.Context, dir string, displayName ...stri
 		name = strings.TrimSpace(displayName[0])
 	}
 	return updateWorkspaceList(ctx, true, func(list *workspaceList) error {
-		// The name is the answer to "what does this project read as". A folder
-		// that is already listed has one — set when it was added, or renamed
-		// later — and re-adding it is not a request to change that.
+		// A named folder keeps the name it has; an unnamed one takes the name it
+		// is added with, which is the first answer to what it reads as.
 		fresh := !slices.Contains(list.Paths, dir)
 		if fresh {
 			if workspaceListFull(len(rememberedProjects(list.Paths))) && !hasWorkspaceProject(list.Paths, dir) {
@@ -164,8 +163,9 @@ func addRememberedWorkspace(ctx context.Context, dir string, displayName ...stri
 			}
 			list.Launch = dir
 		}
-		if fresh && name != "" {
-			list.SetName(storedWorkspacePath(*list, dir), name)
+		key := storedWorkspacePath(*list, dir)
+		if name != "" && strings.TrimSpace(list.Names[key]) == "" {
+			list.SetName(key, name)
 		}
 		return nil
 	})

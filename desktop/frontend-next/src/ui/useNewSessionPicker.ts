@@ -17,10 +17,10 @@ export interface PickerProject {
 export function pickerProjects(tree: TreeWorkspace[], remotes: RemoteHost[] | null,
   remoteTrees: Record<string, TreeWorkspace[] | null>, runtimes: RuntimeView[]): PickerProject[] {
   const local = tree.filter((ws) => ws.remembered && !ws.missing)
-    .map((ws) => ({ key: ws.root, name: ws.name, root: ws.root }));
+    .map((ws) => ({ key: ws.root, name: ws.displayName?.trim() || ws.name, root: ws.root }));
   const remote = (remotes ?? []).flatMap((host) =>
     remoteWorkspaces(host, remoteTrees[host.name], runtimes.filter((rt) => rt.host === host.name))
       .filter((ws) => (ws.remembered || ws.booked) && !ws.missing)
-      .map((ws) => ({ key: JSON.stringify([host.name, ws.root]), name: ws.name, root: ws.root, host: host.name })));
+      .map((ws) => ({ key: JSON.stringify([host.name, ws.root]), name: ws.displayName?.trim() || ws.name, root: ws.root, host: host.name })));
   return [...local, ...remote];
 }

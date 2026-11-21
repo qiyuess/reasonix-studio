@@ -168,6 +168,27 @@ func TestReAddingAFolderKeepsTheNameItHas(t *testing.T) {
 	}
 }
 
+// A folder listed before it was ever named takes the name it is added with:
+// that is the first answer to "what does this read as", and nobody gave it one.
+func TestAddingAnUnnamedFolderTakesItsName(t *testing.T) {
+	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	picked := testenv.TempDir(t)
+	h := NewHub(HubOptions{})
+	hubRuntime(t, h, picked)
+	srv := httptest.NewServer(operatorHandler(h))
+	defer srv.Close()
+
+	if resp := postJSON(t, srv.URL+"/tree/workspaces", map[string]string{"path": picked}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("first add = %d, want 200", resp.StatusCode)
+	}
+	if resp := postJSON(t, srv.URL+"/tree/workspaces", map[string]string{"path": picked, "displayName": "orders"}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("named add = %d, want 200", resp.StatusCode)
+	}
+	if got := workspaceNames()[projectIdentity(picked)]; got != "orders" {
+		t.Fatalf("display name = %q, want %q", got, "orders")
+	}
+}
+
 // The name becomes a folder inside the parent, so anything that walks out of
 // it is refused rather than joined.
 func TestANamedAddRefusesANameThatIsAPath(t *testing.T) {
