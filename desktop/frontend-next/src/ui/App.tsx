@@ -391,17 +391,19 @@ export function App({ hub }: { hub: HubPort }) {
   const closePanes = useCallback(
     async (ids: string[]) => {
       for (const id of ids) await hub.close(id);
-      await reloadPanes();
-      // Closing the last conversation leaves the window where a launch starts:
-      // a room whose composer is locked, waiting to be given a conversation —
-      // not a card explaining that nothing is open.
+      // The room has to be there before the empty list is committed. Reloading
+      // first publishes `runtimes = []` at the next await, which draws the card
+      // explaining nothing is open for a frame — the flicker between two
+      // screens that mean the same thing. So the replacement is opened in the
+      // kernel first, and one reload lands both facts together.
       const left = await readPanes();
       if (left && left.length === 0) {
         setEntered(false);
-        await openPane({ noProject: true });
+        await hub.open({ noProject: true });
       }
+      await reloadPanes();
     },
-    [hub, reloadPanes, readPanes, openPane],
+    [hub, reloadPanes, readPanes],
   );
 
   const openRow = useSidebarOpen<PaneView>(runtimes, openPane, setActive, setViewRequests, "flow");

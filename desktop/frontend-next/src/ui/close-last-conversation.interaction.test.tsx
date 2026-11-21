@@ -43,3 +43,4 @@ it("closing the last conversation leaves a room, not an empty card", async () =>
   const room = await screen.findByRole<HTMLTextAreaElement>("combobox", { name: "任务输入" });
   expect(room.readOnly).toBe(true);
 });
+
