@@ -27,12 +27,12 @@ function fail(message) {
   process.exit(1);
 }
 
-function run(entry, args, env) {
+function run(entry, args, env, cwd = HERE) {
   // Through node and an argument array, never through a shell: on Windows a
   // shell re-reads the command line and drops arguments, which once cost a
   // build its `--win nsis` and its injected version at the same time.
   const result = spawnSync(process.execPath, [entry, ...args], {
-    cwd: HERE,
+    cwd,
     stdio: "inherit",
     env: { ...process.env, ...env },
   });
@@ -42,6 +42,49 @@ function run(entry, args, env) {
 function git(args) {
   const result = spawnSync("git", args, { cwd: REPO, encoding: "utf8" });
   return result.status === 0 ? (result.stdout || "").trim() : "";
+}
+
+// The interface ships as built output under `desktop/frontend-next/dist`, which
+// electron-builder copies in as a resource. Nothing rebuilt it, so a packaging
+// run shipped whatever day that output was last written: the kernel and the
+// version were current, and only the window was old. Whoever is running this has
+// the sources; build them.
+function buildFrontend() {
+  const app = path.join(REPO, "desktop", "frontend-next");
+  if (!require("node:fs").existsSync(path.join(app, "package.json"))) {
+    fail(`no SPA to build at ${app}`);
+  }
+  run(path.join(app, "node_modules", "vite", "bin", "vite.js"), ["build"], {}, app);
+}
+
+// Built output older than the sources it was built from is the same bug caught a
+// second way: a build that silently kept an old `dist/` would ship a window that
+// answers yesterday's questions.
+function checkFrontendIsCurrent() {
+  const fs = require("node:fs");
+  const app = path.join(REPO, "desktop", "frontend-next");
+  const out = path.join(app, "dist", "index.html");
+  if (!fs.existsSync(out)) fail("the SPA was not built: no dist/index.html");
+  const built = fs.statSync(out).mtimeMs;
+  const stale = newestSourceMtime(path.join(app, "src"));
+  if (stale > built) {
+    fail(
+      `the built SPA is older than its sources by ${Math.round((stale - built) / 1000)}s.\n` +
+        "  The installer would carry a window without the fixes in src/.",
+    );
+  }
+  console.log("bundle carries a freshly built SPA");
+}
+
+function newestSourceMtime(dir) {
+  const fs = require("node:fs");
+  let newest = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const at = path.join(dir, entry.name);
+    const mtime = entry.isDirectory() ? newestSourceMtime(at) : fs.statSync(at).mtimeMs;
+    if (mtime > newest) newest = mtime;
+  }
+  return newest;
 }
 
 // The bundle is asked what version it carries, rather than trusted to have taken
@@ -143,7 +186,11 @@ console.log(`packaging Reasonix Studio ${number}`);
 // The kernel spells it with the tag's prefix; the bundle carries the bare
 // number electron's app.getVersion() reports.
 run(path.join(HERE, "packaging", "build-host.js"), [], { REASONIX_VERSION: `v${number}` });
-// The dotted path is the documented way to set a package.json field, and the
-// number is read back afterwards so a spelling that stops landing fails here.
+// The SPA is copied into the bundle from its built output, which nothing here
+// used to rebuild. A shell wrapped around a `dist/` from some earlier day leaves
+// every interface fix in the source and none in the installer — and nothing says
+// so: the kernel is fresh, the version is right, and only the window is old.
+buildFrontend();
 run(require.resolve("electron-builder/cli.js"), [...passthrough, `--config.extraMetadata.version=${number}`]);
 checkPackagedVersion(number);
+checkFrontendIsCurrent();
