@@ -20,6 +20,13 @@ import (
 // so a steer naming an image resolves one.
 func steeringVisionTurn(t *testing.T) (*Controller, *sessionstore.Session, *inboxSteerProvider, chan event.Event, string) {
 	t.Helper()
+	return steeringPictureTurn(t, "custom/vision-pro")
+}
+
+// steeringPictureTurn is steeringVisionTurn for a chosen model, so a test can ask
+// what becomes of a picture when the turn's model cannot read one at all.
+func steeringPictureTurn(t *testing.T, modelRef string) (*Controller, *sessionstore.Session, *inboxSteerProvider, chan event.Event, string) {
+	t.Helper()
 	dir := testenv.TempDir(t)
 	workspace := filepath.Join(dir, "workspace")
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
@@ -41,7 +48,7 @@ func steeringVisionTurn(t *testing.T) (*Controller, *sessionstore.Session, *inbo
 		SessionDir:    dir,
 		SessionPath:   filepath.Join(dir, "s.jsonl"),
 		WorkspaceRoot: workspace,
-		ModelRef:      "custom/vision-pro",
+		ModelRef:      modelRef,
 	})
 	t.Cleanup(func() { prov.unblock(); c.autosaveWG.Wait() })
 	c.Submit("initial turn")
@@ -103,4 +110,58 @@ func TestSteerCarryingAPictureRidesTheSameTurn(t *testing.T) {
 	if !strings.Contains(applied[at].Content, sessionstore.MidTurnSteerPrefix) {
 		t.Fatalf("the message is not marked as mid-turn guidance: %q", applied[at].Content)
 	}
+}
+
+// A turn whose model cannot read pictures must not swallow the picture, so the
+// line goes in as a follow-up: that runs as a whole turn and says the attachment
+// never reached the model. What must not happen is the item being left in a state
+// the store cannot act on — the orphan sweep would then pause the entire queue
+// over one undelivered image, and the caller would get an error instead of an
+// honest "held as a follow-up".
+func TestPictureSteerToATextOnlyModelFallsBackToAFollowUp(t *testing.T) {
+	c, _, prov, done, _ := steeringPictureTurn(t, "custom/text-only")
+
+	rec, err := c.TryEnqueueAndSteer(InboxRequest{Submit: "look at @diagram.png", Source: "test"})
+	if err != nil {
+		t.Fatalf("a picture sent to a model that cannot read it was refused outright: %v", err)
+	}
+	if rec.Disposition != sessioninbox.DispositionQueuedFollowup {
+		t.Fatalf("disposition = %q, want it held as a follow-up", rec.Disposition)
+	}
+	snap := c.InboxSnapshot()
+	if len(snap.Items) != 1 {
+		t.Fatalf("queue = %+v, want the line still there", snap.Items)
+	}
+	item := snap.Items[0]
+	if item.State != sessioninbox.StateQueued || item.Intent != sessioninbox.IntentFollowup {
+		t.Fatalf("item = state %q intent %q, want a queued follow-up the dispatcher can take", item.State, item.Intent)
+	}
+	if snap.Paused {
+		t.Fatalf("the queue was paused (%q) over one undelivered picture", snap.PauseCode)
+	}
+
+	// The fallback dispatches this line as a turn of its own, and this test's sink
+	// answers TurnDone on a one-slot channel: draining is what keeps the turn from
+	// blocking on a send nobody will read.
+	drainInbox(t, c, prov, done)
+}
+
+// drainInbox runs the queue to empty so a test's one-slot TurnDone channel does
+// not block the turn it started.
+func drainInbox(t *testing.T, c *Controller, prov *inboxSteerProvider, done chan event.Event) {
+	t.Helper()
+	prov.unblock()
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case <-done:
+		default:
+		}
+		snap := c.InboxSnapshot()
+		if len(snap.Items) == 0 && !c.Running() {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("the inbox never drained")
 }
