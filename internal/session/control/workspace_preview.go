@@ -32,10 +32,10 @@ func (c *Controller) WorkspacePreviewContent(ctx context.Context, ref workspacef
 // root, though the model writes them against whatever directory its shell ran
 // in — `cd crate && cargo build` reports `target/release/app.exe`. A read that
 // found nothing asks this before it reports the file gone.
-func (c *Controller) WorkspaceResolvePath(written string) (workspacefile.Ref, error) {
+func (c *Controller) WorkspaceResolvePath(ctx context.Context, written string) (workspacefile.Ref, error) {
 	files, err := c.previewFiles()
 	if err != nil {
 		return workspacefile.Ref{}, err
 	}
-	return files.Suffix(written)
+	return files.Suffix(ctx, written)
 }

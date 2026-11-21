@@ -465,6 +465,7 @@ export const KERNEL: Messages = {
   "kernel.the_file_save_request_is": { zh: "文件保存请求格式不正确", en: "The file save request is malformed" },
   "kernel.the_file_was_not_found": { zh: "找不到该文件，它可能已被移动或删除", en: "The file was not found; it may have been moved or deleted" },
   "kernel.more_than_one_file_ends_that": { zh: "有不止一个文件以该路径结尾，无法确定指的是哪一个", en: "More than one file ends that way, so which one was meant cannot be told" },
+  "kernel.that_path_is_too_broad_to": { zh: "这个路径在仓库里太常见，搜索到上限也没能确定是哪一个，请写出更多层级", en: "That path is too broad to resolve: the search hit its limit before it could tell which file was meant. Spell more of it." },
   "kernel.the_fixed_prefix_fills_the": { zh: "固定前缀已占满检查点上限，这次折叠省下的空间太少，没有采用", en: "The fixed prefix fills the checkpoint limit and this fold saved too little, so it was not used" },
   "kernel.the_fold_the_work_setting": { zh: "折叠中间过程的设置未能保存：{detail}", en: "The fold-the-work setting was not saved: {detail}" },
   "kernel.the_folded_context_is_still": { zh: "折叠后的上下文仍不低于压缩阈值，已暂停自动重试", en: "The folded context is still at or above the compaction threshold, so automatic retries are paused" },

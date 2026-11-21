@@ -42,6 +42,7 @@ const SAID: Record<string, string> = {
   "agent_composition.read_only": "kernel.built_in_presets_are_read",
   "workspace.preview_denied": "kernel.you_do_not_have_access",
   "workspace.path_ambiguous": "kernel.more_than_one_file_ends_that",
+  "workspace.path_too_broad": "kernel.that_path_is_too_broad_to",
   "workspace.preview_not_file": "kernel.only_regular_files_can_be",
   "workspace.preview_too_large": "chat.this_file_exceeds_the_preview",
   "workspace.preview_not_text": "kernel.the_file_is_not_valid",

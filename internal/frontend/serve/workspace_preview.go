@@ -19,12 +19,17 @@ func (s *Server) workspacePreviewRoutes(mux *http.ServeMux) {
 
 // workspaceResolve answers where a path a conversation named really lives. Only
 // an unambiguous answer is given: a tail two files share is not a file this can
-// choose, and the caller keeps showing the path it was given.
+// choose, and the caller keeps showing the path it was given. The search is
+// bounded by the request's own context, so a client that gave up stops it.
 func (s *Server) workspaceResolve(w http.ResponseWriter, r *http.Request) {
-	ref, err := s.ctl().WorkspaceResolvePath(r.URL.Query().Get("path"))
+	ref, err := s.ctl().WorkspaceResolvePath(r.Context(), r.URL.Query().Get("path"))
 	if err != nil {
 		if errors.Is(err, workspacefile.ErrAmbiguous) {
 			refuse(w, http.StatusConflict, "workspace.path_ambiguous", err.Error(), nil)
+			return
+		}
+		if errors.Is(err, workspacefile.ErrTooBroad) {
+			refuse(w, http.StatusUnprocessableEntity, "workspace.path_too_broad", err.Error(), nil)
 			return
 		}
 		if errors.Is(err, workspacefile.ErrMissing) {
@@ -34,6 +39,7 @@ func (s *Server) workspaceResolve(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusInternalServerError, "workspace.file_failed", err.Error(), nil)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, ref)
 }
 

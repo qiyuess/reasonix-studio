@@ -305,7 +305,8 @@ type RuntimeSettings interface {
 	WorkspacePreviewContent(context.Context, workspacefile.Ref) ([]byte, workspacefile.Info, error)
 	// Resolves a path a conversation spelled from a working directory that is not
 	// the workspace root, so a link that read nothing can still find its file.
-	WorkspaceResolvePath(string) (workspacefile.Ref, error)
+	// ctx bounds the search: the answer may be "too broad to tell".
+	WorkspaceResolvePath(context.Context, string) (workspacefile.Ref, error)
 	AddWorkspaceRoot(dir string) (string, error)
 	RemoveWorkspaceRoot(dir string) error
 	SandboxSettings() SandboxSettings
