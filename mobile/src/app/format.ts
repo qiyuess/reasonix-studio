@@ -66,6 +66,26 @@ export function stampText(ms: number): string {
 }
 
 /**
+ * A turn's start-end range, on one line that fits a phone. A turn that
+ * begins and ends inside one day names the date once — `2026-11-22
+ * 13:15:20 ~ 13:24:15` — because both ends share it; a turn that crosses
+ * midnight has a date change to report and stamps both ends in full.
+ */
+export function spanText(startedAt: number, ms: number): string {
+  const start = new Date(startedAt);
+  const end = new Date(startedAt + ms);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "";
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+  if (!sameDay) return `${stampText(startedAt)} ~ ${stampText(startedAt + ms)}`;
+  const two = (n: number) => String(n).padStart(2, "0");
+  const tail = `${two(end.getHours())}:${two(end.getMinutes())}:${two(end.getSeconds())}`;
+  return `${stampText(startedAt)} ~ ${tail}`;
+}
+
+/**
  * A turn's run time the way Studio states it: `37m 55s`, `1h 2m`.
  * Whole seconds, largest unit first, zero parts left out.
  */

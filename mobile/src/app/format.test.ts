@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockText, compactCount, relativeTime } from "./format";
+import { clockText, compactCount, relativeTime, spanText } from "./format";
 
 /** Fixed reference point: 2026-06-15 12:00 local time. */
 const NOW = new Date(2026, 5, 15, 12, 0).getTime();
@@ -68,5 +68,24 @@ describe("clockText", () => {
     // asserted — both begin with two digits, a colon, two more.
     expect(text).toMatch(/^\d{2}:\d{2}/);
     expect(text.slice(3, 5)).toBe("30");
+  });
+});
+
+describe("spanText", () => {
+  it("names the date once when the turn stays inside a day", () => {
+    const start = new Date(2026, 10, 22, 13, 15, 20).getTime();
+    // A phone's line has no room for the date twice: the ends share it, so
+    // the second end says only the time that moved.
+    expect(spanText(start, 9 * 60_000 + 55_000)).toBe("2026-11-22 13:15:20 ~ 13:25:15");
+  });
+
+  it("stamps both ends in full when the turn crosses midnight", () => {
+    const start = new Date(2026, 10, 22, 23, 59, 30).getTime();
+    // The date change is a fact the turn has to report, not repetition.
+    expect(spanText(start, 60_000)).toBe("2026-11-22 23:59:30 ~ 2026-11-23 00:00:30");
+  });
+
+  it("says nothing for a stamp it cannot read", () => {
+    expect(spanText(Number.NaN, 60_000)).toBe("");
   });
 });
