@@ -62,6 +62,11 @@ contextBridge.exposeInMainWorld("reasonixHost", {
   // page, and the few controls a person has over a page they are watching.
   showBrowserView: (targetId, rect) => ipcRenderer.invoke("browser:show", String(targetId), rectOf(rect)),
   hideBrowserView: () => ipcRenderer.invoke("browser:hide"),
+  // The size a person wants a page laid out in, or null for the size the page
+  // itself was given. It decides what the page thinks it is, not just how big
+  // it looks: a frame 393 wide answers a phone's media queries. The zoom is
+  // how that frame is drawn into the slot: a percentage or `fit`.
+  frameBrowserView: (targetId, size) => ipcRenderer.invoke("browser:frame", String(targetId), size ? { width: size.width, height: size.height, zoom: size.zoom } : null),
   freezeBrowserView: () => ipcRenderer.invoke("browser:freeze"),
   controlBrowserView: (targetId, action) => ipcRenderer.invoke("browser:control", String(targetId), String(action)),
   navigateBrowserView: (targetId, address) => ipcRenderer.invoke("browser:navigate", String(targetId), String(address)),

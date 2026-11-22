@@ -1,11 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { ArrowLeft, ArrowRight, ExternalLink, Globe, MousePointerClick, RotateCw } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, ExternalLink, Globe, MonitorSmartphone, MousePointerClick, RotateCw } from "lucide-react";
 import { t } from "../i18n";
 import { reason } from "../i18n/kernel";
 import type { AgentPort, BrowserTab } from "../port/port";
 import { host, type BrowserControl, type BrowserLoadFailure, type BrowserPickEnd, type BrowserRefusal, type PickedElement } from "../port/host";
 import { SWAP_MARK } from "./swap";
 import { occluded, visibleBox } from "./occlusion";
+import { BrowserSizeBar } from "./BrowserSizeBar";
+import { loadSize, saveSize, scaleOf, type Chosen } from "./browserSize";
 import { BrowserFailure } from "./BrowserFailure";
 import { AgentPageNote } from "./AgentPageNote";
 import { readPageTabs } from "./browser_open";
@@ -62,6 +64,50 @@ interface ManualProps {
   scheme: "light" | "dark";
 }
 
+/** FramedPage is the room a page is drawn in. The page keeps its own CSS
+ *  pixels — a frame 393 wide answers a phone's media queries because it really
+ *  is 393 wide — and this box only decides how much of the panel that frame
+ *  takes, centred and never blown up past its own size. */
+function FramedPage({ size, children }: { size: Chosen; children: ReactNode }) {
+  const room = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const el = room.current;
+    if (!el) return;
+    // The room is what is left inside the padding: clientWidth counts the
+    // padding the stylesheet puts there, and a scale computed from it draws the
+    // frame a padding's worth too tall — which is a scrollbar that scrolls a
+    // few pixels over nothing.
+    const read = () => {
+      const style = getComputedStyle(el);
+      const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+      const padY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+      setBox({ width: Math.max(0, el.clientWidth - padX), height: Math.max(0, el.clientHeight - padY) });
+    };
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const scale = scaleOf(size.mode, box, size);
+  // A transform draws the frame smaller without changing the space it takes, so
+  // the box that holds it is given the drawn size instead: the room scrolls
+  // over what is really on screen, not over the room the page would have had.
+  return (
+    <div className="studio-browser-canvas" ref={room}>
+      <div className="studio-browser-scaled" style={{ width: `${size.width * scale}px`, height: `${size.height * scale}px` }}>
+        <div
+          className="studio-browser-viewport"
+          style={{ width: `${size.width}px`, height: `${size.height}px`, transform: `scale(${scale})` }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }: ManualProps) {
   const [history, setHistory] = useState([START]);
   const [index, setIndex] = useState(0);
@@ -71,11 +117,16 @@ export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }
   const [reload, setReload] = useState(0);
   const [invalid, setInvalid] = useState(false);
   const [loading, setLoading] = useState(false);
+  // The frame is the window's, not this tab's: a size chosen once is where the
+  // next page opens too. This panel always frames: it draws the page itself, so
+  // there is no other size for it to be.
+  const [size, setSize] = useState<Chosen>(() => ({ ...loadSize(), framed: true }));
   const current = history[index] ?? START;
   const internal = current === START;
   useEffect(() => {
     onAddress(id, internal ? "" : new URL(current).hostname);
   }, [id, current, internal, onAddress]);
+  useEffect(() => saveSize(size), [size]);
 
   const visit = (value: string) => {
     // An empty field is a question, not a page: Enter on nothing to go to
@@ -132,6 +183,9 @@ export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }
         <button type="button" data-action="browser.back" onClick={() => move(index - 1)} disabled={index === 0} aria-label={t("workbench.back")} title={t("workbench.back")}>
           <ArrowLeft size={16} />
         </button>
+        <button type="button" data-action="browser.forward" onClick={() => move(index + 1)} disabled={index >= history.length - 1} aria-label={t("workbench.forward")} title={t("workbench.forward")}>
+          <ArrowRight size={16} />
+        </button>
         <button type="button" data-action="browser.reload" onClick={() => setReload((value) => value + 1)} aria-label={t("common.re_freeze")} title={t("common.re_freeze")}>
           <RotateCw size={16} />
         </button>
@@ -144,17 +198,20 @@ export function ManualBrowserPanel({ id, hidden, onAddress, onExternal, scheme }
           <ExternalLink size={16} />
         </button>
       </form>
+      <BrowserSizeBar size={size} onChange={setSize} />
       {invalid && <p className="studio-browser-error" role="alert">{t("workbench.enter_a_valid_http_or")}</p>}
-      {internal ? <BrowserStartPage scheme={scheme} /> : <iframe
-        key={`${current}:${reload}`}
-        className="studio-browser-frame"
-        title={t("workbench.reasonix_built_in_browser")}
-        src={current}
-        sandbox="allow-scripts allow-forms allow-popups"
-        referrerPolicy="no-referrer"
-        onLoad={() => setLoading(false)}
-        onError={() => setLoading(false)}
-      />}
+      <FramedPage size={size}>
+        {internal ? <BrowserStartPage scheme={scheme} /> : <iframe
+          key={`${current}:${reload}`}
+          className="studio-browser-frame"
+          title={t("workbench.reasonix_built_in_browser")}
+          src={current}
+          sandbox="allow-scripts allow-forms allow-popups"
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoading(false)}
+          onError={() => setLoading(false)}
+        />}
+      </FramedPage>
       {/* Not a hint at an icon somewhere else: a site that refuses to be framed
           shows the shell's own "refused to connect", and the way out has to be
           beside it. */}
@@ -229,10 +286,28 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
   const [picking, setPicking] = useState(false);
   const [element, setElement] = useState<PickedElement | null>(null);
   const [pickEnd, setPickEnd] = useState("");
+  // The size this page is laid out in, when somebody watching it chose one. It
+  // travels to the shell rather than to the frame, because the page is a native
+  // view: the shell lays it out in that viewport and scales it into the slot.
+  // It starts as the panel's own size, which is how an agent's page has always
+  // been drawn: as wide as the room, not framed at a window nobody chose.
+  const [size, setSize] = useState<Chosen>(() => ({ ...loadSize(), framed: false }));
+  // The row is its own state, not a reading of `framed`: choosing the panel's
+  // own size lays the page out as wide as the room, and the row stays to say
+  // so — only the toggle closes it, which is what the demo showed.
+  const [rowOpen, setRowOpen] = useState(false);
+  // Opening the row is asking for a size, so the page is framed at the preset
+  // the window remembers — unless the panel's own size was chosen while the
+  // row was open, in which case that choice stands until a preset is picked.
+  const toggleFrame = () => {
+    if (!rowOpen && size.framed === false) setSize((was) => ({ ...was, framed: true }));
+    setRowOpen(!rowOpen);
+  };
   const target = current?.target ?? "";
   const failure = failures[target];
 
   useEffect(() => setAddress(addressText(current?.url)), [current?.url, current?.target]);
+  useEffect(() => saveSize(size), [size]);
   useEffect(
     () =>
       host().onBrowserLoadState(({ targetId, failure: next }) =>
@@ -259,6 +334,10 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
     }
     let timer = 0;
     let live = true;
+    // Which frame has been sent to the shell: the poll re-places the page every
+    // few hundred milliseconds, and a frame is a debugger command rather than a
+    // cheap property write, so it goes only when it changed.
+    let sentFrame: { width: number; height: number; zoom?: string } | null = null;
     // Which freeze is current: a picture answering an older one is stale.
     let frozen = 0;
     let freezes = 0;
@@ -270,6 +349,12 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
         shell.hideBrowserView();
         return;
       }
+      // What to tell the shell this page is laid out in: a viewport when the
+      // row is open and a size is on, and null when it is to be laid out in the
+      // rectangle it was given — which is how an agent's page is drawn until
+      // somebody says otherwise. The zoom rides with it: the shell scales the
+      // frame by it, so a percentage chosen in the row reaches the page.
+      const want = !rowOpen || size.framed === false ? null : { width: size.width, height: size.height, zoom: size.mode };
       if (document.documentElement.hasAttribute(SWAP_MARK) || occluded(el, box)) {
         if (frozen) return;
         const turn = (frozen = ++freezes);
@@ -280,6 +365,14 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       }
       if (frozen) setFrame("");
       frozen = 0;
+      // The size goes with the rectangle, and before it: the shell lays the
+      // page out in that viewport and then fits it into the slot, so a show
+      // arriving first would place the page at the slot's own size and then
+      // have to move it.
+      if (!sentFrame || sentFrame.width !== want?.width || sentFrame.height !== want?.height || sentFrame.zoom !== want?.zoom) {
+        sentFrame = want;
+        shell.frameBrowserView(target, want);
+      }
       shell.showBrowserView(target, box);
     };
     const schedule = () => { if (!timer) timer = window.setTimeout(place, 48); };
@@ -307,7 +400,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       removeEventListener("resize", schedule);
       shell.hideBrowserView();
     };
-  }, [shown, target, failure]);
+  }, [shown, target, failure, size.width, size.height, size.framed, size.mode, rowOpen]);
 
   // A pick belongs to the page it was armed on: another page, or another
   // address on the same one, leaves it nothing to point at.
@@ -380,15 +473,17 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
           <button className="bbtn" data-action="browser.control" data-target={current?.id} data-value="back" aria-label={t("workbench.back")} title={t("workbench.back")} onClick={() => control("back")}><ArrowLeft size={16} /></button>
           <button className="bbtn" data-action="browser.control" data-target={current?.id} data-value="forward" aria-label={t("workbench.forward")} title={t("workbench.forward")} onClick={() => control("forward")}><ArrowRight size={16} /></button>
           <button className="bbtn" data-action="browser.control" data-target={current?.id} data-value="reload" aria-label={t("common.reload")} title={t("common.reload")} onClick={() => control("reload")}><RotateCw size={16} /></button>
+          <form className="baddr" data-action="browser.navigate" data-target={current?.id} onSubmit={go}>
+            <input data-action="browser.navigate" data-target={current?.id} value={address} placeholder={t("workbench.enter_address")} spellCheck={false} aria-label={t("workbench.address")} onChange={(event) => { setAddress(event.target.value); setRefused(""); }} />
+          </form>
+          <button className="bbtn" data-action="browser.free-size" aria-pressed={rowOpen} aria-label={t("workbench.free_size")} title={t("workbench.free_size")} onClick={toggleFrame}><MonitorSmartphone size={16} /></button>
           {host().picksBrowserElements() && (
             <button className="bbtn" data-action="browser.pick" aria-pressed={picking} disabled={!target || !!failure} aria-label={t("workbench.pick_element")} title={t("workbench.pick_element")} onClick={pick}><MousePointerClick size={16} /></button>
           )}
           <button className="bbtn" data-action="browser.external" disabled={!documentPath && !/^https?:\/\//i.test(current?.url ?? "")} aria-label={documentPath ? t("workbench.open_this_file_with_the") : t("workbench.open_this_page_in_the")} title={documentPath ? t("workbench.open_this_file_with_the") : t("workbench.open_this_page_in_the")} onClick={() => (documentPath ? openDocument() : current && void host().openExternal(current.url))}><ExternalLink size={16} /></button>
-          <form className="baddr" data-action="browser.navigate" data-target={current?.id} onSubmit={go}>
-            <input data-action="browser.navigate" data-target={current?.id} value={address} placeholder={t("workbench.enter_address")} spellCheck={false} aria-label={t("workbench.address")} onChange={(event) => { setAddress(event.target.value); setRefused(""); }} />
-          </form>
         </div>
       </div>
+      {rowOpen && <BrowserSizeBar size={size} onChange={setSize} panel />}
       {documentPath && <p className="studio-browser-note" data-action="browser.document-hint">{t("workbench.opens_this_file_with_the")}</p>}
       {docFailed && <p className="studio-browser-error" role="alert">{docFailed}</p>}
       {picking && <p className="studio-browser-note" role="status">{t("workbench.picking_element")}</p>}

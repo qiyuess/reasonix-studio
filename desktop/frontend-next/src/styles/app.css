@@ -737,6 +737,10 @@
     background: none; color: var(--faint); cursor: pointer;
   }
   .bbtn:hover:not(:disabled) { color: var(--text); background: var(--overlay) }
+  /* A mode toggle stays blue while it is on, hover included: a grey pressed
+     state reads as nothing more than the hover it sits beside. */
+  .bbtn[aria-pressed="true"]:not(:disabled) { color: var(--net); background: var(--net-wash) }
+  .bbtn[aria-pressed="true"]:not(:disabled):hover { color: var(--net); background: var(--net-wash) }
   .bbtn:disabled { opacity: .3; cursor: default }
   .bbtn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px }
   .baddr { flex: 1; min-width: 0 }

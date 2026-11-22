@@ -109,6 +109,10 @@ export interface HostPort {
    *  hide every other; hideBrowserView puts them all away again. */
   showBrowserView(target: string, rect: ViewRect): void;
   hideBrowserView(): void;
+  /** Lay the page out in a viewport of this size, or in its own when null: a
+   *  frame 393 wide answers a phone's media queries, so this is what the page
+   *  thinks it is rather than only how large it looks. */
+  frameBrowserView(target: string, size: { width: number; height: number; zoom?: string } | null): void;
   /** Put the page on screen away the way hideBrowserView does, answering with
    *  a picture of what it showed at that moment, or "" when none was taken. */
   freezeBrowserView(): Promise<string>;
@@ -231,6 +235,7 @@ interface ElectronBridge {
   openWorkspace?(root: string): Promise<Refusal | null>;
   showBrowserView?(target: string, rect: ViewRect): Promise<void>;
   hideBrowserView?(): Promise<void>;
+  frameBrowserView?(target: string, size: { width: number; height: number; zoom?: string } | null): Promise<void>;
   freezeBrowserView?(): Promise<string>;
   controlBrowserView?(target: string, action: string): Promise<void>;
   navigateBrowserView?(target: string, address: string): Promise<BrowserRefusal>;
@@ -354,6 +359,9 @@ class ElectronHost implements HostPort {
   hideBrowserView() {
     void this.api.hideBrowserView?.();
   }
+  frameBrowserView(target: string, size: { width: number; height: number; zoom?: string } | null) {
+    void this.api.frameBrowserView?.(target, size);
+  }
   freezeBrowserView() {
     if (this.api.freezeBrowserView) return this.api.freezeBrowserView().catch(() => "");
     this.hideBrowserView();
@@ -470,6 +478,7 @@ class BrowserHost implements HostPort {
   }
   showBrowserView() {}
   hideBrowserView() {}
+  frameBrowserView() {}
   freezeBrowserView() {
     return Promise.resolve("");
   }

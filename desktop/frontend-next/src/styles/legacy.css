@@ -47,6 +47,7 @@
 @import "./toasts.css" layer(legacy);
 @import "./overview.css" layer(legacy);
 @import "./browserfull.css" layer(legacy);
+@import "./browser-size.css" layer(legacy);
 @import "./worktree.css" layer(legacy);
 @import "./worktree-setup.css" layer(legacy);
 @import "./mcpheld.css" layer(legacy);

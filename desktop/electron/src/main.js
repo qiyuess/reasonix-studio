@@ -446,6 +446,18 @@ ipcMain.handle("browser:show", (event, targetId, rect) => {
 ipcMain.handle("browser:hide", (event) => {
   if (fromWindow(event)) browserViews?.hide();
 });
+// The size a person watching the page wants it laid out in, or null for the
+// size the agent asked for. A number that is not a size is refused here rather
+// than handed to the view, which would otherwise be told to draw nothing. The
+// zoom is one of the scales the row offers, or nothing at all for `fit`.
+ipcMain.handle("browser:frame", (event, targetId, size) => {
+  if (!fromWindow(event)) return;
+  const width = Number(size?.width);
+  const height = Number(size?.height);
+  const valid = Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0;
+  const zoom = ["50", "75", "100"].includes(String(size?.zoom)) ? String(size.zoom) : "fit";
+  browserViews?.frame(String(targetId), valid ? { width: Math.round(width), height: Math.round(height), zoom } : null);
+});
 ipcMain.handle("browser:freeze", (event) => (fromWindow(event) ? (browserViews?.freeze() ?? "") : ""));
 ipcMain.handle("browser:control", (event, targetId, action) => {
   if (fromWindow(event)) browserViews?.control(String(targetId), String(action));

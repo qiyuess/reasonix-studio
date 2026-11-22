@@ -145,6 +145,17 @@ class BrowserViews {
       panel: null,
       override: null,
       emulated: null,
+      // The viewport the panel asked for, when somebody watching the page chose
+      // a size instead of the agent. Kept apart from `emulated`, which is the
+      // viewport the agent set: a sleep wakes the agent's page as the agent left
+      // it, and the panel's frame is a way of looking rather than a thing the
+      // page was told.
+      frame: null,
+      // Whether the page has been told a viewport of its own. Scale alone
+      // cannot say: a page wider than the panel is drawn at scale 1 while it is
+      // still laid out in a viewport nobody asked for, so going back to the
+      // rectangle has to know a clearing command is owed.
+      metrics: false,
       scale: 1,
       lastTouch: Date.now(),
       slept: null,
@@ -373,6 +384,11 @@ class BrowserViews {
     entry.at = null;
     entry.panel = null;
     entry.override = null;
+    // The view is gone, and with it whatever viewport it was told: a wake builds
+    // a new one, so nothing here has been told anything. The frame stays — it is
+    // a way of looking, not something the page was told — and the fit after the
+    // wake is what puts it back into effect.
+    entry.metrics = false;
     entry.scale = 1;
     // A settle timer left running would put a view back that no longer
     // exists, or worse, the one a wake builds next.
@@ -506,20 +522,69 @@ class BrowserViews {
   // though it has not changed, for a capture that put the page's emulation back.
   fit(entry, force = false) {
     if (!entry.panel) return Promise.resolve();
-    const { at, scale } = placement(entry.panel, entry.override && { width: entry.override.width, height: entry.override.height });
+    const { at, scale } = placement(entry.panel, this.viewportOf(entry));
     entry.view.setBounds(at);
     entry.at = at;
     return this.scaled(entry, scale, force);
   }
 
-  scaled(entry, scale, force = false) {
-    if (!entry.override || (entry.scale === scale && !force)) return Promise.resolve();
-    entry.scale = scale;
-    return this.override(entry).catch(() => {});
+  // viewportOf is the size the page is laid out in. The frame somebody chose in
+  // the panel wins over the one the agent set: a person reaching for a size in
+  // the workbench is looking at the page and saying how they want to see it,
+  // and the agent's resize is what they are overriding.
+  viewportOf(entry) {
+    if (sized(entry.frame)) return entry.frame;
+    return sized(entry.override) ? entry.override : null;
   }
 
-  override(entry) {
-    return entry.view.webContents.debugger.sendCommand("Emulation.setDeviceMetricsOverride", { ...entry.override, scale: entry.scale });
+  scaled(entry, scale, force = false) {
+    const viewport = this.viewportOf(entry);
+    // Nothing is laid out in a viewport of its own, so there is nothing to fit:
+    // putting a page back into its rectangle is a command, and it belongs to the
+    // place that decided to stop framing rather than to every put-away.
+    if (!viewport || (entry.scale === scale && !force)) return Promise.resolve();
+    entry.scale = scale;
+    entry.metrics = true;
+    return this.setMetrics(entry, viewport).catch(() => {});
+  }
+
+  clearMetrics(entry) {
+    const cdp = entry.view?.webContents?.debugger;
+    if (!cdp) return Promise.resolve();
+    entry.metrics = false;
+    entry.scale = 1;
+    return cdp.sendCommand("Emulation.clearDeviceMetricsOverride", {});
+  }
+
+  // setMetrics tells the page the viewport it is laid out in and how that is
+  // then scaled into the rectangle it was given. deviceScaleFactor and mobile
+  // are the plain desktop defaults; an agent's own resize brings its own, so
+  // the frame's zoom is the one field stripped here — a stranger to this
+  // command, and one the protocol refuses the whole command over.
+  setMetrics(entry, viewport) {
+    const { zoom, ...params } = viewport;
+    return entry.view.webContents.debugger.sendCommand("Emulation.setDeviceMetricsOverride", {
+      deviceScaleFactor: 0, mobile: false, ...params, scale: entry.scale,
+    });
+  }
+
+  // frame sizes the rectangle a page is seen through, for somebody watching it
+  // in the workbench; null goes back to the size the agent asked for, or to the
+  // rectangle itself when the agent asked for nothing. It is a way of looking
+  // rather than something the page was told, so a sleep keeps it.
+  frame(targetId, size) {
+    const entry = this.entries.get(targetId);
+    if (!entry) return;
+    entry.frame = sized(size) ? { width: size.width, height: size.height, zoom: size.zoom } : null;
+    // A slept page has no view to resize; the frame is applied by the fit its
+    // wake ends in.
+    if (entry.slept || !entry.panel) return;
+    // Back to the rectangle: nothing is laid out in a viewport of its own any
+    // more, and that has to be said. Leaving it unsaid leaves the page at the
+    // last size somebody asked for, which for a page the agent never resized is
+    // the only thing that would ever clear it.
+    if (!this.viewportOf(entry) && entry.metrics) void this.clearMetrics(entry).catch(() => {});
+    void this.fit(entry);
   }
 
   // emulate records the viewport a page was told to lay out in, which the view
@@ -528,19 +593,20 @@ class BrowserViews {
   async emulate(entry, params) {
     entry.override = sized(params) ? { ...params } : null;
     entry.emulated = sized(params) ? { ...params } : null;
-    if (!entry.override) {
-      entry.scale = 1;
-      if (entry.panel) this.fit(entry);
-      return entry.view.webContents.debugger.sendCommand("Emulation.clearDeviceMetricsOverride", {});
-    }
+    // The agent's resize is recorded, not applied here: what the page is laid
+    // out in is one question with one answer (viewportOf), and the fit below is
+    // what puts that answer into effect — including the case where the panel's
+    // own frame is the answer, or where there is no viewport at all and the
+    // page goes back to the size of its view.
     entry.scale = 1;
-    if (entry.panel) {
-      const { at, scale } = placement(entry.panel, entry.override);
-      entry.view.setBounds(at);
-      entry.at = at;
-      entry.scale = scale;
+    if (!entry.panel) {
+      // A page parked out of sight has no rectangle to be fitted into, so the
+      // viewport is said plainly and the fit says the rest when it is shown.
+      const viewport = this.viewportOf(entry);
+      entry.metrics = !!viewport;
+      return viewport ? this.setMetrics(entry, viewport) : this.clearMetrics(entry);
     }
-    return this.override(entry);
+    return this.fit(entry, true);
   }
 
   // Attaching a view can leave nobody holding the keyboard, and the platform
@@ -991,7 +1057,10 @@ const sized = (v) => !!v && Number.isFinite(v.width) && Number.isFinite(v.height
 
 function placement(panel, emulated) {
   if (!sized(emulated)) return { at: panel, scale: 1 };
-  const scale = Math.min(1, panel.width / emulated.width, panel.height / emulated.height);
+  // A zoom the row chose draws the frame at that fraction of its own size; fit
+  // is the room's answer, never blowing the frame up past what it is.
+  const zoom = emulated.zoom === "50" || emulated.zoom === "75" || emulated.zoom === "100" ? Number(emulated.zoom) / 100 : null;
+  const scale = zoom ?? Math.min(1, panel.width / emulated.width, panel.height / emulated.height);
   const width = Math.max(1, Math.round(emulated.width * scale));
   const height = Math.max(1, Math.round(emulated.height * scale));
   const x = panel.x + Math.round((panel.width - width) / 2);

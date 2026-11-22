@@ -17,6 +17,7 @@ const bridge = {
   titleBar: false,
   showBrowserView: vi.fn(async () => {}),
   hideBrowserView: vi.fn(async () => {}),
+  frameBrowserView: vi.fn(async () => {}),
   freezeBrowserView: vi.fn(async () => PICTURE),
   controlBrowserView: vi.fn(async () => {}),
   navigateBrowserView: vi.fn(async (_target: string, _address: string): Promise<string> => ""),
@@ -65,7 +66,7 @@ async function panel(props: { tabs: BrowserTab[]; shown: boolean; onOpenDocument
 }
 
 beforeEach(() => {
-  for (const fn of [bridge.showBrowserView, bridge.hideBrowserView, bridge.freezeBrowserView, bridge.controlBrowserView, bridge.navigateBrowserView]) fn.mockClear();
+  for (const fn of [bridge.showBrowserView, bridge.hideBrowserView, bridge.frameBrowserView, bridge.freezeBrowserView, bridge.controlBrowserView, bridge.navigateBrowserView]) fn.mockClear();
   bridge.navigateBrowserView.mockImplementation(async () => "");
   bridge.freezeBrowserView.mockImplementation(async () => PICTURE);
   above = [];
@@ -367,6 +368,48 @@ describe("a layer the page draws over the view", () => {
       vi.advanceTimersByTime(60);
     });
     expect(bridge.showBrowserView).toHaveBeenLastCalledWith("view-a", RECT);
+  });
+});
+
+describe("the size a page the shell draws is laid out in", () => {
+  // A page the shell draws itself has no viewport of its own until somebody
+  // asks for one: it is laid out in the rectangle the panel gave it, as wide as
+  // the room. Null is how that is said.
+  it("leaves the page the size of the panel until a size is picked", async () => {
+    await panel({ tabs, shown: true });
+    await settle();
+    expect(bridge.frameBrowserView).toHaveBeenCalledWith("view-a", null);
+  });
+
+  it("tells the shell the viewport once a preset is picked", async () => {
+    await panel({ tabs, shown: true });
+    await settle();
+    // The row arrives with the free-size toggle: off, the page is the size of
+    // the room and there is nothing to pick from. Opening it frames the page
+    // at the preset the window last chose, so picking that same preset again
+    // says nothing new — the change is what the shell hears.
+    await userEvent.click(screen.getByRole("button", { name: /自由尺寸/ }));
+    await settle();
+    bridge.frameBrowserView.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /手机/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /平板/ }));
+    await settle();
+    expect(bridge.frameBrowserView).toHaveBeenLastCalledWith("view-a", { width: 768, height: 1024, zoom: "fit" });
+  });
+
+  // Going back is not the absence of a size: the page is still laid out in the
+  // viewport it was told, so the way back has to be said too.
+  it("goes back to the panel's own size when that row is picked again", async () => {
+    await panel({ tabs, shown: true });
+    await settle();
+    await userEvent.click(screen.getByRole("button", { name: /自由尺寸/ }));
+    await settle();
+    // The window remembers the size the previous case picked, so the row
+    // opens at tablet rather than phone; either preset is a way in.
+    await userEvent.click(screen.getByRole("button", { name: /平板/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /面板大小/ }));
+    await settle();
+    expect(bridge.frameBrowserView).toHaveBeenLastCalledWith("view-a", null);
   });
 });
 

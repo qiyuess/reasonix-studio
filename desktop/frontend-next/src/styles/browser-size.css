@@ -1,0 +1,55 @@
+/* The browser panel's size row and the room its page is drawn in.
+   A page here keeps its own CSS pixels: a frame 393 wide answers a phone's
+   media queries because it really is 393 wide. The scale only decides how much
+   of the panel that frame takes. */
+
+/* The row under the toolbar: which size the page is laid out in, and how much
+   of the panel that page takes. */
+.studio-browser-size {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 4px 10px;
+  border-bottom: 1px solid var(--hair); background: var(--surface); color: var(--muted);
+  font: var(--w-reg) var(--fs-micro)/1 var(--ui);
+}
+.studio-browser-size .picker { flex: none; display: flex; }
+.studio-browser-size .picker > button {
+  display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 6px;
+  border: 0; border-radius: var(--r-xs); background: transparent;
+  color: var(--muted); cursor: pointer; font: inherit;
+}
+.studio-browser-size .picker > button:hover { color: var(--text); background: var(--overlay); }
+.studio-browser-size .picker .studio-icon { width: 12px; height: 12px; color: var(--ghost); }
+.studio-browser-size .size-sides { display: flex; align-items: center; gap: 2px; }
+.studio-browser-size .size-side {
+  width: 54px; height: 24px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--r-xs);
+  background: transparent; color: var(--text); text-align: center;
+  font: var(--w-reg) var(--fs-micro)/1 var(--mono);
+}
+.studio-browser-size .size-side:hover { border-color: var(--border); }
+.studio-browser-size .size-side:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+.studio-browser-size .size-lock {
+  flex: none; width: 16px; height: 24px; padding: 0; border: 0; background: none;
+  color: var(--ghost); cursor: pointer; font: var(--w-reg) var(--fs-micro)/1 var(--ui);
+}
+.studio-browser-size .size-lock[aria-pressed="true"] { color: var(--accent); }
+
+/* The room the page is drawn in, and the page itself at its own size. A
+   transform draws the frame smaller without changing the space it takes, so
+   .studio-browser-scaled is the box that space is reported in; the auto margins
+   centre it while there is room and give it back to the scrollbars when there
+   is not. */
+.studio-browser-canvas {
+  flex: 1; min-height: 0; display: flex; overflow: auto; padding: 12px; background: var(--page);
+}
+.studio-browser-scaled { flex: none; margin: auto; }
+.studio-browser-viewport {
+  transform-origin: left top; overflow: hidden;
+  border: 1px solid var(--hair); border-radius: var(--r-sm); background: var(--page);
+}
+/* The frame and the opening screen fill the viewport, so the page draws at the
+   size it was framed at rather than at whatever the panel happens to be. */
+.studio-browser .studio-browser-canvas .studio-browser-frame {
+  display: block; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0;
+}
+.studio-browser .studio-browser-canvas .studio-browser-start {
+  width: 100%; height: 100%; margin: 0; border-radius: 0; overflow: auto;
+}

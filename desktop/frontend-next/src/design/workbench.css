@@ -9,7 +9,10 @@
   border-bottom: 1px solid var(--border); background: var(--page);
 }
 .workbench-tabs > .workbench-files[data-action="workbench.files"] { order: -1; }
-.workbench-tabs > .workbench-tablist { order: 0; flex: 1 1 auto; min-width: 0; gap: 2px; align-items: flex-end; }
+/* The tablist takes only the width its tabs need, so the strip's tail controls
+   (+, full) follow the last tab while there is room; a full list crowds them
+   to the row's right end by itself, which is where they belong then. */
+.workbench-tabs > .workbench-tablist { order: 0; flex: 0 1 auto; min-width: 0; gap: 2px; align-items: flex-end; }
 .workbench-tabs > :is(.workbench-new, .workbench-files:not([data-action="workbench.files"])) { order: 1; align-self: center; }
 .workbench-tabs > :is(.workbench-files, .workbench-new) {
   width: 28px; height: 28px; padding: 0; display: inline-grid; place-items: center; flex: none;
@@ -19,6 +22,10 @@
   width: auto; height: 34px; padding: 0 8px; align-self: flex-end; border-radius: var(--r-md) var(--r-md) 0 0;
 }
 .workbench-tabs > :is(.workbench-files, .workbench-new):hover, .workbench-tabs > .workbench-files[aria-pressed="true"] { background: var(--overlay); color: var(--text); }
+/* The full-workbench toggle reads as on the way the toolbar's mode toggles do:
+   the theme's blue, kept on hover, so the whole workbench switches with one
+   look rather than two. */
+.workbench-tabs > .workbench-files[data-action="browser.full"][aria-pressed="true"] { background: var(--net-wash); color: var(--net); }
 .workbench-tabs > :is(.workbench-files, .workbench-new) .studio-icon { width: 16px; height: 16px; }
 
 /* The way to any open tab, at the head of the row. It takes the front rather
