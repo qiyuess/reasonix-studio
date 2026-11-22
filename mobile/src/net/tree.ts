@@ -27,8 +27,12 @@ export interface TreeRequest {
    * an archived conversation is one the desktop put away. `archived` is the
    * phone's way back in — the per-project counts already say how many wait.
    */
-  scope?: "active" | "archived";
+  scope?: TreeScope;
 }
+
+/** The two shares of the tree the phone reads; the kernel also takes `""` for
+ *  every row, which no phone screen wants. */
+export type TreeScope = "active" | "archived";
 
 export type TreeRead =
   | { ok: true; projects: TreeProject[] }
@@ -94,7 +98,9 @@ function project(value: unknown): TreeProject | null {
     : [];
   const out: TreeProject = {
     root,
-    name: string(row.name) || root,
+    // The sidebar rename leads when the computer sends one; the folder's own
+    // name is the fallback, then the root itself.
+    name: string(row.displayName) || string(row.name) || root,
     total: count(row.total),
     remaining: count(row.remaining),
     sessions,

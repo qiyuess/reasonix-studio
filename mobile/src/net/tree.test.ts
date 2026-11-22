@@ -73,6 +73,29 @@ describe("loadTree", () => {
     expect(url).toContain("limit=20");
   });
 
+  it("reads the computer's rename ahead of the folder's own name", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      json([
+        {
+          root: "/work/app",
+          name: "app",
+          displayName: "我的项目",
+          total: 0,
+          remaining: 0,
+          sessions: [],
+        },
+      ]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadTree({ limit: 20 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.projects[0]?.name).toBe("我的项目");
+    }
+  });
+
   it("sends a per-project window when one project asked for more", async () => {
     const fetchMock = vi.fn().mockResolvedValue(json([]));
     vi.stubGlobal("fetch", fetchMock);
@@ -85,8 +108,7 @@ describe("loadTree", () => {
 
   it("carries a kernel refusal code instead of an empty tree", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ code: "device.host_only" }, 404)));
-    await expect(loadTree()).resolves.toEqual({ ok: false, code: "device.host_only" });
-  });
+    await expect(loadTree()).resolves.toEqual({ ok: false, code: "device.host_only" });  });
 
   it("reports a shape it cannot read rather than drawing nothing", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json([{ name: "no root" }])));

@@ -71,6 +71,23 @@ export function isRuntimeView(value: unknown): value is RuntimeView {
   );
 }
 
+/** The label a pane belonging to no project shows instead of a folder name:
+ *  the computer's own folder is where stray conversations live, and a
+ *  directory name there is noise. One constant so every row agrees. */
+export const NO_PROJECT_LABEL = "任务";
+
+/**
+ * The project name a pane shows. The sidebar rename leads when the computer
+ * sends one; a pane of the app's own folder shows the fixed label instead of
+ * an auto-workspace directory name; the folder's own name, then the root, are
+ * the fallbacks for a payload that never carried a name.
+ * One function, not a judgement copied at every consumer.
+ */
+export function projectLabel(runtime: RuntimeView): string {
+  if (runtime.noProject === true) return NO_PROJECT_LABEL;
+  return runtime.displayName || runtime.name || runtime.root;
+}
+
 /** A runtime base may be absolute when the pane lives on another machine. */
 function absolute(base: string): string {
   return new URL(base, window.location.origin).toString();

@@ -19,13 +19,17 @@
 
 import { fleetRead, loadFleet, saveFleet } from "./server";
 import type { FleetEntry } from "./server";
-import { isRuntimeView } from "./connection";
+import { isRuntimeView, NO_PROJECT_LABEL, projectLabel } from "./connection";
 import { originHost } from "./savedConnections";
 import { parseRuntimeStatus } from "./status";
 import type { Decision } from "./status";
 import type { RuntimeView } from "../wire/runtime";
 
 export type { FleetEntry };
+
+// The no-project label lives with the RuntimeView helpers (connection.ts); the
+// fleet re-exports it so existing readers keep one import site.
+export { NO_PROJECT_LABEL };
 
 /**
  * The proxy refuses a longer list; the app repeats the bound it enforces.
@@ -95,7 +99,7 @@ function paneTitle(runtime: RuntimeView): string {
     const base = runtime.sessionPath.split(/[\\/]/).pop() ?? "";
     if (base) return base;
   }
-  return runtime.name;
+  return projectLabel(runtime);
 }
 
 /**
@@ -127,7 +131,7 @@ async function sweepPeer(index: number): Promise<PeerRead> {
     const who = {
       peer: index,
       runtimeId: runtime.id,
-      projectName: runtime.name,
+      projectName: projectLabel(runtime),
       projectRoot: runtime.root,
       sessionPath: runtime.sessionPath ?? "",
       title: paneTitle(runtime),

@@ -2231,7 +2231,7 @@ describe("ChatScreen structured asks", () => {
 });
 
 describe("ChatScreen stop", () => {
-  it("offers a labelled stop for a turn that was already running when it opened", async () => {
+  it("asks before cancelling a turn that was already running when it opened", async () => {
     const fetchMock = stubKernel({ status: { running: true, busy: true, decisions: [] } });
 
     render(snapshot());
@@ -2242,8 +2242,23 @@ describe("ChatScreen stop", () => {
     expect(stop).toBeTruthy();
     expect(stop.textContent).toContain("停止");
 
+    // First tap opens the confirmation; nothing has been cancelled yet.
     await act(async () => {
       stop.click();
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(container.textContent).toContain("停止这一轮？");
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/rt/r1/cancel",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    await act(async () => {
+      (
+        container.querySelector('[aria-label="停止确认"] button.danger') as HTMLButtonElement
+      ).click();
       await Promise.resolve();
     });
     await flush();
@@ -2252,6 +2267,35 @@ describe("ChatScreen stop", () => {
       "/rt/r1/cancel",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("keeps the turn running when the confirmation is dismissed", async () => {
+    const fetchMock = stubKernel({ status: { running: true, busy: true, decisions: [] } });
+
+    render(snapshot());
+    await flush();
+    await flush();
+
+    await act(async () => {
+      (container.querySelector('[aria-label="停止"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+    await flush();
+
+    await act(async () => {
+      (
+        container.querySelector('[aria-label="停止确认"] button:not(.danger)') as HTMLButtonElement
+      ).click();
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(container.textContent).not.toContain("停止这一轮？");
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/rt/r1/cancel",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(container.querySelector('[aria-label="停止"]')).toBeTruthy();
   });
 
   it("keeps the send button when the kernel reports no turn", async () => {
@@ -2839,78 +2883,5 @@ describe("ChatScreen transcript windowing", () => {
     // The spacer is gone with the window covering everything, and no cursor
     // request was ever made: /history/page without hasMoreBefore is terminal.
     expect(container.querySelector(".window-gap")).toBeNull();
-  });
-});
-
-describe("ChatScreen studio entry", () => {
-  it("opens Studio from the header", async () => {
-    const openStudio = vi.fn(async () => ({ kind: "native" as const }));
-    render(snapshot(), "r1", { onOpenStudio: openStudio });
-    await flush();
-
-    const button = container.querySelector(
-      'button[aria-label="打开 Studio"]',
-    ) as HTMLButtonElement | null;
-    expect(button).toBeTruthy();
-    await act(async () => {
-      button?.click();
-      await Promise.resolve();
-    });
-
-    expect(openStudio).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps the entry available on a read-only conversation", async () => {
-    const openStudio = vi.fn(async () => ({ kind: "native" as const }));
-    render(snapshot(undefined, [{ ...runtime, readOnly: true }]), "r1", {
-      onOpenStudio: openStudio,
-    });
-    await flush();
-
-    const button = container.querySelector(
-      'button[aria-label="打开 Studio"]',
-    ) as HTMLButtonElement | null;
-    expect(button?.disabled).toBe(false);
-  });
-
-  it("renders no entry where the shell cannot carry one", async () => {
-    render(snapshot());
-    await flush();
-
-    expect(container.querySelector('button[aria-label="打开 Studio"]')).toBeNull();
-  });
-
-  it("says so when there is no Studio address", async () => {
-    const openStudio = vi.fn(async () => ({ kind: "none" as const }));
-    render(snapshot(), "r1", { onOpenStudio: openStudio });
-    await flush();
-
-    const button = container.querySelector(
-      'button[aria-label="打开 Studio"]',
-    ) as HTMLButtonElement | null;
-    await act(async () => {
-      button?.click();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(container.textContent).toContain("读不到这台电脑的 Studio 地址。");
-  });
-
-  it("says so when Studio cannot be opened", async () => {
-    const openStudio = vi.fn(async () => ({ kind: "failed" as const, error: new Error("x") }));
-    render(snapshot(), "r1", { onOpenStudio: openStudio });
-    await flush();
-
-    const button = container.querySelector(
-      'button[aria-label="打开 Studio"]',
-    ) as HTMLButtonElement | null;
-    await act(async () => {
-      button?.click();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(container.textContent).toContain("打不开 Studio。");
   });
 });

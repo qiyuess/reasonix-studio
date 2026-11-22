@@ -20,7 +20,8 @@ const runtime = {
   id: "demo",
   base: BASE,
   root: "/demo",
-  name: "演示项目",
+  name: "demo",
+  displayName: "演示项目",
   sessionPath: "/demo/.reasonix/demo.jsonl",
 };
 
@@ -43,7 +44,8 @@ const notesRuntime = {
 
 const tree = [{
   root: "/demo",
-  name: "演示项目",
+  name: "demo",
+  displayName: "演示项目",
   open: true,
   remembered: true,
   total: 3,

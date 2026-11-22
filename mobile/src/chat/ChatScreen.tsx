@@ -9,6 +9,7 @@
 import { Fragment, memo, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Connection, ConnectionSnapshot, QueuedEvent } from "../net/connection";
+import { projectLabel } from "../net/connection";
 import { cancel, submit } from "../net/submit";
 import { loadStatus, setPlanMode } from "../net/status";
 import { effortDisplayName } from "../net/models";
@@ -28,8 +29,6 @@ import { useStreamHaptics } from "./streamHaptics";
 import { loadHistory } from "../net/history";
 import { loadReading, readingKey, saveReading } from "./reading";
 import { useBackCloser } from "../app/backStack";
-import { StudioIcon } from "../app/StudioIcon";
-import type { StudioOpenResult } from "../app/openStudio";
 import { loadEnterPref } from "../app/enterPref";
 import type { EnterPref } from "../app/enterPref";
 import { compactCount } from "../app/format";
@@ -75,8 +74,6 @@ export interface ChatScreenProps {
   /** A decision notification asked the screen to land on the waiting prompt. */
   focusAsk?: boolean;
   onFocusConsumed?: () => void;
-  /** Open the paired computer's Studio page; absent where there is no native shell. */
-  onOpenStudio?: () => Promise<StudioOpenResult>;
   /** Open a conversation the kernel just forked; false when the open failed. */
   onOpenBranch?: (path: string, name: string) => Promise<boolean>;
 }
@@ -1104,7 +1101,6 @@ export function ChatScreen({
   onNewSession,
   focusAsk,
   onFocusConsumed,
-  onOpenStudio,
   onOpenBranch,
 }: ChatScreenProps) {
   const runtime = snapshot.runtimes.find((candidate) => candidate.id === runtimeId);
@@ -1115,17 +1111,6 @@ export function ChatScreen({
    * the browser alternative sits beside it; a note here could only be read
    * after the page had already been shown.
    */
-  const [studioNote, setStudioNote] = useState("");
-  const openStudioFromChat = useCallback(() => {
-    if (!onOpenStudio) return;
-    setStudioNote("");
-    void onOpenStudio()
-      .then((result) => {
-        if (result.kind === "none") setStudioNote("读不到这台电脑的 Studio 地址。");
-        else if (result.kind === "failed") setStudioNote("打不开 Studio。");
-      })
-      .catch(() => setStudioNote("打不开 Studio。"));
-  }, [onOpenStudio]);
   /**
    * When the running turn started being watched; a restored turn has no start.
    * A ref rather than state: the fold loop reads it to vouch for frames.
@@ -1208,6 +1193,8 @@ export function ChatScreen({
   const [planBusy, setPlanBusy] = useState(false);
   const [attachSheet, setAttachSheet] = useState(false);
   const [headMenu, setHeadMenu] = useState(false);
+  /** Stop asks first: a turn ending early is expensive to redo by accident. */
+  const [stopConfirm, setStopConfirm] = useState(false);
   /**
    * The workbench takeover: the changes list, its diffs, the commit card, the
    * history and the file browser in the transcript's place. The pane's stream
@@ -1217,6 +1204,7 @@ export function ChatScreen({
    */
   const [workbenchOpen, setWorkbenchOpen] = useState(false);
   useBackCloser(workbenchOpen, () => setWorkbenchOpen(false));
+  useBackCloser(stopConfirm, () => setStopConfirm(false));
   /** Finished non-read-only tool calls: every bump hints the tree moved. */
   const wrote = useMemo(
     () =>
@@ -1349,16 +1337,23 @@ export function ChatScreen({
   // pane may still be running, and the service ends itself when none are.
   useEffect(() => {
     if (!transcript.running || !runtime) return;
-    const heading = title ?? runtime.name;
+    const heading = title ?? projectLabel(runtime);
     startTurnNotification({
       ...(heading ? { title: heading } : {}),
       base: runtime.base,
       root: runtime.root,
       runtimeId,
     });
-  }, [transcript.running, title, runtime?.name, runtime?.base, runtime?.root, runtimeId]);
+  }, [transcript.running, title, runtime?.name, runtime?.displayName, runtime?.noProject, runtime?.base, runtime?.root, runtimeId]);
 
   const streaming = transcript.running;
+
+  // The sheet asks "this turn is still going" — a turn that finished while it
+  // was open makes the question a lie, and confirming would POST a cancel at
+  // a turn that is already over. Close it the moment the turn ends.
+  useEffect(() => {
+    if (!streaming) setStopConfirm(false);
+  }, [streaming]);
   /** Whether there is anything to send: words, a quote, or an attachment. */
   const hasCompose = draft.trim() !== "" || quotes.length > 0 || attachments.length > 0;
   const display = useMemo(
@@ -2208,7 +2203,7 @@ export function ChatScreen({
           ←
         </button>
         <div className="title">
-          <strong>{title ?? runtime.name}</strong>
+          <strong>{title ?? projectLabel(runtime)}</strong>
           <span>
             <span
               className={`dot ${snapshot.stream.kind === "open" ? "ok" : "warn"}`}
@@ -2217,23 +2212,12 @@ export function ChatScreen({
               title={snapshot.stream.kind === "open" ? "事件流已连接" : "事件流未连接"}
             />
             {runtime.readOnly ? "只读 · " : ""}
-            {runtime.name}
+            {projectLabel(runtime)}
           </span>
         </div>
         {onNewSession ? (
           <button type="button" className="iconbtn" onClick={onNewSession} aria-label="在当前项目新建会话">
             ＋
-          </button>
-        ) : null}
-        {onOpenStudio ? (
-          <button
-            type="button"
-            className="iconbtn"
-            onClick={openStudioFromChat}
-            aria-label="打开 Studio"
-            title="打开 Studio"
-          >
-            <StudioIcon name="panel" />
           </button>
         ) : null}
         <button
@@ -2245,12 +2229,6 @@ export function ChatScreen({
           ⋯
         </button>
       </div>
-
-      {studioNote ? (
-        <div className="notice error" role="status">
-          {studioNote}
-        </div>
-      ) : null}
 
       {workbenchOpen && runtime ? (
         <Suspense fallback={<p className="wb-wait">读取中…</p>}>
@@ -2634,11 +2612,7 @@ export function ChatScreen({
                 type="button"
                 className="send stop"
                 aria-label="停止"
-                onClick={() => {
-                  void cancel(runtime.base).then((result) => {
-                    if (!result.ok) setPromptError(`没停下来：${sendErrorText(result.code ?? "unknown")}`);
-                  });
-                }}
+                onClick={() => setStopConfirm(true)}
               >
                 停止
               </button>
@@ -2658,6 +2632,43 @@ export function ChatScreen({
       </div>
         </>
       )}
+
+      {stopConfirm ? (
+        <div className="sheet-backdrop" role="presentation" onClick={() => setStopConfirm(false)}>
+          <section
+            className="sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="停止确认"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sheet-head">
+              <h2>停止这一轮？</h2>
+              <button type="button" className="iconbtn" onClick={() => setStopConfirm(false)} aria-label="关闭">
+                ×
+              </button>
+            </div>
+            <p className="sheet-note">这一轮会立即停下，已生成的部分保留；停早了要重新描述再来一次。</p>
+            <div className="sheet-foot">
+              <button type="button" onClick={() => setStopConfirm(false)}>
+                继续生成
+              </button>
+              <button
+                type="button"
+                className="danger solid"
+                onClick={() => {
+                  setStopConfirm(false);
+                  void cancel(runtime.base).then((result) => {
+                    if (!result.ok) setPromptError(`没停下来：${sendErrorText(result.code ?? "unknown")}`);
+                  });
+                }}
+              >
+                停止
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {modelSheet ? (
         <ModelSheet

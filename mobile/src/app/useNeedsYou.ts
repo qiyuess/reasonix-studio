@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Attention, decisionKey, runningKey } from "./attention";
 import { loadStatus } from "../net/status";
+import { NO_PROJECT_LABEL, projectLabel } from "../net/connection";
 import type { Decision } from "../net/status";
 import type { RuntimeView } from "../wire/runtime";
 import type { TreeProject } from "../wire/tree";
@@ -94,9 +95,12 @@ export function paneCandidates(runtimes: RuntimeView[], projects: TreeProject[])
     out.push({
       base: runtime.base || `/rt/${runtime.id}`,
       runtimeId: runtime.id,
-      projectName: label?.projectName ?? (runtime.name || runtime.root),
+      projectName: label?.projectName ?? projectLabel(runtime),
       projectRoot: runtime.root,
       title: label?.title ?? runtimeTitle(runtime),
+      // An auto-workspace pane shows the fixed label wherever it appears: the
+      // tree's own name for it is a folder nobody chose.
+      ...(runtime.noProject === true ? { projectName: NO_PROJECT_LABEL } : {}),
     });
   }
   return out;
@@ -106,7 +110,7 @@ export function paneCandidates(runtimes: RuntimeView[], projects: TreeProject[])
 function runtimeTitle(runtime: RuntimeView): string {
   const path = (runtime.sessionPath ?? "").trim();
   const base = path.split(/[\\/]/).pop() ?? "";
-  return base || runtime.name;
+  return base || projectLabel(runtime);
 }
 
 export function useNeedsYou(

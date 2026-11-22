@@ -67,6 +67,46 @@ describe("Fleet sweep", () => {
     expect(last?.running[0]?.runtimeId).toBe("rt1");
   });
 
+  it("shows the computer's rename ahead of the folder's own name", async () => {
+    serverMock.loadFleet.mockResolvedValue([lanPeer("alpha")]);
+    serverMock.fleetRead.mockImplementation(async (path: string) => {
+      if (path === "/__reasonix/fleet/0/runtimes") {
+        return { ok: true as const, body: [{ ...runtime("rt1"), displayName: "我的项目" }] };
+      }
+      if (path === "/__reasonix/fleet/0/rt/rt1/status") {
+        return status({ decisions: [], running: true });
+      }
+      return { ok: false as const, code: "http.404" };
+    });
+
+    const fleet = new Fleet();
+    const seen: FleetSnapshot[] = [];
+    fleet.subscribe((snapshot) => seen.push(snapshot));
+    await fleet.refresh();
+
+    expect(seen[seen.length - 1]?.running[0]?.projectName).toBe("我的项目");
+  });
+
+  it("shows the fixed task label for a pane belonging to no project", async () => {
+    serverMock.loadFleet.mockResolvedValue([lanPeer("alpha")]);
+    serverMock.fleetRead.mockImplementation(async (path: string) => {
+      if (path === "/__reasonix/fleet/0/runtimes") {
+        return { ok: true as const, body: [{ ...runtime("rt1"), name: "auto", noProject: true }] };
+      }
+      if (path === "/__reasonix/fleet/0/rt/rt1/status") {
+        return status({ decisions: [], running: true });
+      }
+      return { ok: false as const, code: "http.404" };
+    });
+
+    const fleet = new Fleet();
+    const seen: FleetSnapshot[] = [];
+    fleet.subscribe((snapshot) => seen.push(snapshot));
+    await fleet.refresh();
+
+    expect(seen[seen.length - 1]?.running[0]?.projectName).toBe("任务");
+  });
+
   it("reports an expired pairing as unauthorized, not offline", async () => {
     serverMock.loadFleet.mockResolvedValue([lanPeer("alpha")]);
     serverMock.fleetRead.mockResolvedValue({ ok: false, code: "device.unauthorized" });
