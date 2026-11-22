@@ -50,7 +50,7 @@ final class RuntimeList {
                         id,
                         base,
                         row.optString("root", ""),
-                        titleOf(row.optString("sessionPath", ""), row.optString("name", "")),
+                        titleOf(row.optString("sessionPath", ""), row.optString("displayName", ""), row.optString("name", "")),
                         row.optBoolean("readOnly", false)));
             }
         } catch (Exception ignored) {
@@ -60,12 +60,18 @@ final class RuntimeList {
         return rows;
     }
 
-    /** The transcript's file name, or the project name before a path exists. */
-    static String titleOf(String sessionPath, String name) {
+    /**
+     * The transcript's file name, or the project's display name — the one the
+     * person gave it on the computer — before a path exists, then the folder's
+     * own name. The same order the chat header reads the wire in.
+     */
+    static String titleOf(String sessionPath, String displayName, String name) {
         String path = sessionPath == null ? "" : sessionPath.trim();
         int slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
         if (slash >= 0) path = path.substring(slash + 1).trim();
         if (!path.isEmpty()) return path;
+        String shown = displayName == null ? "" : displayName.trim();
+        if (!shown.isEmpty()) return shown;
         return name == null ? "" : name.trim();
     }
 }
