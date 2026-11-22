@@ -6,20 +6,20 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/f1shsmell/Reasonix-Android/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/f1shsmell/Reasonix-Android/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI"></a>
-  <a href="https://github.com/f1shsmell/Reasonix-Android/releases"><img src="https://img.shields.io/github/v/release/f1shsmell/Reasonix-Android?style=flat-square&amp;label=release" alt="Latest release"></a>
-  <a href="https://github.com/f1shsmell/Reasonix-Android/blob/main/LICENSE"><img src="https://img.shields.io/github/license/f1shsmell/Reasonix-Android?style=flat-square" alt="MIT License"></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/qiyuess/reasonix-studio/ci.yml?branch=studio&amp;style=flat-square&amp;label=CI" alt="CI"></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/releases"><img src="https://img.shields.io/github/v/release/qiyuess/reasonix-studio?style=flat-square&amp;label=release" alt="Latest release"></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/blob/studio/LICENSE"><img src="https://img.shields.io/github/license/qiyuess/reasonix-studio?style=flat-square" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/Android-8.0%2B-3ddc84?style=flat-square&amp;logo=android&amp;logoColor=white" alt="Android 8.0+">
 </p>
 
 <p align="center">
-  <a href="https://github.com/f1shsmell/Reasonix-Android/releases/latest"><strong>⬇ Download the latest APK</strong></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/releases/latest"><strong>⬇ Download the latest APK</strong></a>
   &nbsp;·&nbsp;
   <a href="#install">Install and update</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/f1shsmell/Reasonix-Android/blob/main/docs/KNOWN_LIMITATIONS.md">Known limitations</a>
+  <a href="https://github.com/qiyuess/reasonix-studio/blob/studio/mobile/docs/KNOWN_LIMITATIONS.md">Known limitations</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/f1shsmell/Reasonix-Android/issues">Report an issue</a>
+  <a href="https://github.com/qiyuess/reasonix-studio/issues">Report an issue</a>
   &nbsp;·&nbsp;
   <a href="README.md">简体中文</a>
 </p>
@@ -71,11 +71,11 @@ Under Settings → Preferences → Notifications you can switch, separately: the
 
 ## Install
 
-**Stable builds** — Download the latest signed APK from [Releases](https://github.com/f1shsmell/Reasonix-Android/releases/latest). Later stable builds install over it directly.
+**Stable builds** — Download the latest signed APK from [Releases](https://github.com/qiyuess/reasonix-studio/releases/latest). Later stable builds install over it directly.
 
 > Moving from an early debug test build to a stable build needs one uninstall first, because the two are signed differently. Uninstalling clears pairing data and saved connections; scan the QR code again after reinstalling.
 
-**CI test builds** — Every push and pull request builds a debug APK: open the [CI workflow](https://github.com/f1shsmell/Reasonix-Android/actions/workflows/ci.yml), pick the most recent successful run, and download `reasonix-for-android-debug` from Artifacts. These carry the debug signature and are meant for trying things out and development.
+**CI test builds** — Every push and pull request builds a debug APK: open the [CI workflow](https://github.com/qiyuess/reasonix-studio/actions/workflows/ci.yml), pick the most recent successful run, and download `reasonix-for-android-debug` from Artifacts. These carry the debug signature and are meant for trying things out and development.
 
 **Command line** — `adb install -r app-debug.apk`
 

@@ -50,9 +50,14 @@ import okhttp3.ResponseBody;
  */
 @CapacitorPlugin(name = "Updater")
 public class UpdaterPlugin extends Plugin {
-    static final String REPO = "f1shsmell/Reasonix-Android";
+    // The one repository this app ships from: the Studio line that builds and
+    // signs the APK on every studio-v* release. An earlier build read a
+    // third-party fork whose versionCode ran past this line's, which offered
+    // that fork's package to this app's readers.
+    static final String REPO = "qiyuess/reasonix-studio";
 
-    private static final String BRANCH = "main";
+    private static final String BRANCH = "studio";
+    private static final String MANIFEST_PATH = "mobile/latest.json";
     private static final String[] MIRRORS = {
             "https://gh-proxy.com/",
             "https://ghfast.top/",
@@ -251,8 +256,10 @@ public class UpdaterPlugin extends Plugin {
 
     private List<String> manifestUrls() {
         List<String> urls = new ArrayList<>();
-        urls.add("https://github.com/" + REPO + "/releases/latest/download/latest.json");
-        String raw = "https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/latest.json";
+        // The phone manifest travels as its own release asset: the desktop
+        // updater already answers to latest.json on the same page.
+        urls.add("https://github.com/" + REPO + "/releases/latest/download/android-latest.json");
+        String raw = "https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/" + MANIFEST_PATH;
         urls.add(raw);
         for (String mirror : MIRRORS) urls.add(mirror + raw);
         return urls;

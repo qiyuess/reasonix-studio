@@ -20,17 +20,19 @@
    - 分「新增 / 变更 / 修复」，写给用户看，不写实现流水账。
    - 关联 issue 或提交（如 `关联 #123`）。
 3. **生成更新清单**：`npm run manifest`。它读取版本号、`versionCode` 和发布说明，
-   写入仓库根 `latest.json`（tag、资产名、说明与下载镜像）。应用内更新和镜像都读
-   这份文件，所以它必须和这次发布同时提交。
-4. **合并到 main**，CI 全绿。
-5. **打标签**：在 main 的发布提交上 `git tag -a vX.Y.Z -m "Reasonix For Android X.Y.Z"`，推送 tag。
+   写入 `mobile/latest.json`（tag、资产名、说明与下载镜像）。应用内更新从 studio
+   分支的这份文件与发布页的 `android-latest.json` 资产读取，所以它必须和这次发布
+   同时提交。
+4. **合并到 studio 分支**，CI 全绿。
+5. **打标签**：手机端没有自己的 tag——APK 随 Studio 一起发布，在发布提交上
+   `git tag -a studio-vX.Y.Z -m "Reasonix Studio vX.Y.Z"`，推送 tag。
 6. **release 工作流**会先校验，再构建并发布：
-   - tag 必须是 `vX.Y.Z`（可带预发布后缀）；
-   - tag 必须在 `main` 上；
-   - 必须存在 `release-notes/android/X.Y.Z.md`；
-   - `package.json` 与 `android/gradle.properties` 的版本必须等于 tag；
-   - `latest.json` 的 tag、version、versionCode、APK 名和说明必须与这次发布一致，
-     镜像和 App 里的仓库名必须指向本仓库；
+   - tag 必须是 `studio-vX.Y.Z`（可带预发布后缀）；
+   - tag 必须在 `studio` 分支历史上；
+   - 必须存在 `release-notes/studio/X.Y.Z.md`；
+   - `package.json` 与 `android/gradle.properties` 的版本一致，manifest 里
+     的 version、versionCode、APK 名与它们相符；APK 下载地址指向本仓库的
+     Studio 发布页（`releases/latest/download/`），镜像与清单地址同理；
    - GitHub Release 的正文直接使用这份发布说明，不自动生成。
 7. 发布失败可用 `workflow_dispatch` 输入**已存在的 tag** 重跑；重跑会替换同名资产，不会另起一个版本。
    勾选 `dry_run` 则只还原密钥、构建 `assembleRelease` 并验签，不发布、不碰已有资产。

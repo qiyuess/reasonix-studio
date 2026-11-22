@@ -6,20 +6,20 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/f1shsmell/Reasonix-Android/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/f1shsmell/Reasonix-Android/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI"></a>
-  <a href="https://github.com/f1shsmell/Reasonix-Android/releases"><img src="https://img.shields.io/github/v/release/f1shsmell/Reasonix-Android?style=flat-square&amp;label=release" alt="最新版本"></a>
-  <a href="https://github.com/f1shsmell/Reasonix-Android/blob/main/LICENSE"><img src="https://img.shields.io/github/license/f1shsmell/Reasonix-Android?style=flat-square" alt="MIT License"></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/qiyuess/reasonix-studio/ci.yml?branch=studio&amp;style=flat-square&amp;label=CI" alt="CI"></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/releases"><img src="https://img.shields.io/github/v/release/qiyuess/reasonix-studio?style=flat-square&amp;label=release" alt="最新版本"></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/blob/studio/LICENSE"><img src="https://img.shields.io/github/license/qiyuess/reasonix-studio?style=flat-square" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/Android-8.0%2B-3ddc84?style=flat-square&amp;logo=android&amp;logoColor=white" alt="Android 8.0+">
 </p>
 
 <p align="center">
-  <a href="https://github.com/f1shsmell/Reasonix-Android/releases/latest"><strong>⬇ 下载最新 APK</strong></a>
+  <a href="https://github.com/qiyuess/reasonix-studio/releases/latest"><strong>⬇ 下载最新 APK</strong></a>
   &nbsp;·&nbsp;
   <a href="#安装">安装与更新</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/f1shsmell/Reasonix-Android/blob/main/docs/KNOWN_LIMITATIONS.md">已知限制</a>
+  <a href="https://github.com/qiyuess/reasonix-studio/blob/studio/mobile/docs/KNOWN_LIMITATIONS.md">已知限制</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/f1shsmell/Reasonix-Android/issues">反馈问题</a>
+  <a href="https://github.com/qiyuess/reasonix-studio/issues">反馈问题</a>
   &nbsp;·&nbsp;
   <a href="README.en.md">English</a>
 </p>
@@ -71,11 +71,11 @@
 
 ## 安装
 
-**正式版** — 从 [Releases](https://github.com/f1shsmell/Reasonix-Android/releases/latest) 下载最新签名 APK，可直接覆盖后续正式版。
+**正式版** — 从 [Releases](https://github.com/qiyuess/reasonix-studio/releases/latest) 下载最新签名 APK，可直接覆盖后续正式版。
 
 > 从早期 debug 测试包切换到正式版需要先卸载一次（两者签名不同）。卸载会清空配对信息和连接记录，重装后重新扫码即可。
 
-**CI 测试包** — 每次 push / PR 都会构建 debug APK：[CI 工作流](https://github.com/f1shsmell/Reasonix-Android/actions/workflows/ci.yml) → 选最近一次成功运行 → 在 Artifacts 下载 `reasonix-for-android-debug`。测试包用 debug 签名，适合试用和开发。
+**CI 测试包** — 每次 push / PR 都会构建 debug APK：[CI 工作流](https://github.com/qiyuess/reasonix-studio/actions/workflows/ci.yml) → 选最近一次成功运行 → 在 Artifacts 下载 `reasonix-for-android-debug`。测试包用 debug 签名，适合试用和开发。
 
 **命令行** — `adb install -r app-debug.apk`
 

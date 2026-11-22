@@ -50,6 +50,9 @@ final class UpdateManifest {
         if (!version.equals(tag.substring(1))) throw new IllegalArgumentException("tag-version-mismatch");
         if (versionCode <= 0) throw new IllegalArgumentException("bad-version-code");
         if (!APK.matcher(apk).matches()) throw new IllegalArgumentException("bad-apk");
+        // The download URL is built from the APK's name, so it must name the
+        // version the manifest says it is.
+        if (!apk.equals("reasonix-for-android-" + version + ".apk")) throw new IllegalArgumentException("apk-version-mismatch");
 
         List<String> mirrors = new ArrayList<>();
         JSONArray array = object.optJSONArray("mirrors");
@@ -92,6 +95,9 @@ final class UpdateManifest {
     }
 
     String apkUrl(String repo) {
-        return "https://github.com/" + repo + "/releases/download/" + tag + "/" + apk;
+        // The latest Studio release carries the APK of the version this
+        // manifest names, so the page's own "latest" link answers it — no tag
+        // has to be resolved on the phone.
+        return "https://github.com/" + repo + "/releases/latest/download/" + apk;
     }
 }

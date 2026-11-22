@@ -3,15 +3,16 @@
  * Writes the update manifest the app checks before a release.
  *
  * The manifest lives in the repository rather than only on the release: a
- * network that cannot reach GitHub directly still reads it through a mirror,
- * and release.yml refuses a tag whose manifest disagrees with it.
+ * network that cannot reach GitHub directly still reads it through a mirror.
+ * The APK it points at rides the Studio line's own release — the phone app
+ * has no repository of its own — so the download follows that page's "latest".
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const repo = "f1shsmell/Reasonix-Android";
+const repo = "qiyuess/reasonix-studio";
 const mirrors = ["https://gh-proxy.com/", "https://ghfast.top/"];
 
 const { version } = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
@@ -33,7 +34,9 @@ const notes = readFileSync(resolve(root, `release-notes/android/${version}.md`),
   .trim();
 const tag = `v${version}`;
 const apk = `reasonix-for-android-${version}.apk`;
-const apkUrl = `https://github.com/${repo}/releases/download/${tag}/${apk}`;
+// The APK rides the Studio line's latest release; the phone app has no
+// repository of its own, and the page's own "latest" link names it.
+const apkUrl = `https://github.com/${repo}/releases/latest/download/${apk}`;
 
 const manifest = {
   tag,

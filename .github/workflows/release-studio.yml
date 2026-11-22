@@ -846,10 +846,18 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           ls -l "$asset"
 
+      # The phone app's update manifest rides the release as its own asset:
+      # the app reads it off this page when it checks for updates. Its own
+      # name, because the desktop updater already answers to latest.json.
+      - name: Carry the phone update manifest
+        run: cp mobile/latest.json android-latest.json
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-apk
-          path: reasonix-for-android-*.apk
+          path: |
+            reasonix-for-android-*.apk
+            android-latest.json
           if-no-files-found: error
           retention-days: 7
 
@@ -976,7 +984,8 @@ jobs:
             fi
             mv "$f" "dist/$name"
           done < <(find staging/studio-* -type f -name 'ReasonixStudio-*' -print0
-            find staging/android-apk -type f -name 'reasonix-for-android-*.apk' -print0)
+            find staging/android-apk -type f -name 'reasonix-for-android-*.apk' -print0
+            find staging/android-apk -type f -name 'android-latest.json' -print0)
           ls -la dist
           bash scripts/verify-studio-artifacts.sh dist
           # The APK travels with the release; requiring it here means a release

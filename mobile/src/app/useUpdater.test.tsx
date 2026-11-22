@@ -22,15 +22,15 @@ vi.mock("../native/update", () => ({
 
 const check = {
   update: true,
-  tag: "v0.2.2",
-  version: "0.2.2",
-  versionCode: 12,
-  apk: "reasonix-for-android-0.2.2.apk",
-  url: "https://github.com/f1shsmell/Reasonix-Android/releases/download/v0.2.2/app.apk",
-  mirrors: ["https://gh-proxy.com/https://github.com/f1shsmell/Reasonix-Android/app.apk"],
+  tag: "v1.1.1",
+  version: "1.1.1",
+  versionCode: 32,
+  apk: "reasonix-for-android-1.1.1.apk",
+  url: "https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.1.apk",
+  mirrors: ["https://gh-proxy.com/https://github.com/qiyuess/reasonix-studio/app.apk"],
   notes: "修复连接",
-  installedVersion: "0.2.1",
-  installedCode: 11,
+  installedVersion: "1.1.0",
+  installedCode: 30,
 };
 
 let container: HTMLDivElement;
@@ -129,12 +129,12 @@ describe("useUpdater", () => {
       retry: "check",
     });
 
-    mocks.checkForUpdate.mockResolvedValue({ ...check, update: false, installedVersion: "0.2.1" });
+    mocks.checkForUpdate.mockResolvedValue({ ...check, update: false, installedVersion: "1.1.0" });
     act(() => current?.act());
     await flush();
 
     expect(mocks.checkForUpdate).toHaveBeenLastCalledWith(true);
-    expect(current?.status).toMatchObject({ kind: "latest", version: "0.2.1" });
+    expect(current?.status).toMatchObject({ kind: "latest", version: "1.1.0" });
   });
 
   it("keeps the downloaded file when the installer permission is missing", async () => {
@@ -146,11 +146,11 @@ describe("useUpdater", () => {
     act(() => current?.act());
     await flush();
 
-    expect(current?.status).toMatchObject({ kind: "permission", version: "0.2.2" });
+    expect(current?.status).toMatchObject({ kind: "permission", version: "1.1.1" });
 
     act(() => current?.act());
     await flush();
     expect(mocks.launchInstaller).toHaveBeenCalledTimes(1);
-    expect(current?.status).toMatchObject({ kind: "permission", version: "0.2.2" });
+    expect(current?.status).toMatchObject({ kind: "permission", version: "1.1.1" });
   });
 });

@@ -47,9 +47,12 @@ public class RuntimeListTest {
 
     @Test
     public void titlesFallBackToTheProjectName() {
-        assertEquals("app", RuntimeList.titleOf("", "app"));
-        assertEquals("app", RuntimeList.titleOf("C:\\work\\", "app"));
-        assertEquals("b.jsonl", RuntimeList.titleOf("/work/b.jsonl", "app"));
+        // A pane's title reads the transcript's own name first, then the
+        // computer's display name for the project, then the folder.
+        assertEquals("app", RuntimeList.titleOf("", "", "app"));
+        assertEquals("app", RuntimeList.titleOf("C:\\work\\", null, "app"));
+        assertEquals("b.jsonl", RuntimeList.titleOf("/work/b.jsonl", "shown", "app"));
+        assertEquals("shown", RuntimeList.titleOf("", "shown", "app"));
     }
 
     @Test

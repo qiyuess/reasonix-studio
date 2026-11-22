@@ -1,11 +1,11 @@
 {
-  "tag": "v1.1.0",
-  "version": "1.1.0",
-  "versionCode": 30,
-  "apk": "reasonix-for-android-1.1.0.apk",
-  "notes": "# 1.1.0\n\n手机端随 Studio 2.71.1 一同发布。回合结束显示起止时间，归档改为可切换的范围，面板名称跟随电脑端的重命名，停止前先确认。\n\n> 可以直接在「设置 → 偏好 → 关于」检查并安装这一版，配对信息、连接记录和本地设置都会保留。\n\n## 新增\n\n- **回合结束行显示起止时间**：与电脑端一致，形如 `2026-11-22 13:15:20 ~ 13:24:15`；同一天只说一次日期，跨天的回合两端都写全。重开会话后起止时间依然保留，不再只剩一个耗时数字。\n- **归档是可切换的范围**：主界面两处标题行都能切换「进行中 / 归档」，归档视图只列还有内容的项目；项目归档标题行本身就是开关，标题里带着数量。\n- **面板名称跟随电脑端的重命名**：通知栏、会话列表、聊天标题与需求卡统一读同一个名字。\n- **停止按钮先确认再执行**：弹出确认单避免误触，正在结束的回合会自动关掉它。\n\n## 修复\n\n- **模型标签到位即显示模型名**，不再停留在「默认模型」；设置栏固定在自己的合成层，滚动中不再被页签层盖住。\n- **启动窗口按页面配色显示**，图标不再带背板卡片。\n- **通知栏标题用重命名后的名称**，不再读磁盘文件夹名。\n\n## 移除\n\n- **「完整界面」区块**与其整条链路：手机端只绘制自己的界面，不再内嵌桌面版页面。\n- **「主题风格」设置行**：界面就是 Studio 的样子，无需再选。\n\n## 说明\n\n- `versionCode` 从 29 进到 30（Android 不接受重复的 versionCode，即使名称变过）。",
+  "tag": "v1.1.1",
+  "version": "1.1.1",
+  "versionCode": 32,
+  "apk": "reasonix-for-android-1.1.1.apk",
+  "notes": "# 1.1.1\n\n应用内更新切换到官方发布源：此前更新清单读的是并入 Studio 仓库之前的旧地址（一个仍在独立发版的第三方仓库），「检查更新」会拿到不属于本产品的旧版本号。本版起清单与安装包都从官方 Studio 发布页读取。\n\n> 可以直接在「设置 → 偏好 → 关于」检查并安装这一版，配对信息、连接记录和本地设置都会保留。\n\n## 修复\n\n- **更新源指向官方仓库**：`UpdaterPlugin` 的清单地址、下载地址与镜像全部改指 qiyuess/reasonix-studio——手机端随 Studio 一起发布，安装包一直挂在 Studio 的发布页上，清单没有理由再去别处读。下载跟随发布页的「最新」链接，无需在手机上解析任何 tag。\n- **清单校验更严**：安装包文件名必须与清单声明 的版本一致，避免下到名字对不上号的包；manifest 的 tag 仍须与版本一致。\n\n## 说明\n\n- `versionCode` 从 30 进到 32（Android 不接受重复或倒退的 versionCode；中间的 31 让给了更新源切换前的历史线）。\n- 从 1.1.0 及更早版本覆盖安装即可，无需卸载，配对信息与本地设置保留。",
   "mirrors": [
-    "https://gh-proxy.com/https://github.com/f1shsmell/Reasonix-Android/releases/download/v1.1.0/reasonix-for-android-1.1.0.apk",
-    "https://ghfast.top/https://github.com/f1shsmell/Reasonix-Android/releases/download/v1.1.0/reasonix-for-android-1.1.0.apk"
+    "https://gh-proxy.com/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.1.apk",
+    "https://ghfast.top/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.1.apk"
   ]
 }
