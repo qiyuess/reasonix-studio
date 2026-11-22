@@ -3,4 +3,11 @@
     <!-- The dark twin of "values/colors.xml"; matches the bg token for the
          dark theme in src/ui/tokens.css. -->
     <color name="app_background">#0b0e14</color>
+
+    <!-- The dark splash: the same colour the app opens on in dark mode, so
+         the launch window meets the first frame without a seam. -->
+    <color name="splash_background">#0b0e14</color>
+
+    <!-- The dark twin of splash_foreground: the artwork's off-white mark. -->
+    <color name="splash_foreground">#F4F1EA</color>
 </resources>

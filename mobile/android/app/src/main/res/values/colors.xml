@@ -8,4 +8,17 @@
          page, most visibly in light mode. "values-night" carries the dark
          value; these two match the bg token in src/ui/tokens.css. -->
     <color name="app_background">#f4f6fa</color>
+
+    <!-- The launch window paints this before the first frame, so it must be
+         the colour the app opens on: a dark splash here met the light home
+         page as a flash. Same value as app_background above; kept as its own
+         name because the launcher tile keeps its own dark card
+         (ic_launcher_background), which the splash must not share.
+         "values-night" carries the dark twin. -->
+    <color name="splash_background">#f4f6fa</color>
+
+    <!-- The mark the launch window draws over splash_background. Light mode
+         needs a dark mark to stay visible (the fg token); dark mode keeps the
+         artwork's off-white. values-night carries the dark twin. -->
+    <color name="splash_foreground">#12151b</color>
 </resources>

@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The pre-API-31 launch window: the page's background colour and the mark
+     over it. splash_background matches the app's first frame (values-night
+     carries the dark twin), and ic_splash_mark takes @color/splash_foreground
+     so the mark stays visible on both. API 31+ ignores this drawable and uses
+     the system splash screen (values-v31/styles.xml), whose icon is the
+     launcher tile with its own opaque card. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_background" />
     <item
         android:width="132dp"
         android:height="132dp"
-        android:drawable="@drawable/ic_launcher_foreground"
+        android:drawable="@drawable/ic_splash_mark"
         android:gravity="center" />
 </layer-list>

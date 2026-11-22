@@ -2,7 +2,9 @@
 <resources>
     <!-- The same card colour the app's dark theme uses for raised surfaces
          (the bg-raised token, #151a24). Pure black gave the tile no edge on a
-         dark wallpaper; this still holds the off-white mark at 12.4:1. -->
+         dark wallpaper; this still holds the off-white mark at 12.4:1.
+         The splash keeps its own colours (splash_background / splash_foreground
+         in colors.xml): the launch window opens on the page's background, not
+         on this tile's card. -->
     <color name="ic_launcher_background">#151A24</color>
-    <color name="splash_background">#07080C</color>
 </resources>
