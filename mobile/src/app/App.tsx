@@ -10,7 +10,6 @@ import { Fleet, originKey, syncFleetPeer } from "../net/fleet";
 import type { FleetSnapshot, FleetPendingItem, FleetRunningItem } from "../net/fleet";
 import { bootstrap } from "../net/token";
 import { reachReport, readProxyConfig } from "../net/server";
-import { openStudio } from "./openStudio";
 import { devPreview } from "./devPreview";
 import { submit } from "../net/submit";
 import { switchEffort, switchModel } from "../net/models";
@@ -837,13 +836,9 @@ export function App() {
               },
             }
           : {})}
-        {...(preview?.native || Capacitor.isNativePlatform()
-          ? {
-              onOpenStudio: () => openStudio(),
-            }
-          : {})}
       />
     );
+
   } else if (project !== null) {
     screen = shownProject ? (
       <SessionList
