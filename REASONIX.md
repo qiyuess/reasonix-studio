@@ -282,10 +282,29 @@ make lint                           # golangci-lint at CI's pin + repolint
 go test ./internal/tools/builtin/ ./internal/assembly/boot/  # catches tool/boot test breaks
 ```
 
-`make lint` runs both gates CI runs, at the version in `.golangci-version`;
-`make lint-install` installs it. Do not skip it: a `modernize` finding never
-shows up in `go vet`, and the CI round trip that catches it instead costs ten
-minutes.
+`make lint` runs the two lint gates CI runs — `golangci-lint` at the version in
+`.golangci-version` and repolint; `make lint-install` installs the linter. CI's
+`lint` job also runs `go run ./tools/covergate` (`make coverage-gate`), which
+`make lint` does not.
+
+Do not skip the linter: a `modernize` finding never shows up in `go vet`, and
+the CI round trip that catches it instead costs ten minutes.
+
+**The targets are wrappers; the bodies are the commands.** The Windows/MSYS host
+this tree is developed on has no GNU make or `golangci-lint` on `PATH`, so the
+make lines above do not run there as written. Its equivalents, from the
+repository root:
+
+```bash
+go run ./tools/repolint                 # make lint: the repolint half
+CGO_ENABLED=0 go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(cat .golangci-version)"
+golangci-lint run --timeout=5m ./...    # make lint: the linter half, after that install
+go run ./tools/repolint -changed        # make check
+```
+
+The install needs an HTTPS proxy on that host — `proxy.golang.org` does not
+answer a direct dial. It lands in `$(go env GOPATH)/bin`, which this host does
+not put on `PATH`: add it there, or call the binary by that path.
 
 A full repolint run reports every file over budget, including debt your change
 never touched. To see only what your own edits owe:
@@ -305,6 +324,12 @@ whose result it can read, while an arbitrary `go run ./tools/...` is a program
 it has to assume writes, and the flags behind the target are its implementation
 rather than the contract. Building that universe from `git diff` alone once let
 a new file reach the gate unopened and be reported clean.
+
+Where make is absent that evidence cannot be captured at all: record the direct
+`go run` command and its output, and say it was not a `make` target.
+
+On a clean worktree `-changed` narrows to nothing and reports the whole tree's
+recorded debt — the same output as the full run, not a new failure.
 
 ## Import cycle rule
 
