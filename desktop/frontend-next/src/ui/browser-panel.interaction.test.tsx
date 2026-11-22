@@ -396,4 +396,36 @@ describe("occluded", () => {
     expect(occluded(slot, box, (x) => (x < 105 ? [grip, slot] : [slot]))).toBe(false);
     expect(occluded(slot, box, (x) => (x < 140 ? [grip, slot] : [slot]))).toBe(true);
   });
+
+  // A column gutter is a separator with a grip drawn by its own `::after`,
+  // which sits at opacity 0 until a pointer is on it. Its box is opaque and a
+  // fraction of the page wide, so counting it while it is not drawn freezes the
+  // page behind a picture of nothing exactly when the column is opening.
+  it("counts a grip only while it is actually drawn", async () => {
+    const { occluded } = await import("./occlusion");
+    const slot = document.createElement("div");
+    document.body.appendChild(slot);
+    const grip = layer("");
+    grip.className = "gutter gutter-r";
+    let opacity = "0";
+    // The suite already wraps getComputedStyle, so the real one has to be kept
+    // aside here: calling window.getComputedStyle inside the stub would call
+    // the stub again.
+    const prior = window.getComputedStyle;
+    vi.stubGlobal("getComputedStyle", (el: Element, pseudo?: string | null) => {
+      if (el !== grip) return prior(el);
+      if (!pseudo) return { visibility: "visible", opacity: "1", backgroundColor: "transparent" } as CSSStyleDeclaration;
+      return {
+        content: '""', opacity, visibility: "visible",
+        backgroundColor: "rgb(102,106,99)", backgroundImage: "none", backdropFilter: "none",
+      } as CSSStyleDeclaration;
+    });
+    // The first probe sits EDGE px inside the slot, so a slot starting at 96
+    // finds the grip that reaches a few pixels over its edge.
+    const box = { x: 96, y: 0, width: 400, height: 400 };
+    const stack = (x: number) => (x < 105 ? [grip, slot] : [slot]);
+    expect(occluded(slot, box, stack)).toBe(false);
+    opacity = "0.55";
+    expect(occluded(slot, box, stack)).toBe(true);
+  });
 });

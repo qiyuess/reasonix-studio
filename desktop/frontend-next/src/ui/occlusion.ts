@@ -42,10 +42,16 @@ export function visibleBox(el: Element): ViewRect | null {
 }
 
 function probes(start: number, length: number): number[] {
+  // Keep every probe EDGE pixels clear of the slot's own edge. A gutter's grip
+  // straddles that edge by design, so a probe that lands in the band reads the
+  // separator as a layer over the page — and during the opening transition the
+  // box is a few pixels wide, which used to shrink the inset with it and put
+  // every probe in exactly that band. A layer too thin to hold an inset probe
+  // is asked about its centre, so the answer never comes from its own edge.
+  if (length <= EDGE * 2) return [start + length / 2];
   const count = Math.min(MAX_PROBES, Math.max(3, Math.ceil(length / STEP) + 1));
-  const inset = Math.min(EDGE, length / 4);
-  const span = length - inset * 2;
-  return Array.from({ length: count }, (_, i) => start + inset + (span * i) / (count - 1));
+  const span = length - EDGE * 2;
+  return Array.from({ length: count }, (_, i) => start + EDGE + (span * i) / (count - 1));
 }
 
 function alpha(color: string): number {
@@ -69,7 +75,15 @@ function fills(style: CSSStyleDeclaration): boolean {
 function pseudoFills(el: Element): boolean {
   for (const which of ["::before", "::after"]) {
     const style = getComputedStyle(el, which);
-    if (style.content && style.content !== "none" && style.content !== "normal" && fills(style)) return true;
+    if (!style.content || style.content === "none" || style.content === "normal") continue;
+    // A pseudo-element is a box of its own, so it carries its own opacity and
+    // visibility: a column gutter's grip is `::after` at opacity 0 until it is
+    // hovered, and an invisible grip is not something drawn over the page.
+    if (style.visibility && style.visibility !== "visible") continue;
+    // An engine that reports no opacity at all means fully opaque, so a blank
+    // string has to read as 1 rather than as the 0 Number("") would give.
+    if (style.opacity && Number(style.opacity) <= INVISIBLE) continue;
+    if (fills(style)) return true;
   }
   return false;
 }
