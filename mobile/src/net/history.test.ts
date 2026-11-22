@@ -506,6 +506,42 @@ describe("turn metadata", () => {
     expect(worked?.kind === "worked" ? worked.startedAt : undefined).toBe(1_700_000_050_000);
   });
 
+  it("prefers the opener the page itself carries over the kernel's fallback", () => {
+    // Both starts are on the wire when a page holds the turn's opener: the
+    // message's own landing time and the figure the kernel carried for a
+    // page that might not. The message wins — it is the turn's own start,
+    // not an approximation for a page that begins mid-turn.
+    const rows = foldHistory(
+      [
+        message({ role: "user", content: "问", msgIndex: 10, createdAt: 1_700_000_000_000 }),
+        message({ role: "assistant", content: "答", msgIndex: 11, workDurationMs: 900_000 }),
+      ],
+      undefined,
+      1_700_000_050_000,
+    );
+
+    const worked = rows.find((row) => row.kind === "worked");
+    expect(worked?.kind === "worked" ? worked.startedAt : undefined).toBe(1_700_000_000_000);
+  });
+
+  it("keeps the fallback once the opener it was for has passed", () => {
+    // A turn whose opener carries no landing time — a kernel older than the
+    // stamp — says nothing about when it began; the page-level figure is for
+    // a mid-turn page, not a substitute for a stamp the turn's own message
+    // would have carried.
+    const rows = foldHistory(
+      [
+        message({ role: "user", content: "问", msgIndex: 10 }),
+        message({ role: "assistant", content: "答", msgIndex: 11, workDurationMs: 900_000 }),
+      ],
+      undefined,
+      1_700_000_050_000,
+    );
+
+    const worked = rows.find((row) => row.kind === "worked");
+    expect(worked?.kind === "worked" ? worked.startedAt : undefined).toBeUndefined();
+  });
+
   it("a steer moves no start; it is speech into a running turn", () => {
     const rows = foldHistory([
       message({ role: "user", content: "问", msgIndex: 1, createdAt: 1_700_000_000_000 }),

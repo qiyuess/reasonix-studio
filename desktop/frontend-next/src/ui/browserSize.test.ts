@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CUSTOM, DEFAULT_SIZE, clampSide, fitScale, loadSize, presetOf, saveSize, scaleOf } from "./browserSize";
+import { CUSTOM, DEFAULT_SIZE, PANEL, clampSide, fitScale, loadSize, presetOf, saveSize, scaleOf } from "./browserSize";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -58,6 +58,12 @@ describe("presetOf", () => {
 
   it("calls a size no preset matches custom", () => {
     expect(presetOf({ width: 500, height: 900 })).toBe(CUSTOM);
+  });
+
+  it("names the panel itself for a page laid out as the room", () => {
+    // The row highlights the panel's own size whatever numbers were last
+    // typed: they are not the page's size, the room is.
+    expect(presetOf({ width: 500, height: 900, framed: false })).toBe(PANEL);
   });
 });
 

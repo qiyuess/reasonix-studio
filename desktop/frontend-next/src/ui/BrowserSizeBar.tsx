@@ -60,13 +60,16 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
       return;
     }
     const value = clampSide(typed);
+    // Typing a number is asking for a frame of that size — the row is open
+    // because a size is wanted, so the numbers settle it rather than reading
+    // back into a page still laid out as the room.
     if (side === "height") {
       const width = locked && size.height > 0 ? clampSide(Math.round((value * size.width) / size.height)) : size.width;
-      onChange({ ...size, width, height: value });
+      onChange({ ...size, width, height: value, framed: true });
       return;
     }
     const height = locked && size.width > 0 ? clampSide(Math.round((value * size.height) / size.width)) : size.height;
-    onChange({ ...size, width: value, height });
+    onChange({ ...size, width: value, height, framed: true });
   };
 
   const field = (side: keyof typeof draft) => (

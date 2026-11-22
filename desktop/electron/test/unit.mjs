@@ -2748,6 +2748,13 @@ test("a page given its own viewport is fitted whole into its panel, centred, and
   const phone = placement(panel, { width: 390, height: 844 });
   assert.ok(phone.scale < 1 && phone.at.height <= panel.height && phone.at.width <= panel.width);
   assert.deepEqual(placement({ x: 20, y: 20, width: 1400, height: 1000 }, { width: 1280, height: 900 }), { at: { x: 80, y: 70, width: 1280, height: 900 }, scale: 1 });
+  // A zoom the row chose draws the frame at that fraction of itself, but a
+  // native view has no clip: a percentage that would stand on the toolbar is
+  // drawn as large as the room holds instead.
+  const zoomed = placement(panel, { width: 393, height: 852, zoom: "100" });
+  assert.ok(zoomed.scale <= Math.min(panel.width / 393, panel.height / 852, 1), "a zoom never draws past the panel");
+  assert.ok(zoomed.at.y >= panel.y && zoomed.at.y + zoomed.at.height <= panel.y + panel.height, "the frame stays inside the panel");
+  assert.deepEqual(placement(panel, { width: 393, height: 852, zoom: "50" }), { at: { x: 562, y: 157, width: 197, height: 426 }, scale: 0.5 });
 });
 
 test("input that carries a point is scaled with the page or refused, never sent to the wrong place", () => {

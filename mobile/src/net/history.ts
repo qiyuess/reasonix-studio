@@ -104,9 +104,12 @@ export function foldHistory(
       if (message.hostAuthored) continue;
       // The message that opens a turn says when the turn began; a steer is
       // speech into a running turn and moves no start. As on the desktop, a
-      // stored turn whose opener is gone keeps the kernel's own figure.
-      if (!message.steer && typeof message.createdAt === "number" && message.createdAt > 0) {
-        turnStart = message.createdAt;
+      // stored turn without a landing time says nothing — the kernel can be
+      // older than the stamp — and a page that begins mid-turn keeps the
+      // kernel's own figure.
+      if (!message.steer) {
+        turnStart =
+          typeof message.createdAt === "number" && message.createdAt > 0 ? message.createdAt : undefined;
       }
       const text = clean(message.content);
       if (!text) continue;
@@ -283,6 +286,7 @@ function checkedPage(page: {
   if (!page || !Array.isArray(page.messages)) return null;
   const total = page.total as number;
   if (!Number.isSafeInteger(total) || total < 0) return null;
+  const turnStartedAt = page.turnStartedAt as number;
   const hasMoreBefore = page.hasMoreBefore === true;
   if (hasMoreBefore && typeof page.nextCursor !== "string") return null;
   if (page.start !== undefined || page.end !== undefined) {
@@ -309,8 +313,8 @@ function checkedPage(page: {
     ...(Array.isArray(page.toolContext)
       ? { toolContext: page.toolContext as HistoryToolContext[] }
       : {}),
-    ...(typeof page.turnStartedAt === "number" && page.turnStartedAt > 0
-      ? { turnStartedAt: page.turnStartedAt }
+    ...(Number.isSafeInteger(turnStartedAt) && turnStartedAt > 0
+      ? { turnStartedAt }
       : {}),
   };
 }

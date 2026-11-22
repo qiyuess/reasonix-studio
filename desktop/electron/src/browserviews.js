@@ -606,7 +606,12 @@ class BrowserViews {
       entry.metrics = !!viewport;
       return viewport ? this.setMetrics(entry, viewport) : this.clearMetrics(entry);
     }
-    return this.fit(entry, true);
+    // The fit puts the rectangle right; with no viewport left to lay the page
+    // out in, the clear command is what hands the page that rectangle's own
+    // size — an override that has just gone away must not leave the last one
+    // standing.
+    const done = this.fit(entry, true);
+    return this.viewportOf(entry) ? done : this.clearMetrics(entry);
   }
 
   // Attaching a view can leave nobody holding the keyboard, and the platform
@@ -1057,10 +1062,11 @@ const sized = (v) => !!v && Number.isFinite(v.width) && Number.isFinite(v.height
 
 function placement(panel, emulated) {
   if (!sized(emulated)) return { at: panel, scale: 1 };
-  // A zoom the row chose draws the frame at that fraction of its own size; fit
-  // is the room's answer, never blowing the frame up past what it is.
+  // A zoom the row chose draws the frame at that fraction of its own size, but
+  // never past what the room holds: a native view has no clip and no scroll,
+  // so a frame that would stand on the toolbar is drawn as large as fits.
   const zoom = emulated.zoom === "50" || emulated.zoom === "75" || emulated.zoom === "100" ? Number(emulated.zoom) / 100 : null;
-  const scale = zoom ?? Math.min(1, panel.width / emulated.width, panel.height / emulated.height);
+  const scale = Math.min(zoom ?? 1, panel.width / emulated.width, panel.height / emulated.height, 1);
   const width = Math.max(1, Math.round(emulated.width * scale));
   const height = Math.max(1, Math.round(emulated.height * scale));
   const x = panel.x + Math.round((panel.width - width) / 2);

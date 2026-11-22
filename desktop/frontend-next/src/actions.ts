@@ -136,9 +136,17 @@ export const ACTIONS: UIAction[] = [
   { id: "browser.open", kind: "view", target: "none", proof: "interaction" },
   { id: "browser.full", kind: "view", target: "none", proof: "interaction" },
   { id: "browser.back", kind: "navigation", target: "none", proof: "interaction" },
+  { id: "browser.forward", kind: "navigation", target: "none", proof: "interaction" },
   { id: "browser.reload", kind: "repeatable", target: "none", proof: "interaction" },
   { id: "browser.address", kind: "view", target: "none", proof: "static" },
   { id: "browser.external", kind: "shell-native", target: "none", proof: "interaction" },
+  // The size row: which viewport a framed page is laid out in, and how much of
+  // the panel that frame takes. Nothing here reaches the kernel — the row only
+  // says how the page is drawn.
+  { id: "browser.free-size", kind: "view", target: "none", proof: "interaction" },
+  { id: "browser.size.preset", kind: "view", target: "none", proof: "interaction" },
+  { id: "browser.size.lock", kind: "view", target: "none", proof: "interaction" },
+  { id: "browser.size.fit", kind: "view", target: "none", proof: "interaction" },
   { id: "tool.copy-output", kind: "shell-native", target: "none", proof: "interaction" },
   // The way out of a window whose assets an update replaced underneath it.
   { id: "chrome.reload", kind: "navigation", target: "none", proof: "interaction" },

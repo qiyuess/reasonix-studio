@@ -124,7 +124,6 @@ export const WORKBENCH: Messages = {
   "workbench.show_n_more": { zh: "再显示 {n} 项", en: "Show {n} more" },
   "workbench.show_the_workspace_in_the": { zh: "在系统文件管理器中显示工作区", en: "Show the workspace in the system file manager" },
   "workbench.sign_in_failed_check_the": { zh: "登录没有通过，请重试并检查用户名和密码。", en: "Sign-in failed. Check the username and password and try again." },
-  "workbench.size_actual": { zh: "原始大小", en: "Actual size" },
   "workbench.size_100": { zh: "100%", en: "100%" },
   "workbench.size_50": { zh: "50%", en: "50%" },
   "workbench.size_75": { zh: "75%", en: "75%" },

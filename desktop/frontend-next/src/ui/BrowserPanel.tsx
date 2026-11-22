@@ -337,7 +337,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
     // Which frame has been sent to the shell: the poll re-places the page every
     // few hundred milliseconds, and a frame is a debugger command rather than a
     // cheap property write, so it goes only when it changed.
-    let sentFrame: { width: number; height: number; zoom?: string } | null = null;
+    let sent: { width: number; height: number; zoom?: string } | null | undefined;
     // Which freeze is current: a picture answering an older one is stale.
     let frozen = 0;
     let freezes = 0;
@@ -368,9 +368,14 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       // The size goes with the rectangle, and before it: the shell lays the
       // page out in that viewport and then fits it into the slot, so a show
       // arriving first would place the page at the slot's own size and then
-      // have to move it.
-      if (!sentFrame || sentFrame.width !== want?.width || sentFrame.height !== want?.height || sentFrame.zoom !== want?.zoom) {
-        sentFrame = want;
+      // have to move it. A null frame is a state too — the page laid out as
+      // the room — so a sent marker says it went out, whatever it was.
+      const sameFrame =
+        want === null
+          ? sent === null
+          : sent != null && sent.width === want.width && sent.height === want.height && sent.zoom === want.zoom;
+      if (!sameFrame) {
+        sent = want;
         shell.frameBrowserView(target, want);
       }
       shell.showBrowserView(target, box);
