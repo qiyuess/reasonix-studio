@@ -35,6 +35,15 @@ vi.mock("../native/speech", () => ({
   }),
 }));
 
+const modelMocks = vi.hoisted(() => ({
+  loadGlobalModels: vi.fn(),
+}));
+
+vi.mock("../net/models", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../net/models")>();
+  return { ...actual, loadGlobalModels: modelMocks.loadGlobalModels };
+});
+
 let container: HTMLDivElement;
 let root: Root | null = null;
 
@@ -50,6 +59,10 @@ const project: TreeProject = {
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
+  // The page loads the model catalog on mount; the default read fails so a
+  // test that does not care about models never touches the network.
+  modelMocks.loadGlobalModels.mockReset();
+  modelMocks.loadGlobalModels.mockResolvedValue({ ok: false, code: "test.unconfigured" });
 });
 
 afterEach(() => {
@@ -118,5 +131,42 @@ describe("DispatchPage", () => {
 
     expect(container.querySelector(".voice-live")).toBeNull();
     expect((container.querySelector(".dispatch-input") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("names the model the dispatch will use once the catalog arrives", async () => {
+    modelMocks.loadGlobalModels.mockResolvedValue({
+      ok: true,
+      catalog: {
+        current: "demo/demo-flash",
+        label: "Demo Flash",
+        default: "demo/demo-flash",
+        models: [
+          {
+            ref: "demo/demo-flash",
+            provider: "demo",
+            model: "demo-flash",
+            active: true,
+            default: true,
+            effort: "high",
+            efforts: ["high", "mid"],
+          },
+        ],
+      },
+    });
+    mount([project]);
+    await act(async () => {});
+
+    const chip = container.querySelector(".modelchip") as HTMLButtonElement;
+    expect(chip.textContent).toContain("demo-flash");
+    expect(chip.textContent).not.toContain("默认模型");
+  });
+
+  it("keeps the default-model label when the catalog cannot be read", async () => {
+    modelMocks.loadGlobalModels.mockResolvedValue({ ok: false, code: "http.500" });
+    mount([project]);
+    await act(async () => {});
+
+    const chip = container.querySelector(".modelchip") as HTMLButtonElement;
+    expect(chip.textContent).toContain("默认模型");
   });
 });

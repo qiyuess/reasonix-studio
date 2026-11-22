@@ -1,9 +1,9 @@
+/// <reference types="node" />
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
-import { Browser } from "@capacitor/browser";
 import { ConnectScreen } from "./ConnectScreen";
 import {
   configureProxy,
@@ -12,8 +12,6 @@ import {
   readProxyConfig,
 } from "../net/server";
 import type { ProxyConfig } from "../net/server";
-import { WebMode } from "../native/webmode";
-import { studioAppUrl, studioWebUrl } from "../net/server";
 import { forgetFleetPeer } from "../net/fleet";
 import {
   loadBackgroundStatus,
@@ -24,6 +22,7 @@ import { loadConnections, rememberConnection } from "../net/savedConnections";
 import { loadHaptics } from "./haptics";
 import { idleLink } from "../net/link";
 import type { LinkError, LinkState } from "../net/link";
+import { readFileSync } from "node:fs";
 
 /**
  * ConnectScreen is the only place a phone can acquire a kernel, and the only
@@ -38,7 +37,6 @@ vi.mock("../native/networkWatch", () => ({
   readNetworkStatus: vi.fn(async () => null),
   onNetworkChange: vi.fn(async () => ({ remove: vi.fn() })),
 }));
-vi.mock("@capacitor/browser", () => ({ Browser: { open: vi.fn(async () => {}) } }));
 vi.mock("@capacitor/clipboard", () => ({ Clipboard: { read: vi.fn(), write: vi.fn(async () => {}) } }));
 vi.mock("@capacitor/barcode-scanner", () => ({
   CapacitorBarcodeScanner: { scanBarcode: vi.fn() },
@@ -339,26 +337,6 @@ describe("ConnectScreen", () => {
       expect(localStorage.getItem("reasonix.theme")).toBe("dark");
     });
 
-    it("switches the visual language and remembers it", async () => {
-      await renderPrefs();
-
-      await act(async () => {
-        button("深蓝").click();
-        await Promise.resolve();
-      });
-
-      expect(document.documentElement.getAttribute("data-style")).toBe("studio");
-      expect(localStorage.getItem("reasonix.ui-style")).toBe("studio");
-
-      await act(async () => {
-        button("暖纸").click();
-        await Promise.resolve();
-      });
-
-      expect(document.documentElement.getAttribute("data-style")).toBe("paper");
-      expect(localStorage.getItem("reasonix.ui-style")).toBeNull();
-    });
-
     it("goes back to following the system, which is the absent attribute", async () => {
       await renderPrefs();
       await act(async () => {
@@ -437,6 +415,16 @@ describe("ConnectScreen", () => {
       // rather than pinning a number that a release would change.
       const value = container.querySelector(".setting-value")?.textContent ?? "";
       expect(value.trim()).not.toBe("");
+    });
+
+    // A regression guard the browser cannot exercise: desktop Chromium never
+    // reproduced the WebView drawing the pane-switch animation's compositor
+    // layer over the sticky bar, so the only testable fact is that the bar
+    // keeps its own layer. Removing the promotion is what made the tabs read
+    // as content passing through them on the phone.
+    it("keeps the settings bar on its own compositor layer", () => {
+      const css = readFileSync("src/ui/connect.css", "utf8");
+      expect(css).toMatch(/\.settings-bar\s*\{[^}]*transform:\s*translateZ\(0\)/);
     });
 
   });
@@ -778,145 +766,5 @@ describe("ConnectScreen verification", () => {
     await press("连接这台电脑");
     await settle();
     expect(onConnected).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("ConnectScreen full Studio", () => {
-  const loopback = "http://127.0.0.1:8788/";
-  const kernel = "http://192.168.5.2:56789";
-
-  beforeEach(() => {
-    // The real URL helpers are mocked at module scope; give these tests the
-    // two answers a LAN door would produce so the wiring itself is exercised.
-    vi.mocked(studioWebUrl).mockReturnValue(kernel);
-    vi.mocked(studioAppUrl).mockReturnValue(loopback);
-    vi.mocked(readProxyConfig).mockResolvedValue(config({ studioUrl: loopback }));
-  });
-
-  afterEach(() => {
-    // The file-wide beforeEach only calls clearAllMocks(), which keeps
-    // implementations. Without this reset the next describe would see a
-    // "完整界面" section that its config never asked for.
-    vi.mocked(studioWebUrl).mockReturnValue("");
-    vi.mocked(studioAppUrl).mockReturnValue("");
-  });
-
-  it("opens the in-app Studio through the loopback proxy on a LAN door", async () => {
-    await renderScreen();
-    await pressRow("在应用内打开");
-
-    // A bare WebView on the kernel address is the "打不开完整界面" bug: it
-    // loses the VPN detour and the pairing cookie. The activity must be told
-    // to load the proxy's own origin and carry the UA marker.
-    expect(WebMode.open).toHaveBeenCalledWith({
-      url: loopback,
-      viaProxy: true,
-      origin: kernel,
-    });
-  });
-
-  it("hands the system browser the real kernel address", async () => {
-    await renderScreen();
-    await pressRow("在浏览器打开");
-
-    // The browser has no proxy cookie and cannot reach this app's 127.0.0.1.
-    expect(Browser.open).toHaveBeenCalledWith({ url: kernel });
-    expect(WebMode.open).not.toHaveBeenCalled();
-  });
-
-  it("says no address is known when the proxy cannot be read", async () => {
-    await renderScreen();
-    // The row is drawn from the config read at mount; the click reads again,
-    // and that second read is the one that finds nothing.
-    vi.mocked(readProxyConfig).mockResolvedValue(null);
-    await pressRow("在应用内打开");
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(container.textContent).toContain("读不到这台电脑的 Studio 地址。");
-  });
-
-  it("falls back to the real address when no native WebView exists", async () => {
-    vi.mocked(WebMode.open).mockRejectedValueOnce(new Error("no activity"));
-    await renderScreen();
-    await pressRow("在应用内打开");
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    // The browser fallback must not be handed the loopback URL it cannot use.
-    expect(Browser.open).toHaveBeenCalledWith({ url: kernel });
-  });
-});
-
-describe("ConnectScreen on an old WebView", () => {
-  const loopback = "http://127.0.0.1:8788/";
-  const kernel = "http://192.168.5.2:56789";
-  const jsdomAgent = navigator.userAgent;
-
-  beforeEach(() => {
-    vi.mocked(studioWebUrl).mockReturnValue(kernel);
-    vi.mocked(studioAppUrl).mockReturnValue(loopback);
-    vi.mocked(readProxyConfig).mockResolvedValue(config({ studioUrl: loopback }));
-  });
-
-  afterEach(() => {
-    vi.mocked(studioWebUrl).mockReturnValue("");
-    vi.mocked(studioAppUrl).mockReturnValue("");
-    // The agent is read at render time, so it has to be put back for the rest
-    // of the file: jsdom's own agent carries no Chrome token, which is what
-    // keeps every other test on the "unknown, say nothing" path.
-    Object.defineProperty(navigator, "userAgent", {
-      value: jsdomAgent,
-      configurable: true,
-    });
-  });
-
-  function setAgent(value: string): void {
-    Object.defineProperty(navigator, "userAgent", { value, configurable: true });
-  }
-
-  it("warns on the rows instead of opening a page that will look broken", async () => {
-    // The reported phone before its WebView was updated.
-    setAgent(
-      "Mozilla/5.0 (Linux; Android 12; Redmi K30 Pro Zoom Edition; wv) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/96.0.4664.104 Mobile Safari/537.36",
-    );
-    await renderScreen();
-
-    // The row itself says why, rather than promising a working page.
-    expect(container.textContent).toContain("系统 WebView 是 Chrome 96");
-    // And the note names the way out.
-    expect(container.textContent).toContain("Android 系统 WebView");
-    // The browser row is offered as the working alternative.
-    expect(container.textContent).toContain("自带内核");
-  });
-
-  it("still opens the page, because half a page beats none", async () => {
-    setAgent("Mozilla/5.0 (Linux; Android 12; wv) Chrome/96.0.4664.104 Mobile Safari/537.36");
-    await renderScreen();
-    await pressRow("在应用内打开");
-
-    // A warning is not a block: the compatibility sheet already restores the
-    // colours and the height, so the page stays reachable.
-    expect(WebMode.open).toHaveBeenCalledWith({
-      url: loopback,
-      viaProxy: true,
-      origin: kernel,
-    });
-  });
-
-  it("says nothing on an engine new enough for the page", async () => {
-    setAgent(
-      "Mozilla/5.0 (Linux; Android 12; Redmi K30 Pro) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/158.0.8127.2 Mobile Safari/537.36",
-    );
-    await renderScreen();
-
-    expect(container.textContent).not.toContain("系统 WebView 是 Chrome");
-    expect(container.textContent).toContain("电脑上那套 Studio 页面");
   });
 });

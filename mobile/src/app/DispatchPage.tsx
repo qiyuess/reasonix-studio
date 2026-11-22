@@ -86,9 +86,15 @@ export function DispatchPage({
     onError: setVoiceError,
   });
 
-  const openModels = () => {
-    setModelsOpen(true);
+  // One attempt per mount: a failed read must not retrigger itself (the
+  // effect re-runs whenever loading flips back), or a computer without a
+  // catalog would keep the page in an endless reload loop. Opening the
+  // sheet is the explicit retry.
+  const attempted = useRef(false);
+  const loadCatalog = useCallback((force = false) => {
+    if (!force && attempted.current) return;
     if (catalog || modelsLoading) return;
+    attempted.current = true;
     setModelsLoading(true);
     setModelsError("");
     void loadGlobalModels().then((result) => {
@@ -107,7 +113,18 @@ export function DispatchPage({
         setEffort(pick.effort ?? (effortChoices(pick).length > 0 ? "auto" : ""));
       }
     });
+  }, [catalog, modelsLoading]);
+
+  const openModels = () => {
+    setModelsOpen(true);
+    loadCatalog(true);
   };
+
+  // The chip names the model the dispatch will actually use, so the catalog
+  // loads on mount, not only when the sheet opens.
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
 
   const pickModel = (option: ModelOption) => {
     setModel(option.ref);
