@@ -326,6 +326,27 @@ describe("loadHistory", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("carries the page's turnStartedAt into the receipt it folds", async () => {
+    // The newest page can begin mid-turn: the user message that opened it
+    // sits pages earlier, so the kernel's own figure for where the turn
+    // began is the only start a rebuilt receipt can read.
+    const fetchMock = vi.fn().mockResolvedValue(
+      pageResponse({
+        messages: [message({ role: "assistant", content: "答", msgIndex: 12, workDurationMs: 900_000 })],
+        total: 13,
+        hasMoreBefore: false,
+        turnStartedAt: 1_700_000_050_000,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadHistory("/rt/r1");
+
+    expect(result.ok).toBe(true);
+    const worked = result.ok ? result.read.rows.find((row) => row.kind === "worked") : undefined;
+    expect(worked?.kind === "worked" ? worked.startedAt : undefined).toBe(1_700_000_050_000);
+  });
+
   it("falls back to the whole read on a kernel without the page route", async () => {
     const fetchMock = vi
       .fn()
@@ -466,5 +487,33 @@ describe("turn metadata", () => {
     expect(user?.kind === "user" ? user.at : undefined).toBe(1_700_000_000_000);
     const worked = rows.find((row) => row.kind === "worked");
     expect(worked?.kind === "worked" ? worked.ms : undefined).toBe(2_275_000);
+    // The receipt reads the same start-end range the live stream drew: the
+    // user message that opened the turn is where it began.
+    expect(worked?.kind === "worked" ? worked.startedAt : undefined).toBe(1_700_000_000_000);
+  });
+
+  it("falls back to the kernel's turnStartedAt when the opener is pages earlier", () => {
+    // A page that begins mid-turn holds the answer and its receipt but not
+    // the user message that opened the turn. The kernel's own figure for
+    // where that turn began is the only start left.
+    const rows = foldHistory(
+      [message({ role: "assistant", content: "答", msgIndex: 12, workDurationMs: 900_000 })],
+      undefined,
+      1_700_000_050_000,
+    );
+
+    const worked = rows.find((row) => row.kind === "worked");
+    expect(worked?.kind === "worked" ? worked.startedAt : undefined).toBe(1_700_000_050_000);
+  });
+
+  it("a steer moves no start; it is speech into a running turn", () => {
+    const rows = foldHistory([
+      message({ role: "user", content: "问", msgIndex: 1, createdAt: 1_700_000_000_000 }),
+      message({ role: "user", content: "再快点", msgIndex: 2, steer: true, createdAt: 1_700_000_100_000 }),
+      message({ role: "assistant", content: "答", msgIndex: 3, workDurationMs: 2_275_000 }),
+    ]);
+
+    const worked = rows.find((row) => row.kind === "worked");
+    expect(worked?.kind === "worked" ? worked.startedAt : undefined).toBe(1_700_000_000_000);
   });
 });

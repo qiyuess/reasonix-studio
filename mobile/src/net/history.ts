@@ -73,10 +73,17 @@ function toolRow(call: HistoryToolCall, id: string): ToolRow {
 export function foldHistory(
   messages: HistoryMessage[],
   toolContext?: HistoryToolContext[],
+  turnStartedAt?: number,
 ): Row[] {
   const rows: Row[] = [];
   // Where each call's card landed, so its result can fill it in.
   const calls = new Map<string, number>();
+
+  // When the turn the receipt closed began. A reopen reads the same
+  // start-end range the live stream drew: the user message that opened the
+  // turn says when it landed, and a page that begins mid-turn — its opener
+  // sits pages earlier — falls back to the kernel's own figure.
+  let turnStart = typeof turnStartedAt === "number" && turnStartedAt > 0 ? turnStartedAt : undefined;
 
   // Calls whose messages sit outside this page. They render before the page's
   // own rows — their msgIndex is strictly earlier — in context order.
@@ -95,6 +102,12 @@ export function foldHistory(
 
     if (message.role === "user") {
       if (message.hostAuthored) continue;
+      // The message that opens a turn says when the turn began; a steer is
+      // speech into a running turn and moves no start. As on the desktop, a
+      // stored turn whose opener is gone keeps the kernel's own figure.
+      if (!message.steer && typeof message.createdAt === "number" && message.createdAt > 0) {
+        turnStart = message.createdAt;
+      }
       const text = clean(message.content);
       if (!text) continue;
       rows.push({
@@ -139,7 +152,12 @@ export function foldHistory(
       // The message that closed the turn carries its run time; the receipt the
       // live stream appends is rebuilt from it so a reload reads the same.
       if (typeof message.workDurationMs === "number" && message.workDurationMs >= 500) {
-        rows.push({ kind: "worked", id: historyId(index, 0, ":worked"), ms: message.workDurationMs });
+        rows.push({
+          kind: "worked",
+          id: historyId(index, 0, ":worked"),
+          ms: message.workDurationMs,
+          ...(turnStart !== undefined ? { startedAt: turnStart } : {}),
+        });
       }
       continue;
     }
@@ -250,6 +268,7 @@ function checkedPage(page: {
   start?: unknown;
   end?: unknown;
   toolContext?: unknown;
+  turnStartedAt?: unknown;
 }): {
   messages: HistoryMessage[];
   total: number;
@@ -259,6 +278,7 @@ function checkedPage(page: {
   start?: number;
   end?: number;
   toolContext?: HistoryToolContext[];
+  turnStartedAt?: number;
 } | null {
   if (!page || !Array.isArray(page.messages)) return null;
   const total = page.total as number;
@@ -289,6 +309,9 @@ function checkedPage(page: {
     ...(Array.isArray(page.toolContext)
       ? { toolContext: page.toolContext as HistoryToolContext[] }
       : {}),
+    ...(typeof page.turnStartedAt === "number" && page.turnStartedAt > 0
+      ? { turnStartedAt: page.turnStartedAt }
+      : {}),
   };
 }
 
@@ -308,7 +331,7 @@ async function readPage(base: string, cursor?: string): Promise<HistoryResult> {
   return {
     ok: true,
     read: {
-      rows: foldHistory(page.messages, page.toolContext),
+      rows: foldHistory(page.messages, page.toolContext, page.turnStartedAt),
       total: page.total,
       hasMoreBefore: page.hasMoreBefore,
       ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}),
