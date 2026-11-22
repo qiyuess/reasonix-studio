@@ -272,6 +272,35 @@ func TestARenamedProjectReadsByItsNewNameInTheTree(t *testing.T) {
 	}
 }
 
+// The pane list carries the rename too: the phone's fleet rows and the chat
+// header read this payload, and a folder the person renamed must not arrive
+// as its path tail.
+func TestARenamedProjectNamesTheRuntimeRow(t *testing.T) {
+	t.Setenv("REASONIX_HOME", testenv.TempDir(t))
+	root := testenv.TempDir(t)
+	if err := addRememberedWorkspace(t.Context(), root); err != nil {
+		t.Fatal(err)
+	}
+	h := NewHub(HubOptions{})
+	hubRuntime(t, h, root)
+	srv := httptest.NewServer(operatorHandler(h))
+	defer srv.Close()
+
+	if resp := postJSON(t, srv.URL+"/tree/workspaces/display-name", map[string]string{"path": root, "name": "我的项目"}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST /tree/workspaces/display-name = %d, want 200", resp.StatusCode)
+	}
+	views := hubGet[[]RuntimeView](t, srv, "/runtimes")
+	if len(views) != 1 {
+		t.Fatalf("/runtimes returned %d rows, want 1", len(views))
+	}
+	if views[0].DisplayName != "我的项目" {
+		t.Fatalf("displayName = %q, want 我的项目", views[0].DisplayName)
+	}
+	if views[0].Name != filepath.Base(root) {
+		t.Fatalf("name = %q, want the folder's own %q", views[0].Name, filepath.Base(root))
+	}
+}
+
 // A drag names a place rather than a step, which is what makes it land where
 // the pointer let go.
 func TestPlacingASessionBeforeARowPutsItThere(t *testing.T) {

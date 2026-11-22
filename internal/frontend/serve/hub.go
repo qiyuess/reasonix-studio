@@ -464,12 +464,13 @@ func (h *Hub) Get(id string) *Runtime {
 
 // List returns the open runtimes in the order they were opened.
 func (h *Hub) List() []RuntimeView {
+	names := workspaceNames()
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	out := make([]RuntimeView, 0, len(h.order))
 	for _, id := range h.order {
 		if rt := h.runtimes[id]; rt != nil {
-			out = append(out, rt.view())
+			out = append(out, rt.view(names))
 		}
 	}
 	return out
@@ -506,7 +507,11 @@ func (h *Hub) Runtimes() []*Runtime {
 	return out
 }
 
-func (rt *Runtime) view() RuntimeView {
+// view is the pane row every runtime listing carries. names is this read's
+// snapshot of the sidebar display names — one workspace-list read per request,
+// not per pane; a folder the person never renamed finds nothing and the row
+// falls back to Name.
+func (rt *Runtime) view(names map[string]string) RuntimeView {
 	if rt.remote != nil {
 		return rt.remoteView()
 	}
@@ -526,6 +531,7 @@ func (rt *Runtime) view() RuntimeView {
 		Base:             runtimePrefix + rt.ID,
 		Root:             root,
 		Name:             fileutil.RootName(root),
+		DisplayName:      names[projectIdentity(root)],
 		SessionPath:      ctrl.SessionPath(),
 		ReadOnly:         !rt.writable(),
 		NoProject:        isAutoWorkspace(root),
@@ -618,7 +624,7 @@ func (h *Hub) openRuntime(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, rt.view())
+	writeJSON(w, rt.view(workspaceNames()))
 }
 
 func (h *Hub) closeRuntime(w http.ResponseWriter, r *http.Request) {

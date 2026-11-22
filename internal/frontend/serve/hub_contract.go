@@ -18,9 +18,12 @@ type RuntimeView struct {
 	Base             string              `json:"base"`
 	Root             string              `json:"root"`
 	Name             string              `json:"name"`
-	SessionPath      string              `json:"sessionPath,omitempty"`
-	Host             string              `json:"host,omitempty"`
-	ReadOnly         bool                `json:"readOnly,omitempty"`
+	// DisplayName is the name the person gave this project in the sidebar; Name
+	// stays the folder's own, which is what a row falls back to.
+	DisplayName string `json:"displayName,omitempty"`
+	SessionPath string `json:"sessionPath,omitempty"`
+	Host        string `json:"host,omitempty"`
+	ReadOnly    bool   `json:"readOnly,omitempty"`
 	// NoProject marks a pane belonging to no project: the app's own folder. The
 	// next new conversation may reuse it for that reason alone — an empty pane in
 	// someone's project is somewhere else.

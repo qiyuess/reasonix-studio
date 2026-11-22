@@ -47,11 +47,12 @@ type CloudTaskSnapshot struct {
 func (h *Hub) CloudTasks(context.Context) (any, error) {
 	runtimes := h.Runtimes()
 	tasks := make([]CloudTask, 0, len(runtimes))
+	names := workspaceNames()
 	for _, rt := range runtimes {
 		if !rt.Local() || rt.Server == nil {
 			continue
 		}
-		view := rt.view()
+		view := rt.view(names)
 		tasks = append(tasks, CloudTask{
 			ID: view.ID, Name: view.Name, ReadOnly: view.ReadOnly,
 			Running: rt.Server.Controller().RuntimeStatus().Running,
@@ -65,7 +66,7 @@ func (h *Hub) CloudTask(_ context.Context, id string) (any, error) {
 	if rt == nil || !rt.Local() || rt.Server == nil {
 		return nil, ErrCloudTaskNotFound
 	}
-	view := rt.view()
+	view := rt.view(workspaceNames())
 	snapshot := CloudTaskSnapshot{Task: CloudTask{
 		ID: view.ID, Name: view.Name, ReadOnly: view.ReadOnly,
 		Running: rt.Server.Controller().RuntimeStatus().Running,

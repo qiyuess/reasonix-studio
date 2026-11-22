@@ -123,7 +123,7 @@ func TestHubRefusesToLocateInARemoteWorkspace(t *testing.T) {
 	defer front.Close()
 
 	for _, path := range []string{"/workspace/locate", "/workspace/locate?path=out", "//workspace/./locate", "/workspace/locate/"} {
-		resp, err := http.Get(front.URL + rt.view().Base + path)
+		resp, err := http.Get(front.URL + rt.view(nil).Base + path)
 		if err != nil {
 			t.Fatal(err)
 		}

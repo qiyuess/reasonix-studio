@@ -113,7 +113,7 @@ func TestRemotePaneStreamsEventsUnbuffered(t *testing.T) {
 	front := httptest.NewServer(operatorHandler(h))
 	defer front.Close()
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, front.URL+rt.view().Base+"/events", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, front.URL+rt.view(nil).Base+"/events", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestRemotePaneCarriesTheRemoteToken(t *testing.T) {
 	front := httptest.NewServer(operatorHandler(h))
 	defer front.Close()
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, front.URL+rt.view().Base+"/status", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, front.URL+rt.view(nil).Base+"/status", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestRemotePaneRefusesWithACodeWhenTheLinkIsDown(t *testing.T) {
 	front := httptest.NewServer(operatorHandler(h))
 	defer front.Close()
 
-	resp, err := http.Get(front.URL + rt.view().Base + "/status")
+	resp, err := http.Get(front.URL + rt.view(nil).Base + "/status")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestRemotePaneViewNamesItsHostAndWorkspace(t *testing.T) {
 	h := NewHub(HubOptions{})
 	rt := remotePane(t, h, rk.Listener.Addr().String())
 
-	view := rt.view()
+	view := rt.view(nil)
 	if view.Host != "gpu-box" {
 		t.Fatalf("host = %q, want %q", view.Host, "gpu-box")
 	}
@@ -782,7 +782,7 @@ func TestRemotePaneCarriesTheResumePointToTheFarKernel(t *testing.T) {
 	// resume.
 	for _, from := range []string{"37", "41"} {
 		t.Run("resuming from "+from, func(t *testing.T) {
-			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, front.URL+rt.view().Base+"/events", nil)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, front.URL+rt.view(nil).Base+"/events", nil)
 			if err != nil {
 				t.Fatal(err)
 			}

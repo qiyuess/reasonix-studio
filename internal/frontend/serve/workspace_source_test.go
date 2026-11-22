@@ -103,7 +103,7 @@ func TestSessionWorktreePreservesDraftAndRejectsDuplicatePreparation(t *testing.
 	if s.Controller().WorkspaceRoot() != root {
 		t.Fatal("duplicate moved the session")
 	}
-	view := (&Runtime{ID: "draft", Server: s}).view()
+	view := (&Runtime{ID: "draft", Server: s}).view(nil)
 	if view.Root != root {
 		t.Fatalf("runtime root = %s", view.Root)
 	}

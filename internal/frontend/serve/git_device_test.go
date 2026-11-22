@@ -78,7 +78,7 @@ func TestAPairedDeviceCannotReachThePushOrDiscardOfARemotePaneAndTheHostIsForwar
 	rk := fakeRemoteKernel(t)
 	h := NewHub(HubOptions{})
 	rt := remotePane(t, h, rk.Listener.Addr().String())
-	prefix := rt.view().Base
+	prefix := rt.view(nil).Base
 	routes := []struct{ method, path string }{
 		{http.MethodGet, "/git/push"},
 		{http.MethodPost, "/git/push"},

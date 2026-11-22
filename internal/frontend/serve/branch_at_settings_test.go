@@ -174,7 +174,7 @@ func TestHubBranchAtInheritsLiveSettingsAfterDurableSave(t *testing.T) {
 		mirror.Shutdown()
 		t.Fatal(err)
 	}
-	if !readOnly.view().ReadOnly || readOnly.Server.Controller().ModelRef() != "home/chat-a" || readOnly.Server.Controller().AgentPreset() != "delivery" || !readOnly.Server.Controller().PlanMode() {
+	if !readOnly.view(nil).ReadOnly || readOnly.Server.Controller().ModelRef() != "home/chat-a" || readOnly.Server.Controller().AgentPreset() != "delivery" || !readOnly.Server.Controller().PlanMode() {
 		mirror.Shutdown()
 		t.Fatal("read-only branch attachment lost source settings")
 	}

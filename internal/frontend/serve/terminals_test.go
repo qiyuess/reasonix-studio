@@ -164,7 +164,7 @@ func TestARemotePanesTerminalsAreForwardedForTheHostAndNeverForADevice(t *testin
 	rk := fakeRemoteKernel(t)
 	h := NewHub(HubOptions{})
 	rt := remotePane(t, h, rk.Listener.Addr().String())
-	prefix := rt.view().Base
+	prefix := rt.view(nil).Base
 	serve := func(method, path string, device bool) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, prefix+path, strings.NewReader("{}"))
 		if device {

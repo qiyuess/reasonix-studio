@@ -342,7 +342,9 @@ func (h *Hub) openRemoteRuntime(w http.ResponseWriter, r *http.Request) {
 	// there, and a Windows host answers in its own spelling — record the other
 	// one and the book would list a second row for the folder already open.
 	rememberRemoteWorkspace(req.Host, ep.Workspace)
-	writeJSON(w, rt.view())
+	// nil: a remote pane's view is remoteView(), which never reads the sidebar
+	// names — this host must not name another machine's folder.
+	writeJSON(w, rt.view(nil))
 }
 
 // OpenRemote publishes a pane driven by a kernel on another machine. release is

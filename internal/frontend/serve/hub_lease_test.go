@@ -143,12 +143,12 @@ func TestReadonlyPanePromotesAfterTransientHolderLeaves(t *testing.T) {
 		t.Fatal(err)
 	}
 	rt := &Runtime{ID: "handoff", Server: srv, Events: bc, leases: leases}
-	if !rt.view().ReadOnly {
+	if !rt.view(nil).ReadOnly {
 		t.Fatal("pane should remain read-only while the holder is live")
 	}
 
 	holder.Release()
-	if view := rt.view(); view.ReadOnly {
+	if view := rt.view(nil); view.ReadOnly {
 		t.Fatal("pane stayed read-only after the transient holder released")
 	}
 	if got := leases.HeldPath(); got != sessionstore.CanonicalSessionPath(path) {
