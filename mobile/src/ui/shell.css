@@ -467,6 +467,32 @@ pre.frame {
 
 /* ---- session list ---- */
 
+/* The archive head is a button carrying the section-head look: a native
+   button resets its own type, so the font, colour and baseline come back
+   here. The count rides in the title, the state word at the right. */
+.section-head.archive-head {
+  width: 100%;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.section-head.archive-head .archive-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-dim);
+}
+
+.section-head.archive-head .more.inline {
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
 .section-head {
   display: flex;
   align-items: baseline;
@@ -1421,20 +1447,8 @@ pre.frame {
   flex: none;
 }
 
-[data-style="paper"] .topline .linkbar {
-  padding: 0 4px;
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-}
 
-[data-style="paper"] .topline .iconbtn {
-  background: transparent;
-}
 
-[data-style="paper"] .topline .linkbar .chev {
-  margin-left: auto;
-}
 
 .tabbar {
   flex: none;
@@ -1477,20 +1491,45 @@ pre.frame {
   color: var(--on-fill);
 }
 
-[data-style="paper"] .tabbar {
-  border-radius: 6px;
-  background: var(--bg);
-}
 
-[data-style="paper"] .tabbar button.on {
-  background: transparent;
-  color: var(--accent);
-  border-bottom: 2px solid var(--accent);
-  border-radius: 0;
-}
 
 .home-head {
   padding: 0 2px;
+  /* The picker made this row taller than its text: baseline alignment then
+     hangs the count off the picker's baseline and pushes it to the top. One
+     centre line for title, trigger and count instead. */
+  align-items: center;
+}
+
+/* The archive scope picker rides in the section head: a compact trigger that
+   shows the current share and opens the chooser sheet. The row is centre
+   aligned — baseline mixes a 13px title, a 12px control and the count into
+   the squeezed line the picker replaced. */
+.section-head .scope-picker {
+  flex: none;
+  align-self: center;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  background: var(--overlay);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+}
+
+.section-head .scope-picker .scope-picker-chev {
+  width: 12px;
+  height: 12px;
+}
+
+.sheet-actions button .scope-check {
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
 }
 
 .home-view {
@@ -1641,29 +1680,9 @@ pre.frame {
   font-weight: 600;
 }
 
-[data-style="paper"] .list.grouped {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  overflow: visible;
-}
 
-[data-style="paper"] .list.grouped .session,
-[data-style="paper"] .list.grouped .project {
-  padding: 11px 0;
-}
 
-[data-style="paper"] .connect-body .group {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
 
-[data-style="paper"] .connect-body .group > * + * {
-  border-top: 1px solid var(--line-soft);
-}
 
 .session-mark {
   flex: none;

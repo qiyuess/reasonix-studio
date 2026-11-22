@@ -430,21 +430,20 @@ export function SessionList({
 
         {(project.archived ?? 0) > 0 || archiveList !== null ? (
           <>
-            <div className="section-head">
-              <h2>已归档</h2>
-              <button
-                type="button"
-                className="more inline"
-                aria-expanded={archiveList !== null}
-                onClick={() => void toggleArchiveList()}
-              >
-                {archiveList === null
-                  ? `看 ${project.archived} 个`
-                  : archiveList.loading
-                    ? "读取中…"
-                    : "收起"}
-              </button>
-            </div>
+            {/* The whole head row is the toggle: the count rides in the title,
+                and the old "看 N 个" pill is gone — the row itself says both
+                what is here and that it opens. */}
+            <button
+              type="button"
+              className="section-head archive-head"
+              aria-expanded={archiveList !== null}
+              onClick={() => void toggleArchiveList()}
+            >
+              <span className="archive-title">已归档 {project.archived ?? 0}</span>
+              <span className="more inline">
+                {archiveList === null ? "" : archiveList.loading ? "读取中…" : "收起"}
+              </span>
+            </button>
             {archiveError ? <div className="notice error">{archiveError}</div> : null}
             {archiveList !== null && !archiveList.loading ? (
               archiveList.sessions.length === 0 ? (
@@ -478,6 +477,7 @@ export function SessionList({
         <SessionSheet
           title={sessionTitle(menu)}
           projectName={project.name}
+
           when={relativeTime(menu.lastActiveAt)}
           pinned={menu.pinned === true}
           archived={menuArchived}

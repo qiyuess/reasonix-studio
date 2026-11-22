@@ -46,6 +46,7 @@ import { ReachBanner } from "./ReachBanner";
 import { relativeTime } from "./format";
 import { deleteWarning, runtimeOpenMessage, sessionTitle } from "./SessionList";
 import type { NeedsYouState } from "./useNeedsYou";
+import { ArchiveScopePicker } from "./ArchiveScopePicker";
 import type { TreeState } from "./useTree";
 import { openRuntime } from "../net/workspaces";
 import { DispatchPage } from "./DispatchPage";
@@ -705,6 +706,21 @@ export function Home({
   // The app's own folder is not a project on a phone: it has no row to show and
   // nothing to switch between. Its conversations still reach Recent above.
   const projects = useMemo(() => tree.projects.filter((project) => !project.auto), [tree.projects]);
+  // An active-scope read answers a project whose every conversation is
+  // archived with an empty session list (its counts still say what waits).
+  // The everyday project list is about what is in play, so those hide here;
+  // the archive view reads the same tree and needs every folder back.
+  const visibleProjects = useMemo(
+    () =>
+      tree.scope === "archived"
+        ? // The archive view lists folders that have something in it: a
+          // project with no archived row would open onto an empty page.
+          projects.filter((project) => (project.archived ?? 0) > 0)
+        : projects.filter(
+            (project) => project.sessions.length > 0 || (project.archived ?? 0) === 0,
+          ),
+    [projects, tree.scope],
+  );
   const linkName = useMemo(() => {
     if (!link.target) return link.name;
     const rows = loadConnections();
@@ -714,8 +730,8 @@ export function Home({
   const needle = (tab === "recent" ? sessionQuery : projectQuery).trim().toLowerCase();
   const shownRecent = needle ? recent.filter((row) => sessionMatches(row, needle)) : recent;
   const shownProjects = needle
-    ? projects.filter((project) => projectMatches(project, needle))
-    : projects;
+    ? visibleProjects.filter((project) => projectMatches(project, needle))
+    : visibleProjects;
 
   const open = async (project: TreeProject, session?: TreeSession) => {
     if (busy) return;
@@ -813,7 +829,7 @@ export function Home({
     ? false
     : tab === "recent"
       ? recent.length === 0
-      : projects.length === 0;
+      : visibleProjects.length === 0;
 
   const pullReset = () => {
     pullStart.current = null;
@@ -977,6 +993,11 @@ export function Home({
               <>
                 <div className="section-head home-head">
                   <h2>项目</h2>
+                  <ArchiveScopePicker
+                    label="项目"
+                    scope={tree.scope}
+                    onChange={tree.setScope}
+                  />
                   <span className="meta">{shownProjects.length}</span>
                 </div>
                 <input
@@ -1019,31 +1040,50 @@ export function Home({
               {empty ? (
                 <div className="centered">
                   <div>
-                    <strong>{tab === "recent" ? "还没有会话" : "还没有项目"}</strong>
+                    <strong>
+                      {tab === "recent"
+                        ? tree.scope === "archived"
+                          ? "还没有已归档的会话"
+                          : "还没有会话"
+                        : tree.scope === "archived"
+                          ? "还没有已归档的项目"
+                          : "还没有项目"}
+                    </strong>
                     {tab === "recent"
-                      ? "在桌面端开始一个会话，这里就会出来。"
-                      : "在桌面端打开一个项目，这里就会出来。"}
+                      ? tree.scope === "archived"
+                        ? "在桌面端归档一个会话，这里就会出来。"
+                        : "在桌面端开始一个会话，这里就会出来。"
+                      : tree.scope === "archived"
+                        ? "在桌面端归档项目的全部会话，这里就会出来。"
+                        : "在桌面端打开一个项目，这里就会出来。"}
                   </div>
                 </div>
               ) : null}
 
-              {tab === "recent" && shownRecent.length > 0 ? (
+              {tab === "recent" ? (
                 <>
                   <div className="section-head home-head">
                     <h2>最近</h2>
+                    <ArchiveScopePicker
+                      label="会话"
+                      scope={tree.scope}
+                      onChange={tree.setScope}
+                    />
                     <span className="meta">{shownRecent.length}</span>
                   </div>
-                  <ul className="list grouped">
-                    {shownRecent.map((row) => (
-                      <RecentItem
-                        key={`${row.project.root}\u0000${row.session.path}`}
-                        row={row}
-                        busy={busy === row.session.path}
-                        onOpen={() => void open(row.project, row.session)}
-                        onMenu={() => setMenu(row)}
-                      />
-                    ))}
-                  </ul>
+                  {shownRecent.length > 0 ? (
+                    <ul className="list grouped">
+                      {shownRecent.map((row) => (
+                        <RecentItem
+                          key={`${row.project.root}\u0000${row.session.path}`}
+                          row={row}
+                          busy={busy === row.session.path}
+                          onOpen={() => void open(row.project, row.session)}
+                          onMenu={() => setMenu(row)}
+                        />
+                      ))}
+                    </ul>
+                  ) : null}
                 </>
               ) : null}
 

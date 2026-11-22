@@ -78,7 +78,7 @@ function project(overrides: Partial<TreeProject> = {}): TreeProject {
 }
 
 function tree(overrides: Partial<TreeState> = {}): TreeState {
-  return { projects: [project()], status: "loaded", code: "", revision: 1, reload: vi.fn(), ...overrides };
+  return { projects: [project()], status: "loaded", code: "", revision: 1, reload: vi.fn(), scope: "active", setScope: vi.fn(), ...overrides };
 }
 
 function pending(overrides: Partial<NeedsYouState> = {}): NeedsYouState {
@@ -329,6 +329,70 @@ describe("Home", () => {
       typeInto(search, "docs");
     });
     expect(container.querySelectorAll(".project")).toHaveLength(1);
+  });
+
+  it("hides a project whose conversations are all archived until the archive view", () => {
+    render({
+      tree: tree({
+        projects: [
+          project(),
+          project({ root: "/work/old", name: "old", sessions: [], total: 4, archived: 4 }),
+        ],
+      }),
+    });
+    act(() => nav("项目").click());
+    expect(container.querySelectorAll(".project")).toHaveLength(1);
+
+    act(() => nav("最近").click());
+    expect(container.querySelectorAll(".session")).toHaveLength(2);
+  });
+
+  it("shows every project in the archive view and sends the scope switch", () => {
+    const setScope = vi.fn();
+    render({
+      tree: tree({
+        projects: [
+          project(),
+          project({ root: "/work/old", name: "old", sessions: [], total: 4, archived: 4 }),
+        ],
+        scope: "archived",
+        setScope,
+      }),
+    });
+    act(() => nav("项目").click());
+    // The archive view lists only folders that hold archived rows; the plain
+    // project (nothing archived) would open onto an empty page.
+    expect(container.querySelectorAll(".project")).toHaveLength(1);
+
+    // The picker is a trigger that opens the chooser sheet, not a pair of
+    // segmented buttons; it names the current share.
+    const trigger = container.querySelector('.scope-picker[aria-label="项目：已归档"]') as HTMLButtonElement;
+    expect(trigger).toBeTruthy();
+
+    act(() => nav("最近").click());
+    const recentTrigger = container.querySelector('.scope-picker[aria-label="会话：已归档"]');
+    expect(recentTrigger).toBeTruthy();
+  });
+
+  it("switches the scope from the picker's sheet", () => {
+    const setScope = vi.fn();
+    render({ tree: tree({ setScope }) });
+    act(() => nav("最近").click());
+
+    act(() => {
+      (container.querySelector('.scope-picker[aria-label="会话：全部"]') as HTMLButtonElement).click();
+    });
+    expect(container.querySelector('[aria-label="会话筛选"]')).toBeTruthy();
+
+    act(() => {
+      const option = Array.from(
+        container.querySelectorAll('[aria-label="会话筛选"] button[role="option"]'),
+      ).find((candidate) => candidate.textContent === "已归档") as HTMLButtonElement;
+      option.click();
+    });
+
+    expect(setScope).toHaveBeenCalledWith("archived");
+    expect(container.querySelector('[aria-label="会话筛选"]')).toBeNull();
   });
 
   it("opens a conversation by posting its path", async () => {

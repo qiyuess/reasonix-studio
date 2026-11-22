@@ -80,7 +80,7 @@ function project(overrides: Partial<TreeProject> = {}): TreeProject {
 }
 
 function tree(overrides: Partial<TreeState> = {}): TreeState {
-  return { projects: [project()], status: "loaded", code: "", revision: 1, reload: vi.fn(), ...overrides };
+  return { projects: [project()], status: "loaded", code: "", revision: 1, reload: vi.fn(), scope: "active", setScope: vi.fn(), ...overrides };
 }
 
 async function render(props: Partial<React.ComponentProps<typeof SessionList>> = {}): Promise<void> {
@@ -528,6 +528,82 @@ describe("SessionList", () => {
 
       expect(container.textContent).not.toContain("份恢复副本");
       expect(container.textContent).toContain("不能撤销");
+    });
+
+    it("opens the archive from the count in its head row", async () => {
+      const fetchMock = route((url) =>
+        url.includes("scope=archived")
+          ? json([
+              {
+                root: "/work/app",
+                name: "app",
+                total: 1,
+                remaining: 0,
+                sessions: [
+                  { path: "/work/app/z.jsonl", name: "z", title: "归档的会话", lastActiveAt: Date.now() - 86_400_000 },
+                ],
+              },
+            ])
+          : json([]),
+      );
+      await render({ project: project({ total: 3, archived: 1 }) });
+
+      const head = container.querySelector(".archive-head") as HTMLButtonElement;
+      expect(head).toBeTruthy();
+      expect(head.textContent).toContain("已归档 1");
+      expect(head.getAttribute("aria-expanded")).toBe("false");
+
+      await act(async () => {
+        head.click();
+      });
+      await settle();
+
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("scope=archived"))).toBe(true);
+      expect(head.getAttribute("aria-expanded")).toBe("true");
+      expect(container.textContent).toContain("归档的会话");
+    });
+
+    it("opens and unarchives an archived conversation from its row", async () => {
+      vi.useFakeTimers();
+      const onOpen = vi.fn();
+      route((url) =>
+        url.includes("scope=archived")
+          ? json([
+              {
+                root: "/work/app",
+                name: "app",
+                total: 1,
+                remaining: 0,
+                sessions: [
+                  { path: "/work/app/z.jsonl", name: "z", title: "归档的会话", lastActiveAt: Date.now() - 86_400_000 },
+                ],
+              },
+            ])
+          : json({ id: "r9", base: "/rt/r9", root: "/work/app", name: "app" }),
+      );
+      await render({ project: project({ total: 3, archived: 1 }), onOpen });
+
+      await act(async () => {
+        (container.querySelector(".archive-head") as HTMLButtonElement).click();
+      });
+      await settle();
+
+      const row = Array.from(container.querySelectorAll(".session")).find((candidate) =>
+        candidate.textContent?.includes("归档的会话"),
+      ) as HTMLElement;
+      expect(row).toBeTruthy();
+
+      await act(async () => {
+        row.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+      });
+      await settle();
+      expect(onOpen).toHaveBeenCalled();
+
+      hold(row, 100, 100);
+      pointer(row, "pointerup", 100, 100);
+      expect(container.textContent).toContain("取消归档");
+      expect(container.textContent).toContain("删除会话");
     });
   });
 });
