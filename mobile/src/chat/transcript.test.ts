@@ -594,6 +594,18 @@ describe("turn receipt", () => {
     if (worked?.kind === "worked") expect(worked.ms).toBe(2_275_000);
   });
 
+  it("carries the turn's start when the wire names it", () => {
+    const result = feed([
+      { kind: "turn_started", text: "问" },
+      { kind: "text", text: "答" },
+      { kind: "turn_done", workDurationMs: 2_275_000, workStartedAt: 1_763_780_520_000 },
+    ]);
+
+    const worked = result.rows[result.rows.length - 1];
+    expect(worked?.kind).toBe("worked");
+    if (worked?.kind === "worked") expect(worked.startedAt).toBe(1_763_780_520_000);
+  });
+
   it("leaves a turn under half a second without a receipt", () => {
     const result = feed([
       { kind: "turn_started", text: "问" },

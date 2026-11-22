@@ -52,6 +52,20 @@ export function clockText(ms: number): string {
 }
 
 /**
+ * A moment to the second, date always first: `2026-11-22 13:15:20`.
+ * Not the reader's locale — a stamp is the value two ends of a range are
+ * read against, and the same width in both ends keeps the line from
+ * reflowing between them. This is the format Studio draws a turn's
+ * start-end range in.
+ */
+export function stampText(ms: number): string {
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return "";
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
+}
+
+/**
  * A turn's run time the way Studio states it: `37m 55s`, `1h 2m`.
  * Whole seconds, largest unit first, zero parts left out.
  */

@@ -70,6 +70,8 @@ export interface WorkedRow {
   kind: "worked";
   id: string;
   ms: number;
+  /** When the turn's work began; with `ms` it draws the start-end range. */
+  startedAt?: number;
 }
 
 export interface NoticeRow {
@@ -699,9 +701,13 @@ export function reduce(
       // The turn's close, as Studio draws it: a tick and how long it ran. Under
       // half a second the duration rounds to nothing, so it earns no line.
       const ms = event.workDurationMs;
+      const startedAt =
+        typeof event.workStartedAt === "number" && event.workStartedAt > 0
+          ? event.workStartedAt
+          : undefined;
       const closed =
         typeof ms === "number" && ms >= 500
-          ? [...rows, { kind: "worked" as const, id: nextId("worked"), ms }]
+          ? [...rows, { kind: "worked" as const, id: nextId("worked"), ms, ...(startedAt !== undefined ? { startedAt } : {}) }]
           : rows;
       return {
         ...transcript,

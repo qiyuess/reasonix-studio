@@ -14,7 +14,7 @@ import { ThoughtStrip } from "./ThoughtStrip";
 import { CopyButton } from "./CopyButton";
 import { SurfaceCard } from "./SurfaceCard";
 import { approvalPlanSteps } from "./planApproval";
-import { clockText, elapsedText } from "../app/format";
+import { clockText, elapsedText, stampText } from "../app/format";
 import { StudioIcon } from "../app/StudioIcon";
 import { kernelTransport } from "../net/transport";
 
@@ -258,10 +258,16 @@ export function AssistantBubble({
   );
 }
 
-/** The turn's close, as Studio draws it: a tick and how long it ran. */
+/** The turn's close, as Studio draws it: the start-end range when the wire
+ *  named when the work began, then a tick and how long it ran. */
 export function WorkedLine({ row }: { row: WorkedRow }) {
   return (
     <div className="worked">
+      {row.startedAt !== undefined ? (
+        <span className="worked-span" dir="ltr">
+          {stampText(row.startedAt)} ~ {stampText(row.startedAt + row.ms)}
+        </span>
+      ) : null}
       <span className="worked-ok">
         <StudioIcon name="check" className="worked-tick" />
         <span>已完成 · {elapsedText(row.ms)}</span>
