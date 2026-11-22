@@ -1,11 +1,11 @@
 {
-  "tag": "v1.0.0",
-  "version": "1.0.0",
-  "versionCode": 29,
-  "apk": "reasonix-for-android-1.0.0.apk",
-  "notes": "# 1.0.0\n\n手机端应用的第一个正式版。手机只绘制界面，通过本机的回环代理连到这台电脑上的内核。\n\n> 可以直接在「设置 → 偏好 → 关于」检查并安装这一版，配对信息、连接记录和本地设置都会保留。\n\n## 变更\n\n- **版本号进入 1.0.0**：此前手机端自己走 0.6.0 一类的号，与它配对的桌面端版本无关。从这一版起手机端随 Studio 一起发布、安装包与桌面端安装包一同提供下载，`versionCode` 从 28 进到 29（Android 不接受重复的 versionCode，即使名称变过）。\n- **手机端并入 Studio 仓库**：源码、Android 工程与发布流程都落在这个仓库里，不再单独维护。\n\n## 修复\n\n- **回环代理同时携带两个 cookie jar 的凭据**：代理原有一个 WebView cookie jar 和一个内存 jar，请求只取前者。扫码进配对 WebView 的凭据落在 `CookieManager`，直接交给代理的凭据落在内存，两者都不是对方的超集；请求挑中空的那个时，内核收到的就是「从未配对」的答案。现在两者都带上。\n\n## 说明\n\n- 手机端从 debug 包切换到正式签名包的第一版，已装 debug 包的手机会因签名不同拒绝覆盖，需要卸载一次；配对 cookie 与 origin 会一起丢失，重新扫码即可。",
+  "tag": "v1.1.0",
+  "version": "1.1.0",
+  "versionCode": 30,
+  "apk": "reasonix-for-android-1.1.0.apk",
+  "notes": "# 1.1.0\n\n手机端随 Studio 2.71.1 一同发布。回合结束显示起止时间，归档改为可切换的范围，面板名称跟随电脑端的重命名，停止前先确认。\n\n> 可以直接在「设置 → 偏好 → 关于」检查并安装这一版，配对信息、连接记录和本地设置都会保留。\n\n## 新增\n\n- **回合结束行显示起止时间**：与电脑端一致，形如 `2026-11-22 13:15:20 ~ 13:24:15`；同一天只说一次日期，跨天的回合两端都写全。重开会话后起止时间依然保留，不再只剩一个耗时数字。\n- **归档是可切换的范围**：主界面两处标题行都能切换「进行中 / 归档」，归档视图只列还有内容的项目；项目归档标题行本身就是开关，标题里带着数量。\n- **面板名称跟随电脑端的重命名**：通知栏、会话列表、聊天标题与需求卡统一读同一个名字。\n- **停止按钮先确认再执行**：弹出确认单避免误触，正在结束的回合会自动关掉它。\n\n## 修复\n\n- **模型标签到位即显示模型名**，不再停留在「默认模型」；设置栏固定在自己的合成层，滚动中不再被页签层盖住。\n- **启动窗口按页面配色显示**，图标不再带背板卡片。\n- **通知栏标题用重命名后的名称**，不再读磁盘文件夹名。\n\n## 移除\n\n- **「完整界面」区块**与其整条链路：手机端只绘制自己的界面，不再内嵌桌面版页面。\n- **「主题风格」设置行**：界面就是 Studio 的样子，无需再选。\n\n## 说明\n\n- `versionCode` 从 29 进到 30（Android 不接受重复的 versionCode，即使名称变过）。",
   "mirrors": [
-    "https://gh-proxy.com/https://github.com/f1shsmell/Reasonix-Android/releases/download/v1.0.0/reasonix-for-android-1.0.0.apk",
-    "https://ghfast.top/https://github.com/f1shsmell/Reasonix-Android/releases/download/v1.0.0/reasonix-for-android-1.0.0.apk"
+    "https://gh-proxy.com/https://github.com/f1shsmell/Reasonix-Android/releases/download/v1.1.0/reasonix-for-android-1.1.0.apk",
+    "https://ghfast.top/https://github.com/f1shsmell/Reasonix-Android/releases/download/v1.1.0/reasonix-for-android-1.1.0.apk"
   ]
 }
