@@ -69,7 +69,9 @@ describe("applyStatusBar", () => {
     expect(sent()).toHaveLength(1);
 
     paint({ "--bg": "#f7f3ea" });
-    document.documentElement.setAttribute("data-style", "paper");
+    // The observer watches root attributes: a theme flip alone (the one axis
+    // left after the surface picker went away) must reach it.
+    document.documentElement.setAttribute("data-theme", "dark");
     await Promise.resolve();
     await Promise.resolve();
 

@@ -137,10 +137,10 @@ function watchVisibility(): void {
 /**
  * Repaint when the root attributes choose another palette.
  *
- * A theme change and a surface change are two axes (`data-theme`,
- * `data-style`), and either can move `--bg`. Observing the attributes rather
- * than making each setter remember to call here means a third axis added
- * later inherits the behaviour. Unchanged colours are not re-sent.
+ * A theme change moves the palette (`data-theme`), and any root attribute can
+ * move `--bg`. Observing the attributes rather than making each setter
+ * remember to call here means a third axis added later inherits the
+ * behaviour. Unchanged colours are not re-sent.
  */
 function watchRoot(): void {
   if (watchingRoot || typeof MutationObserver === "undefined") return;

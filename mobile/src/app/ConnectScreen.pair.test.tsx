@@ -22,7 +22,6 @@ vi.mock("../native/networkWatch", () => ({
   readNetworkStatus: vi.fn(async () => null),
   onNetworkChange: vi.fn(async () => ({ remove: vi.fn() })),
 }));
-vi.mock("@capacitor/browser", () => ({ Browser: { open: vi.fn(async () => {}) } }));
 vi.mock("@capacitor/clipboard", () => ({ Clipboard: { read: vi.fn(), write: vi.fn(async () => {}) } }));
 vi.mock("@capacitor/barcode-scanner", () => ({
   CapacitorBarcodeScanner: { scanBarcode: vi.fn() },

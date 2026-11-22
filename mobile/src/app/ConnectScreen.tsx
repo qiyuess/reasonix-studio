@@ -12,7 +12,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
 import { onNetworkChange } from "../native/networkWatch";
-import { Browser } from "@capacitor/browser";
 import { Clipboard } from "@capacitor/clipboard";
 import {
   CapacitorBarcodeScanner,
@@ -30,7 +29,7 @@ import {
   ProxyError,
 } from "../net/server";
 import type { ProxyConfig, ServerLink } from "../net/server";
-import { disconnectProxy, setNetworkPolicy, studioWebUrl } from "../net/server";
+import { disconnectProxy, setNetworkPolicy } from "../net/server";
 import { linkFailure } from "../net/link";
 import type { LinkError, LinkState } from "../net/link";
 import { ConnectionHero } from "./ConnectionHero";
@@ -53,7 +52,6 @@ import { withTimeout } from "../net/http";
 import { forgetFleetPeer } from "../net/fleet";
 import { NativePair } from "../native/pair";
 import type { PairResult } from "../native/pair";
-import { openStudio } from "./openStudio";
 import {
   loadBackgroundStatus,
   openBatterySettings,
@@ -61,14 +59,12 @@ import {
 } from "../native/turn";
 import type { BackgroundStatus } from "../native/turn";
 import { THEME_CHOICES, applyTheme, loadTheme, saveTheme } from "./theme";
-import { UI_STYLE_CHOICES, applyUiStyle, loadUiStyle, saveUiStyle } from "./uiStyle";
 import {
   DISPATCH_AFTER_CHOICES,
   loadDispatchAfter,
   saveDispatchAfter,
 } from "./dispatchPref";
 import type { DispatchAfter } from "./dispatchPref";
-import type { UiStyle } from "./uiStyle";
 import type { ThemeChoice } from "./theme";
 import { hapticSample, loadSurfaceChoice, loadHaptics, saveHapticSurface, saveHaptics } from "./haptics";
 import { Switch } from "./Switch";
@@ -88,7 +84,6 @@ import { Segmented } from "./Segmented";
 import type { NotificationPrefs } from "./notifyPref";
 import { useUpdater } from "./useUpdater";
 import { UpdateRow } from "./UpdateRow";
-import { STUDIO_MIN_CHROME, chromeMajor, needsStudioUpgrade } from "./webviewCompat";
 
 export interface ConnectScreenProps {
   onConnected: () => void;
@@ -156,7 +151,6 @@ export function ConnectScreen({ onConnected, onFailed, onDisconnected, onClose, 
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [theme, setThemeState] = useState<ThemeChoice>(() => loadTheme());
-  const [uiStyle, setUiStyleState] = useState<UiStyle>(() => loadUiStyle());
   const [dispatchAfter, setDispatchAfterState] = useState<DispatchAfter>(() => loadDispatchAfter());
   const [fold, setFold] = useState<FoldMode>(() => loadFoldMode());
   /** The transcript's reading text size; applied to the root like the theme. */
@@ -298,12 +292,6 @@ export function ConnectScreen({ onConnected, onFailed, onDisconnected, onClose, 
     setThemeState(choice);
     saveTheme(choice);
     applyTheme(choice);
-  }, []);
-
-  const pickUiStyle = useCallback((style: UiStyle) => {
-    setUiStyleState(style);
-    saveUiStyle(style);
-    applyUiStyle(style);
   }, []);
 
   const pickDispatchAfter = useCallback((after: DispatchAfter) => {
@@ -846,29 +834,6 @@ export function ConnectScreen({ onConnected, onFailed, onDisconnected, onClose, 
       : isRemoteOrigin(pending.target)
         ? "反代"
         : "局域网";
-  /** The computer's own Studio page, for opening the full desktop UI. */
-  const webUrl = studioWebUrl(config);
-  /**
-   * The in-app page runs on the phone's own WebView, which may be years
-   * behind: nothing in the app can update it, and the Studio front end needs
-   * Chrome 111 for its colours and 105 for its layout. Say so on the row
-   * instead of opening a page that looks broken — the browser below is the
-   * way out for that phone, since browsers carry their own engine.
-   */
-  const webViewMajor = chromeMajor(
-    typeof navigator === "undefined" ? "" : navigator.userAgent,
-  );
-  const studioNeedsUpgrade = needsStudioUpgrade(webViewMajor);
-  const openWebUrl = () => {
-    setError("");
-    // The page follows the route the link machine has, not the origin the
-    // proxy still remembers: a phone that left Wi-Fi keeps a LAN address.
-    void openStudio().then((result) => {
-      if (result.kind === "none") setError("读不到这台电脑的 Studio 地址。");
-      else if (result.kind === "failed") setError("打不开完整界面。");
-    });
-  };
-
   const storageText =
     storage === "loading"
       ? "统计中…"
@@ -945,60 +910,6 @@ export function ConnectScreen({ onConnected, onFailed, onDisconnected, onClose, 
                 </span>
               </div>
             </section>
-          </>
-        ) : null}
-
-        {pane === "connect" && webUrl ? (
-          <>
-            <p className="group-label">完整界面</p>
-            <section className="group">
-              <button
-                type="button"
-                className="setting action"
-                onClick={() => openWebUrl()}
-                disabled={busy !== ""}
-              >
-                <span className="setting-main">
-                  <span className="setting-title">在应用内打开</span>
-                  <span className="setting-sub">
-                    {studioNeedsUpgrade
-                      ? `系统 WebView 是 Chrome ${webViewMajor}，页面会显示不全`
-                      : "电脑上那套 Studio 页面，整页运行在这里"}
-                  </span>
-                </span>
-                <span className="chev" aria-hidden="true">
-                  ›
-                </span>
-              </button>
-              <button
-                type="button"
-                className="setting action"
-                onClick={() => {
-                  setError("");
-                  void Browser.open({ url: webUrl }).catch(() => setError("打不开浏览器。"));
-                }}
-                disabled={busy !== ""}
-              >
-                <span className="setting-main">
-                  <span className="setting-title">在浏览器打开</span>
-                  <span className="setting-sub">
-                    {studioNeedsUpgrade
-                      ? "同一个页面，交给系统浏览器（自带内核，显示正常）"
-                      : "同一个页面，交给系统浏览器"}
-                  </span>
-                </span>
-                <span className="chev" aria-hidden="true">
-                  ›
-                </span>
-              </button>
-            </section>
-            {studioNeedsUpgrade ? (
-              <p className="group-note">
-                电脑上那套页面用到 Chrome {STUDIO_MIN_CHROME} 才支持的写法，手机系统 WebView
-                还停在 {webViewMajor}。去应用商店更新「Android 系统 WebView」后重启 App
-                即可恢复；更新不了就先在上面用浏览器打开。
-              </p>
-            ) : null}
           </>
         ) : null}
 
@@ -1218,15 +1129,6 @@ export function ConnectScreen({ onConnected, onFailed, onDisconnected, onClose, 
           <>
         <p className="group-label">通用</p>
         <section className="group">
-          <div className="setting">
-            <span className="setting-title">主题</span>
-            <Segmented
-              ariaLabel="主题风格"
-              value={uiStyle}
-              options={UI_STYLE_CHOICES}
-              onChange={pickUiStyle}
-            />
-          </div>
           <div className="setting">
             <span className="setting-title">明暗</span>
             <Segmented

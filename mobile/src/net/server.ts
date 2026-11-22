@@ -492,39 +492,6 @@ export type ServerLink = { kind: "lan"; origin: string; pairCode?: string; token
  * kernel origin itself. Empty when there is nothing to open — the caller hides
  * the entry instead of shipping a dead link.
  */
-export function studioWebUrl(
-  config: Pick<ProxyConfig, "origin"> | null,
-): string {
-  return config?.origin?.trim() || "";
-}
-
-/**
- * The URL for the **in-app** full Studio WebView.
- *
- * A door has to go through the loopback proxy, not straight at the kernel: the
- * proxy is what binds the request to the Wi-Fi network when a VPN owns the
- * default route, adds the pairing cookie, and speaks the kernel's CSRF Origin.
- * A bare WebView on the kernel address has none of that and fails whenever a
- * tunnel is active — the "打不开完整界面" case. The proxy publishes its own
- * address in `studioUrl`; a browser dev session keeps the real address.
- *
- * The system browser is different again: it has no proxy cookie, so it must
- * keep using `studioWebUrl()`.
- */
-export function studioAppUrl(
-  config: Pick<ProxyConfig, "origin" | "studioUrl"> | null,
-): string {
-  return config?.studioUrl?.trim() || config?.origin?.trim() || "";
-}
-
-/**
- * Read what a Studio QR code carries.
- *
- * The code is `http://<ip>:<port>/#pair=<one-time code>`, or
- * `https://<name>/#pair=<one-time code>` when the desktop sits behind a reverse
- * proxy the person configured. A kernel paired with a launch token publishes
- * `#token=` instead, because it has no share listener to pair with.
- */
 export function parseServerLink(raw: string): ServerLink | null {
   try {
     const url = new URL(raw.trim());
