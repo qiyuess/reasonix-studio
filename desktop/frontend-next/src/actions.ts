@@ -505,6 +505,7 @@ export const ACTIONS: UIAction[] = [
   { id: "rewind.notice-dismiss", kind: "view", target: "entity", proof: "interaction" },
   { id: "extensions.submit", kind: "kernel-mutation", target: "none", proof: "authority-effect" },
   { id: "provider.probe", kind: "repeatable", target: "none", proof: "interaction" },
+  { id: "provider.refresh", kind: "kernel-mutation", target: "entity", proof: "interaction" },
   { id: "provider.draft", kind: "interaction", target: "none", proof: "interaction" },
   { id: "provider.price-source", kind: "shell-native", target: "entity", proof: "interaction" },
   { id: "provider.discard-edits", kind: "destructive", target: "none", proof: "interaction" },

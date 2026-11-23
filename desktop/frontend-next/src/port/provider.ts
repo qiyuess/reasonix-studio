@@ -169,6 +169,9 @@ export interface ProviderProbe {
   kinds: string[];
   authHeader: boolean;
   models: string[];
+  // What the endpoint itself calls each model, where that differs from the id
+  // — a relay's own display naming. Display material only; routing reads ids.
+  names?: Record<string, string>;
   default: string;
   efforts: string[];
   effort: string;
@@ -210,6 +213,11 @@ export interface ProviderCheck {
   // Re-probing is also capability discovery: a vendor may add a multimodal
   // model to an endpoint whose stored model list predates it.
   vision?: string[];
+  // What the endpoint itself calls each model, where that differs from the id
+  // — a relay's own display naming, asked for again when the 编辑连接 form
+  // refetches. Display material only: routing and everything drawn from ids
+  // keeps reading `models`.
+  names?: Record<string, string>;
   ambiguous?: boolean;
   noProxy?: boolean;
   code?: string;
