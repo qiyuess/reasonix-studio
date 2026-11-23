@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"reasonix/internal/base/testenv"
+	"reasonix/internal/contract/config"
 	"reasonix/internal/contract/event"
 	"reasonix/internal/contract/provider"
 	"reasonix/internal/contract/tool"
@@ -142,6 +143,110 @@ func TestPictureSteerToATextOnlyModelFallsBackToAFollowUp(t *testing.T) {
 	// answers TurnDone on a one-slot channel: draining is what keeps the turn from
 	// blocking on a send nobody will read.
 	drainInbox(t, c, prov, done)
+}
+
+// A picture sent mid-turn to a model that cannot read it still steers when a
+// vision model is configured to read it on delegation: the words carry the
+// same routing note a whole turn's input gets, so the turn hands the picture
+// over instead of the line waiting out the turn as a follow-up nobody asked
+// for.
+func TestSteerCarryingAPictureDelegatesWhenTheModelCannotReadIt(t *testing.T) {
+	c, _, prov, done, _ := steeringDelegatedTurn(t)
+
+	rec, err := c.TryEnqueueAndSteer(InboxRequest{Submit: "look at @diagram.png before you continue", Source: "test"})
+	if err != nil {
+		t.Fatalf("steer with a picture: %v", err)
+	}
+	if rec.Disposition != sessioninbox.DispositionSteerAccepted {
+		t.Fatalf("disposition = %q, want the steer accepted rather than held as a follow-up", rec.Disposition)
+	}
+
+	prov.unblock()
+	waitForDoneWithin(t, done, 60*time.Second)
+
+	if len(prov.requests) < 2 {
+		t.Fatalf("provider requests = %d, want the turn to continue after the steer", len(prov.requests))
+	}
+	applied := prov.requests[len(prov.requests)-1].Messages
+	at := -1
+	for i, m := range applied {
+		if m.Role == provider.RoleUser && strings.Contains(m.Content, "before you continue") {
+			at = i
+			break
+		}
+	}
+	if at < 0 {
+		t.Fatalf("the steer never reached the model: %+v", applied)
+	}
+	got := applied[at].Content
+	if !strings.Contains(got, sessionstore.MidTurnSteerPrefix) {
+		t.Fatalf("the message is not marked as mid-turn guidance: %q", got)
+	}
+	if !strings.Contains(got, ImageRoutingTag) {
+		t.Fatalf("the guidance does not tell the model where its picture goes: %q", got)
+	}
+	if !strings.Contains(got, "vision-pro") {
+		t.Fatalf("the routing note does not name the configured vision model: %q", got)
+	}
+}
+
+// steeringDelegatedTurn is steeringPictureTurn for a model that cannot read
+// pictures while a vision model is configured to read them on delegation.
+func steeringDelegatedTurn(t *testing.T) (*Controller, *sessionstore.Session, *inboxSteerProvider, chan event.Event, string) {
+	t.Helper()
+	dir := testenv.TempDir(t)
+	workspace := filepath.Join(dir, "workspace")
+	if err := os.MkdirAll(workspace, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeDelegatingVisionTestConfig(t, workspace)
+	imagePath := filepath.Join(workspace, "diagram.png")
+	if err := os.WriteFile(imagePath, mustBase64(t, tinyPNG), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	prov := newInboxSteerProvider()
+	sess := sessionstore.NewSession("sys")
+	exec := agent.New(prov, tool.NewRegistry(), sess, agent.Options{}, event.Discard)
+	sink, done, _ := collectSink()
+	c := New(Options{
+		Runner:        exec,
+		Executor:      exec,
+		Sink:          sink,
+		SessionDir:    dir,
+		SessionPath:   filepath.Join(dir, "s.jsonl"),
+		WorkspaceRoot: workspace,
+		ModelRef:      "custom/text-only",
+	})
+	t.Cleanup(func() { prov.unblock(); c.autosaveWG.Wait() })
+	c.Submit("initial turn")
+	select {
+	case <-prov.started:
+	case e := <-done:
+		t.Fatalf("the turn ended before it reached the provider: %+v", e)
+	case <-time.After(testenv.Budget(t)):
+		t.Fatal("the turn never started")
+	}
+	return c, sess, prov, done, imagePath
+}
+
+// writeDelegatingVisionTestConfig is writeVisionTestConfig plus a configured
+// vision_model, so a text-only turn's pictures have a configured reader.
+func writeDelegatingVisionTestConfig(t *testing.T, root string) {
+	t.Helper()
+	cfg := config.Default()
+	cfg.DefaultModel = "custom/vision-pro"
+	cfg.Agent.VisionModel = "custom/vision-pro"
+	cfg.Providers = []config.ProviderEntry{{
+		Name:         "custom",
+		Kind:         "openai",
+		BaseURL:      "https://example.invalid/v1",
+		Models:       []string{"text-only", "vision-pro"},
+		VisionModels: []string{"vision-pro"},
+	}}
+	if err := cfg.SaveTo(filepath.Join(root, "reasonix.toml")); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+	approveWorkspace(t, root)
 }
 
 // drainInbox runs the queue to empty so a test's one-slot TurnDone channel does
