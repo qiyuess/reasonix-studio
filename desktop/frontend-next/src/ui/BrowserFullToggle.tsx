@@ -16,7 +16,7 @@ export function BrowserFullToggle({ full, onToggle }: { full: boolean; onToggle:
       shortcut={chord("Shift+F")}
       onClick={onToggle}
     >
-      <StudioIcon name="cornersOpen" />
+      <StudioIcon name="scanFrame" strokeWidth={2} />
     </TooltipButton>
   );
 }

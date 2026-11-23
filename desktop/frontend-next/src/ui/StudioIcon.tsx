@@ -42,17 +42,21 @@ const ICONS = {
   zoomIn: ZoomIn, zoomOut: ZoomOut, disabled: Ban,
 } as const;
 
-/** Four corner brackets opening outwards. Lucide's own `expand` adds a diagonal
- *  in each corner, which reads as "enlarge diagonally"; the workbench's full
- *  width control means "give this the whole window", so the corners alone. */
-const CornersOpen = createLucideIcon("CornersOpen", [
-  ["path", { d: "M9 3H3v6", key: "a" }],
-  ["path", { d: "M15 3h6v6", key: "b" }],
-  ["path", { d: "M9 21H3v-6", key: "c" }],
-  ["path", { d: "M15 21h6v-6", key: "d" }],
+/** The full-workbench toggle's glyph, the demo's own: four rounded corner
+ *  brackets around a small rounded square — the square is the room the
+ *  toggle answers with, where the free-size control beside it asks for a
+ *  size. Lucide's `scan` draws the brackets tighter and its square larger;
+ *  these are the demo's exact paths, and the toggle draws them at the
+ *  demo's stroke of 2 rather than the icons' 1.8. */
+const ScanFrame = createLucideIcon("ScanFrame", [
+  ["path", { d: "M4 8V6a2 2 0 0 1 2-2h2", key: "a" }],
+  ["path", { d: "M16 4h2a2 2 0 0 1 2 2v2", key: "b" }],
+  ["path", { d: "M20 16v2a2 2 0 0 1-2 2h-2", key: "c" }],
+  ["path", { d: "M8 20H6a2 2 0 0 1-2-2v-2", key: "d" }],
+  ["rect", { x: "8.5", y: "8.5", width: "7", height: "7", rx: "1.5", key: "e" }],
 ]);
 
-const ALL = { ...ICONS, cornersOpen: CornersOpen } as const;
+const ALL = { ...ICONS, scanFrame: ScanFrame } as const;
 
 export type StudioIconName = keyof typeof ALL;
 
