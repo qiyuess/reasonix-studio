@@ -458,7 +458,7 @@ ipcMain.handle("browser:frame", (event, targetId, size) => {
   const zoom = ["50", "75", "100"].includes(String(size?.zoom)) ? String(size.zoom) : "fit";
   browserViews?.frame(String(targetId), valid ? { width: Math.round(width), height: Math.round(height), zoom } : null);
 });
-ipcMain.handle("browser:freeze", (event) => (fromWindow(event) ? (browserViews?.freeze() ?? "") : ""));
+ipcMain.handle("browser:freeze", (event) => (fromWindow(event) ? (browserViews?.freeze() ?? { picture: "", at: null }) : { picture: "", at: null }));
 ipcMain.handle("browser:control", (event, targetId, action) => {
   if (fromWindow(event)) browserViews?.control(String(targetId), String(action));
 });

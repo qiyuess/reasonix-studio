@@ -18,7 +18,7 @@ const bridge = {
   showBrowserView: vi.fn(async () => {}),
   hideBrowserView: vi.fn(async () => {}),
   frameBrowserView: vi.fn(async () => {}),
-  freezeBrowserView: vi.fn(async () => PICTURE),
+  freezeBrowserView: vi.fn(async () => ({ picture: PICTURE, at: null })),
   controlBrowserView: vi.fn(async () => {}),
   navigateBrowserView: vi.fn(async (_target: string, _address: string): Promise<string> => ""),
   onBrowserLoadState: vi.fn((listener: LoadState) => {
@@ -68,7 +68,7 @@ async function panel(props: { tabs: BrowserTab[]; shown: boolean; onOpenDocument
 beforeEach(() => {
   for (const fn of [bridge.showBrowserView, bridge.hideBrowserView, bridge.frameBrowserView, bridge.freezeBrowserView, bridge.controlBrowserView, bridge.navigateBrowserView]) fn.mockClear();
   bridge.navigateBrowserView.mockImplementation(async () => "");
-  bridge.freezeBrowserView.mockImplementation(async () => PICTURE);
+  bridge.freezeBrowserView.mockImplementation(async () => ({ picture: PICTURE, at: null }));
   above = [];
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"], shouldAdvanceTime: true });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
@@ -346,14 +346,14 @@ describe("a layer the page draws over the view", () => {
   });
 
   it("drops a picture that arrives after the page is live again", async () => {
-    let answer: (picture: string) => void = () => {};
-    bridge.freezeBrowserView.mockImplementation(() => new Promise<string>((resolve) => (answer = resolve)));
+    let answer: (shot: { picture: string; at: null }) => void = () => {};
+    bridge.freezeBrowserView.mockImplementation(() => new Promise<{ picture: string; at: null }>((resolve) => (answer = resolve)));
     await panel({ tabs, shown: true });
     above = [layer("background:#000")];
     await settle();
     above = [];
     await settle(500);
-    await act(async () => answer(PICTURE));
+    await act(async () => answer({ picture: PICTURE, at: null }));
     expect(document.querySelector(".bview img")).toBeNull();
   });
 

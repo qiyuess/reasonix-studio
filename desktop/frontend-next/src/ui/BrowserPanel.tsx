@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, ExternalLink, Globe, MonitorSmartphone, MousePoi
 import { t } from "../i18n";
 import { reason } from "../i18n/kernel";
 import type { AgentPort, BrowserTab } from "../port/port";
-import { host, type BrowserControl, type BrowserLoadFailure, type BrowserPickEnd, type BrowserRefusal, type PickedElement } from "../port/host";
+import { host, type BrowserControl, type BrowserLoadFailure, type BrowserPickEnd, type BrowserRefusal, type PickedElement, type ViewRect } from "../port/host";
 import { SWAP_MARK } from "./swap";
 import { occluded, visibleBox } from "./occlusion";
 import { BrowserSizeBar } from "./BrowserSizeBar";
@@ -282,7 +282,10 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
   const [failures, setFailures] = useState<Record<string, BrowserLoadFailure>>({});
   const [refused, setRefused] = useState<BrowserRefusal>("");
   const [docFailed, setDocFailed] = useState("");
-  const [frame, setFrame] = useState("");
+  // The picture the shell answered a freeze with, and the rectangle the view
+  // it stands in for stood in — the picture is drawn there, so the swap a
+  // freeze makes is not also a jump to another size.
+  const [frame, setFrame] = useState<{ picture: string; at: ViewRect | null } | null>(null);
   const [picking, setPicking] = useState(false);
   const [element, setElement] = useState<PickedElement | null>(null);
   const [pickEnd, setPickEnd] = useState("");
@@ -338,7 +341,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
   useLayoutEffect(() => {
     const el = slot.current;
     const shell = host();
-    setFrame("");
+    setFrame(null);
     if (!el || !shown || !target || failure) {
       shell.hideBrowserView();
       return;
@@ -370,21 +373,29 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       if (document.documentElement.hasAttribute(SWAP_MARK) || occluded(el, box)) {
         if (frozen) return;
         const turn = (frozen = ++freezes);
-        void shell.freezeBrowserView().then((picture) => {
+        void shell.freezeBrowserView().then((shot) => {
           if (!live || frozen !== turn) return;
-          setFrame(picture);
+          // An empty answer is the shell having put the view away itself:
+          // nothing stands in for the page, and nothing is left to hide.
+          setFrame(shot.picture ? shot : null);
+          if (!shot.picture) return;
           // The view goes away only once the picture is on screen: hiding it
           // first left a hole between the two, which read as the page
-          // blinking whenever a menu opened over it. An empty answer is the
-          // shell having put the view away itself.
-          if (!picture) return;
+          // blinking whenever a menu opened over it.
           requestAnimationFrame(() => requestAnimationFrame(() => {
             if (live && frozen === turn) shell.hideBrowserView();
           }));
         });
         return;
       }
-      if (frozen) setFrame("");
+      // A freeze being undone. The picture leaves only once the live view is
+      // back over the slot — the show below answers when the shell has put it
+      // there, and that answer is what takes the picture away. Cleared here
+      // instead, the slot showed its own ground for the frames between the
+      // two, which read as the page flashing again when the menu closed.
+      // The turn is what keeps a freeze that started again before the view
+      // answered from losing a picture that is not its own to take away.
+      const unfroze = frozen;
       frozen = 0;
       // The size goes with the rectangle, and before it: the shell lays the
       // page out in that viewport and then fits it into the slot, so a show
@@ -399,7 +410,12 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
         sent = want;
         shell.frameBrowserView(target, want);
       }
-      shell.showBrowserView(target, box);
+      // The promise stands for the view's answer whatever the bridge hands
+      // back — an older shell speaks the verb as void, and undefined has no
+      // then to wait on.
+      void Promise.resolve(shell.showBrowserView(target, box)).catch(() => {}).then(() => {
+        if (live && unfroze && frozen === 0) setFrame(null);
+      });
     };
     const schedule = () => { if (!timer) timer = window.setTimeout(place, 48); };
     // A size the row picked, or the row opening or closing, asks for another
@@ -545,7 +561,15 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
             onTrust={() => void host().trustBrowserCertificate(target)}
           />
         ) : (
-          frame && <img className="bframe" src={frame} alt="" draggable={false} />
+          frame && (
+            <img
+              className="bframe"
+              src={frame.picture}
+              alt=""
+              draggable={false}
+              style={frame.at ? { left: frame.at.x, top: frame.at.y, width: frame.at.width, height: frame.at.height } : undefined}
+            />
+          )
         )}
       </div>
     </div>

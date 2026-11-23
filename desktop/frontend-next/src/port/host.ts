@@ -114,8 +114,10 @@ export interface HostPort {
    *  thinks it is rather than only how large it looks. */
   frameBrowserView(target: string, size: { width: number; height: number; zoom?: string } | null): void;
   /** Put the page on screen away the way hideBrowserView does, answering with
-   *  a picture of what it showed at that moment, or "" when none was taken. */
-  freezeBrowserView(): Promise<string>;
+   *  a picture of what it showed at that moment, drawn at `at` — the rectangle
+   *  the view stood in relative to the slot — or an empty picture when none
+   *  was taken. */
+  freezeBrowserView(): Promise<{ picture: string; at: ViewRect | null }>;
   controlBrowserView(target: string, action: BrowserControl): void;
   /** Load what the person typed. "" when it loads, else why the shell refused it. */
   navigateBrowserView(target: string, address: string): Promise<BrowserRefusal>;
@@ -236,7 +238,7 @@ interface ElectronBridge {
   showBrowserView?(target: string, rect: ViewRect): Promise<void>;
   hideBrowserView?(): Promise<void>;
   frameBrowserView?(target: string, size: { width: number; height: number; zoom?: string } | null): Promise<void>;
-  freezeBrowserView?(): Promise<string>;
+  freezeBrowserView?(): Promise<{ picture: string; at: ViewRect | null }>;
   controlBrowserView?(target: string, action: string): Promise<void>;
   navigateBrowserView?(target: string, address: string): Promise<BrowserRefusal>;
   onBrowserLoadState?(listener: (state: BrowserLoadState) => void): () => void;
@@ -363,9 +365,9 @@ class ElectronHost implements HostPort {
     void this.api.frameBrowserView?.(target, size);
   }
   freezeBrowserView() {
-    if (this.api.freezeBrowserView) return this.api.freezeBrowserView().catch(() => "");
+    if (this.api.freezeBrowserView) return this.api.freezeBrowserView().catch(() => ({ picture: "", at: null }));
     this.hideBrowserView();
-    return Promise.resolve("");
+    return Promise.resolve({ picture: "", at: null });
   }
   controlBrowserView(target: string, action: BrowserControl) {
     void this.api.controlBrowserView?.(target, action);
@@ -480,7 +482,7 @@ class BrowserHost implements HostPort {
   hideBrowserView() {}
   frameBrowserView() {}
   freezeBrowserView() {
-    return Promise.resolve("");
+    return Promise.resolve({ picture: "", at: null });
   }
   controlBrowserView() {}
   navigateBrowserView() {

@@ -25,12 +25,11 @@
 }
 .workbench-tabs > :is(.workbench-files, .workbench-new):hover, .workbench-tabs > .workbench-files[aria-pressed="true"] { background: var(--overlay); color: var(--text); }
 /* The full-workbench toggle sits at the row's right end — the demo's own
-   placement — and reads as on the way the toolbar's mode toggles do: the
-   theme's accent, on the same overlay a hover wears, at the demo's own
-   14px glyph rather than the 16px its neighbours carry. */
+   placement. Everything else about it is the demo's own square too: the
+   strip's shared 28px cell, its 16px glyph, and the standing overlay a
+   pressed strip control wears — the demo keeps all of them identical to
+   `+`, and draws no pressed-state accent of its own. */
 .workbench-tabs > .workbench-files[data-action="browser.full"] { margin-left: auto; }
-.workbench-tabs > .workbench-files[data-action="browser.full"][aria-pressed="true"] { color: var(--accent); }
-.workbench-tabs > .workbench-files[data-action="browser.full"] .studio-icon { width: 14px; height: 14px; }
 .workbench-tabs > :is(.workbench-files, .workbench-new) .studio-icon { width: 16px; height: 16px; }
 
 /* The way to any open tab, at the head of the row. It takes the front rather

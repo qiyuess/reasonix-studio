@@ -95,11 +95,13 @@
 .chrome .wb-dock-head .workbench-tabs { flex: 1 1 auto; min-width: 0; width: 100%; height: auto; padding-top: 0; padding-right: 4px; border-bottom: 0; background: transparent; align-items: center; }
 .chrome .wb-dock-head .workbench-tab { margin-bottom: 0; border-radius: var(--r-sm); }
 .chrome .wb-dock-head .workbench-tab[aria-selected="true"] { box-shadow: none; }
-.chrome .wb-dock-head .workbench-new { align-self: auto; }
-/* The full-width strip aligns its squares with the file tree tab by a
-   bottom margin; docked, the bar centres everything, and that margin would
-   read as a 3px lift on a row with nothing to align against. */
-.chrome .wb-dock-head :is(.workbench-new, .workbench-files:not([data-action="workbench.files"])) { margin-bottom: 0; }
+/* The full-width strip stands its squares on the file tree's line by
+   flex-end and a bottom margin; docked, the bar centres its whole row, and
+   that bottom edge would sit the squares 3px under the line the tabs share.
+   Spelled with the strip itself in the selector: the full-width rule lives
+   in a later sheet at the same weight the old reset carried, so only
+   weight that outranks it holds regardless of which sheet lands last. */
+.chrome .wb-dock-head .workbench-tabs > :is(.workbench-new, .workbench-files:not([data-action="workbench.files"])) { align-self: center; margin-bottom: 0; }
 /* The picker sits on the same edge as the file tree rather than the row's
    centre: they are a 28px square and a 34px tab, so centring them apart leaves
    their glyphs on different lines. Its own margin half the difference is what

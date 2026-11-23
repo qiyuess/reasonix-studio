@@ -653,18 +653,19 @@ class BrowserViews {
   }
 
   // freeze answers with a picture of the page on screen, taken before it is put
-  // away. Only the page already shown is ever taken, and the picture goes to
-  // this window's page and nowhere else.
+  // away, and the rectangle the view stood in — relative to the slot, because
+  // that is where the page has to draw it. Only the page already shown is ever
+  // taken, and the answer goes to this window's page and nowhere else.
   async freeze() {
     const id = this.shown;
     const entry = this.entries.get(id);
     // A slept page was photographed when it went to sleep and has no view to
     // take another with: its picture is the answer, and there is nothing to
     // put away.
-    if (entry && entry.slept) return entry.slept.picture;
+    if (entry && entry.slept) return { picture: entry.slept.picture, at: null };
     if (!entry || entry.view.webContents.isDestroyed()) {
       this.hide();
-      return "";
+      return { picture: "", at: null };
     }
     const turn = this.placed;
     let picture = "";
@@ -679,7 +680,20 @@ class BrowserViews {
     // them. A freeze that photographed nothing has nothing to stand in for
     // the view, and the view must still give way to what covers it.
     if (this.placed === turn && this.shown === id && !picture) this.hide();
-    return picture;
+    // The picture answers the view's own rectangle, which a frame a person
+    // chose is not the slot: a percentage draws the view centred and small
+    // inside it. The rectangle is said against the slot — the panel the page
+    // reported — so the page can put the picture where the view stood instead
+    // of filling the slot with it and reading as a jump.
+    const panel = entry.panel;
+    const at = entry.at;
+    return {
+      picture,
+      at:
+        picture && panel && at
+          ? { x: at.x - panel.x, y: at.y - panel.y, width: at.width, height: at.height }
+          : null,
+    };
   }
 
   hide() {
@@ -703,7 +717,11 @@ class BrowserViews {
     if (entry) {
       entry.at = null;
       entry.panel = null;
-      void this.scaled(entry, 1);
+      // The page keeps the scale it was last told while it is parked out of
+      // sight: the widget goes on laying itself out that way, so the frame a
+      // freeze reopens is the frame it left — rather than one at the wrong
+      // size waiting for the scale to be said again. A page that truly sleeps
+      // is reset by the sleep, which builds the view over from nothing.
     }
   }
 
