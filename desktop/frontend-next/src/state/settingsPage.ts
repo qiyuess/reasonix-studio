@@ -8,7 +8,7 @@ const KEY = "rx-settings-page";
 
 const SECTIONS: readonly Section[] = [
   "common", "display", "controls", "session", "persona", "model", "providers",
-  "tools", "peers", "ext", "network", "remote", "memory", "usage", "storage",
+  "tools", "hooks", "ext", "network", "remote", "memory", "usage", "storage",
   "account", "versions", "appearance", "advanced",
 ];
 
