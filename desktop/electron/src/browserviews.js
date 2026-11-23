@@ -293,11 +293,20 @@ class BrowserViews {
     contents.on("render-process-gone", gone);
     // A woken page must come back laid out at the viewport the agent set, not
     // at whatever its view happens to be while it is parked. The device the
-    // row stood the page on comes back the same way, and before the load: the
-    // page's first request answers as that device, rather than answering as a
-    // desktop and being asked again.
+    // The viewport and the device the row chose are said on the same breath as
+    // the load itself — the commands are queued ahead of it, so the page's
+    // first request answers as that device rather than answering as a desktop
+    // and being asked again. A load waiting on the commands would sit behind
+    // whatever comes next in the queue, and an address typed at a fresh page
+    // is the navigation that must win it.
     if (entry.emulated) contents.debugger.sendCommand("Emulation.setDeviceMetricsOverride", entry.emulated).catch(() => {});
-    if (entry.frame?.device?.ua) contents.debugger.sendCommand("Emulation.setUserAgentOverride", { userAgent: entry.frame.device.ua }).catch(() => {});
+    const ua = entry.frame?.device?.ua;
+    if (ua) {
+      contents.debugger.sendCommand("Emulation.setUserAgentOverride", { userAgent: ua }).catch(() => {});
+      // Said and remembered together: a frame that follows does not say it
+      // twice and ask the page a second time.
+      entry.uaSent = ua;
+    }
     // The page loads before the window holds it, or the platform hands it the
     // keyboard and ends the person's composition. The load's promise is what a
     // wake waits out; a create leaves the waiting to the kernel.
@@ -577,21 +586,25 @@ class BrowserViews {
 
   // sayUserAgent tells the page which device it is answering — or, with null,
   // that it is answering on its own again. The answer is remembered so a fit
-  // does not say it twice, and a page that is being looked at is reloaded on
-  // the change: the UA a page sniffs for decides which self it answers with,
-  // and a page already answering the desktop one keeps answering it until it
-  // is asked again. That reload is what the toolbar's own device answer does
-  // too.
+  // does not say it twice. The promise settles once the override has landed,
+  // so a reload that follows asks the page again under the answer it was just
+  // given rather than racing the override to it; the boolean says whether the
+  // page should be asked again at all — the answer changed, and a panel is
+  // looking at it: the UA a page sniffs for decides which self it answers
+  // with, and a page already answering the desktop one keeps answering it
+  // until it is asked again. That reload is what the toolbar's own device
+  // answer does too.
   sayUserAgent(entry, ua) {
-    const cdp = entry.view?.webContents?.debugger;
-    if (!cdp) return false;
+    const contents = entry.view?.webContents;
+    const cdp = contents?.debugger;
+    if (!cdp) return Promise.resolve(false);
     const was = entry.uaSent ?? null;
     entry.uaSent = ua;
-    const said = ua
-      ? cdp.sendCommand("Emulation.setUserAgentOverride", { userAgent: ua }).catch(() => {})
-      : cdp.sendCommand("Emulation.clearUserAgentOverride").catch(() => {});
-    void said;
-    return ua !== was && !!entry.panel;
+    const said = (ua
+      ? cdp.sendCommand("Emulation.setUserAgentOverride", { userAgent: ua })
+      : cdp.sendCommand("Emulation.clearUserAgentOverride")
+    ).catch(() => {});
+    return said.then(() => ua !== was && !!entry.panel && !contents.isDestroyed());
   }
 
   // frame sizes the rectangle a page is seen through, for somebody watching it
@@ -606,22 +619,31 @@ class BrowserViews {
     // wake ends in, and the device it carries by the spawn that builds the
     // view back — before the page loads, so the first request answers as the
     // device the row chose rather than finding its desktop self already sent.
-    if (entry.slept || !entry.panel) return;
+    if (entry.slept) return;
+    // The device the frame stands for says which self the page answers as, and
+    // it is said before the page is ever shown: the first frame arrives ahead
+    // of the first show, and the page's next load — the address somebody
+    // types, the link somebody follows — must answer as the device the row
+    // chose rather than finding its desktop self already sent. A change is a
+    // question the page has to be asked again — the reload is what makes the
+    // new UA meet the page's own sniffing, the way the toolbar's device
+    // answer does — and it waits for the override to land, so the page is
+    // asked under the answer it was just given.
+    const ua = entry.frame?.device?.ua ?? null;
+    if (ua !== (entry.uaSent ?? null)) {
+      const contents = entry.view?.webContents;
+      void this.sayUserAgent(entry, ua).then((again) => {
+        if (again && contents && !contents.isDestroyed()) contents.reload();
+      });
+    }
+    // A page nobody is looking at has no rectangle to be fitted into; the fit
+    // its show ends in places the page at the frame the row chose.
+    if (!entry.panel) return;
     // Back to the rectangle: nothing is laid out in a viewport of its own any
     // more, and that has to be said. Leaving it unsaid leaves the page at the
     // last size somebody asked for, which for a page the agent never resized is
     // the only thing that would ever clear it.
     if (!this.viewportOf(entry) && entry.metrics) void this.clearMetrics(entry).catch(() => {});
-    // The device the frame stands for says which self the page answers as.
-    // A change is a question the page has to be asked again — the reload is
-    // what makes the new UA meet the page's own sniffing, the way the
-    // toolbar's device answer does.
-    const ua = entry.frame?.device?.ua ?? null;
-    if (ua !== (entry.uaSent ?? null)) {
-      if (this.sayUserAgent(entry, ua) && !entry.view.webContents.isDestroyed()) {
-        entry.view.webContents.reload();
-      }
-    }
     void this.fit(entry);
   }
 

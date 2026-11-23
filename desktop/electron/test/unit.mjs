@@ -2763,6 +2763,9 @@ test("the frame's device tells the page which self it answers as", async () => {
     [["Emulation.setUserAgentOverride", { userAgent: "Mozilla/5.0 (Linux; Android 14) Mobile" }]],
     "the UA is said once, on the change",
   );
+  // The reload waits for the override to land: the page is asked again under
+  // the answer it was just given, not alongside it.
+  await new Promise((resolve) => setImmediate(resolve));
   assert.ok(calls.includes("reload"), "a page someone is looking at is asked again when its answer changes");
 
   sent.length = 0;
@@ -2774,6 +2777,61 @@ test("the frame's device tells the page which self it answers as", async () => {
   views.frame("t1", null);
   assert.ok(sent.some(([m]) => m === "Emulation.clearUserAgentOverride"), "going back to the room takes the device's answer away");
   assert.ok(sent.some(([m]) => m === "Emulation.clearDeviceMetricsOverride"), "and the metrics it was told with");
+});
+
+// The panel's first frame arrives ahead of its first show, while the page has
+// no rectangle yet — the device is still said, so the page's next load answers
+// as the device the row chose instead of finding its desktop self already
+// sent. Nobody is looking yet, so the page is not asked again; the show that
+// follows fits the frame, and the answer already said is not said twice.
+test("a frame ahead of the first show still tells the page which self it answers as", async () => {
+  const Module = require("node:module");
+  const load = Module._load;
+  Module._load = function (request, ...rest) {
+    if (request === "electron") return { WebContentsView: class {}, session: { fromPartition: () => ({}) } };
+    return load.call(this, request, ...rest);
+  };
+  let BrowserViews;
+  try {
+    ({ BrowserViews } = require("../src/browserviews.js"));
+  } finally {
+    Module._load = load;
+  }
+  const win = {
+    on() {},
+    isDestroyed: () => false,
+    isFocused: () => false,
+    webContents: Object.assign(new EventEmitter(), { isFocused: () => false }),
+    getContentBounds: () => ({ width: 1200, height: 800 }),
+    contentView: { addChildView() {}, removeChildView() {} },
+  };
+  const views = new BrowserViews({ win, kernelOrigin: "http://127.0.0.1:1" });
+  const calls = [];
+  const sent = [];
+  const view = {
+    setBounds() {},
+    webContents: {
+      isDestroyed: () => false,
+      reload: () => calls.push("reload"),
+      debugger: { sendCommand: async (method, params) => sent.push([method, params]) },
+    },
+  };
+  views.entries.set("t1", { view, at: null, attached: false, panel: null, frame: null, override: null, emulated: null, metrics: false, scale: 1 });
+
+  views.frame("t1", { width: 393, height: 852, zoom: "fit", device: { mobile: true, dpr: 0, ua: "Mozilla/5.0 (Linux; Android 14) Mobile" } });
+  assert.deepEqual(
+    sent.filter(([m]) => m === "Emulation.setUserAgentOverride"),
+    [["Emulation.setUserAgentOverride", { userAgent: "Mozilla/5.0 (Linux; Android 14) Mobile" }]],
+    "the device is said before the page is ever shown",
+  );
+  assert.ok(!sent.some(([m]) => m === "Emulation.setDeviceMetricsOverride"), "the fit waits for the show");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(!calls.includes("reload"), "a page nobody is looking at is not asked again");
+
+  sent.length = 0;
+  views.show("t1", { x: 0, y: 0, width: 720, height: 800 });
+  assert.ok(sent.some(([m]) => m === "Emulation.setDeviceMetricsOverride"), "the show fits the page at its frame");
+  assert.ok(!sent.some(([m]) => m === "Emulation.setUserAgentOverride"), "the answer already said is not said again");
 });
 
 test("a page laid out wider than the pane is scaled to fit it, and keeps the viewport the agent asked for", async () => {
