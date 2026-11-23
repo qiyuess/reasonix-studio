@@ -296,6 +296,17 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
   // own size lays the page out as wide as the room, and the row stays to say
   // so — only the toggle closes it, which is what the demo showed.
   const [rowOpen, setRowOpen] = useState(false);
+  // The placement reads the size and the row, but must not rebuild for them:
+  // tearing the effect down hides the view and shows it again half a tick
+  // later, which reads as the page blinking every time a number settles.
+  // They live in a ref the placement re-reads, and changing them asks for
+  // another placement through a ref rather than through a new effect.
+  const askedRef = useRef({ size, rowOpen });
+  const askPlace = useRef<() => void>(() => {});
+  useLayoutEffect(() => {
+    askedRef.current = { size, rowOpen };
+    askPlace.current();
+  }, [size, rowOpen]);
   // Opening the row is asking for a size, so the page is framed at the preset
   // the window remembers — unless the panel's own size was chosen while the
   // row was open, in which case that choice stands until a preset is picked.
@@ -354,6 +365,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       // rectangle it was given — which is how an agent's page is drawn until
       // somebody says otherwise. The zoom rides with it: the shell scales the
       // frame by it, so a percentage chosen in the row reaches the page.
+      const { size, rowOpen } = askedRef.current;
       const want = !rowOpen || size.framed === false ? null : { width: size.width, height: size.height, zoom: size.mode };
       if (document.documentElement.hasAttribute(SWAP_MARK) || occluded(el, box)) {
         if (frozen) return;
@@ -381,6 +393,10 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       shell.showBrowserView(target, box);
     };
     const schedule = () => { if (!timer) timer = window.setTimeout(place, 48); };
+    // A size the row picked, or the row opening or closing, asks for another
+    // placement through this ref: the effect above stays standing, so the
+    // view is never hidden and shown again for a number that settled.
+    askPlace.current = schedule;
     place();
     const resize = new ResizeObserver(schedule);
     resize.observe(el);
@@ -396,6 +412,9 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
     const poll = window.setInterval(schedule, 400);
     return () => {
       live = false;
+      // A placement asked for after this effect is gone would speak for a view
+      // nobody is looking at, so the door the ref opens is shut behind it.
+      askPlace.current = () => {};
       if (timer) clearTimeout(timer);
       clearInterval(poll);
       resize.disconnect();
@@ -405,7 +424,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       removeEventListener("resize", schedule);
       shell.hideBrowserView();
     };
-  }, [shown, target, failure, size.width, size.height, size.framed, size.mode, rowOpen]);
+  }, [shown, target, failure]);
 
   // A pick belongs to the page it was armed on: another page, or another
   // address on the same one, leaves it nothing to point at.

@@ -1062,16 +1062,24 @@ const sized = (v) => !!v && Number.isFinite(v.width) && Number.isFinite(v.height
 
 function placement(panel, emulated) {
   if (!sized(emulated)) return { at: panel, scale: 1 };
-  // A zoom the row chose draws the frame at that fraction of its own size, but
-  // never past what the room holds: a native view has no clip and no scroll,
-  // so a frame that would stand on the toolbar is drawn as large as fits.
+  // A zoom the row chose draws the frame at that fraction of its own size —
+  // the whole point of a percentage is that it is not the room's answer. When
+  // that fraction stands larger than the room holds, the view is given the
+  // room's own rectangle and the page is drawn from its top-left: the part
+  // beyond the edge is simply not on screen, the same reading a canvas with a
+  // scrollbar parked at the top gives on the shell-drawn side of this line.
   const zoom = emulated.zoom === "50" || emulated.zoom === "75" || emulated.zoom === "100" ? Number(emulated.zoom) / 100 : null;
-  const scale = Math.min(zoom ?? 1, panel.width / emulated.width, panel.height / emulated.height, 1);
+  if (zoom === null) {
+    const scale = Math.min(1, panel.width / emulated.width, panel.height / emulated.height);
+    const width = Math.max(1, Math.round(emulated.width * scale));
+    const height = Math.max(1, Math.round(emulated.height * scale));
+    return { at: { x: panel.x + Math.round((panel.width - width) / 2), y: panel.y + Math.round((panel.height - height) / 2), width, height }, scale };
+  }
+  const scale = zoom;
   const width = Math.max(1, Math.round(emulated.width * scale));
   const height = Math.max(1, Math.round(emulated.height * scale));
-  const x = panel.x + Math.round((panel.width - width) / 2);
-  const y = panel.y + Math.round((panel.height - height) / 2);
-  return { at: { x, y, width, height }, scale };
+  if (width >= panel.width || height >= panel.height) return { at: panel, scale };
+  return { at: { x: panel.x + Math.round((panel.width - width) / 2), y: panel.y + Math.round((panel.height - height) / 2), width, height }, scale };
 }
 
 // Input that carries a point lands where it is drawn only after the same scaling
