@@ -2715,6 +2715,67 @@ test("a freeze answers with the picture where the view stood, and a slept page w
   assert.equal(slept.at, null, "a slept page has no view on screen, so no rectangle to place its picture by");
 });
 
+// The frame's device is what the page answers as. The glass and the mobile
+// layout ride with the metrics the page is told; the UA goes by its own
+// command, once per change, and a change on a page someone is looking at is
+// asked again — a page answers with its desktop self until it is.
+test("the frame's device tells the page which self it answers as", async () => {
+  const Module = require("node:module");
+  const load = Module._load;
+  Module._load = function (request, ...rest) {
+    if (request === "electron") return { WebContentsView: class {}, session: { fromPartition: () => ({}) } };
+    return load.call(this, request, ...rest);
+  };
+  let BrowserViews;
+  try {
+    ({ BrowserViews } = require("../src/browserviews.js"));
+  } finally {
+    Module._load = load;
+  }
+  const win = {
+    on() {},
+    isDestroyed: () => false,
+    isFocused: () => false,
+    webContents: Object.assign(new EventEmitter(), { isFocused: () => false }),
+    getContentBounds: () => ({ width: 1200, height: 800 }),
+    contentView: { addChildView() {}, removeChildView() {} },
+  };
+  const views = new BrowserViews({ win, kernelOrigin: "http://127.0.0.1:1" });
+  const calls = [];
+  const sent = [];
+  const view = {
+    setBounds() {},
+    webContents: {
+      isDestroyed: () => false,
+      reload: () => calls.push("reload"),
+      debugger: { sendCommand: async (method, params) => sent.push([method, params]) },
+    },
+  };
+  const entry = { view, at: null, attached: true, panel: { x: 0, y: 0, width: 720, height: 800 }, frame: null, override: null, emulated: null, metrics: false, scale: 1 };
+  views.entries.set("t1", entry);
+
+  views.frame("t1", { width: 768, height: 1024, zoom: "fit", device: { mobile: true, dpr: 0, ua: "Mozilla/5.0 (Linux; Android 14) Mobile" } });
+  const metrics = sent.filter(([m]) => m === "Emulation.setDeviceMetricsOverride");
+  assert.equal(metrics.at(-1)[1].mobile, true, "the layout mode the device carries is what the page is told");
+  assert.equal(metrics.at(-1)[1].deviceScaleFactor, 0, "the glass the device names is what the page sits behind");
+  assert.deepEqual(
+    sent.filter(([m]) => m === "Emulation.setUserAgentOverride"),
+    [["Emulation.setUserAgentOverride", { userAgent: "Mozilla/5.0 (Linux; Android 14) Mobile" }]],
+    "the UA is said once, on the change",
+  );
+  assert.ok(calls.includes("reload"), "a page someone is looking at is asked again when its answer changes");
+
+  sent.length = 0;
+  calls.length = 0;
+  views.frame("t1", { width: 768, height: 1024, zoom: "fit", device: { mobile: true, dpr: 0, ua: "Mozilla/5.0 (Linux; Android 14) Mobile" } });
+  assert.ok(!sent.some(([m]) => m === "Emulation.setUserAgentOverride"), "the same UA said again says nothing");
+  assert.ok(!calls.includes("reload"), "and the page is not asked again either");
+
+  views.frame("t1", null);
+  assert.ok(sent.some(([m]) => m === "Emulation.clearUserAgentOverride"), "going back to the room takes the device's answer away");
+  assert.ok(sent.some(([m]) => m === "Emulation.clearDeviceMetricsOverride"), "and the metrics it was told with");
+});
+
 test("a page laid out wider than the pane is scaled to fit it, and keeps the viewport the agent asked for", async () => {
   const Module = require("node:module");
   const load = Module._load;

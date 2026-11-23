@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CUSTOM, DEFAULT_SIZE, PANEL, clampSide, fitScale, loadSize, presetOf, saveSize, scaleOf } from "./browserSize";
+import { CUSTOM, DEFAULT_SIZE, PANEL, PRESETS, clampSide, deviceOf, fitScale, loadSize, presetOf, saveSize, scaleOf } from "./browserSize";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -67,10 +67,44 @@ describe("presetOf", () => {
   });
 });
 
+describe("deviceOf", () => {
+  it("builds a phone's UA on the Chromium this app itself runs", () => {
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36");
+    const phone = deviceOf(PRESETS[0]);
+    expect(phone.mobile).toBe(true);
+    // The engine is the app's own — only which self the page answers with
+    // changes, never the engine it answers on.
+    expect(phone.ua).toBe("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36");
+  });
+
+  it("answers a laptop as a desktop, and no UA when the engine is not known", () => {
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36");
+    const laptop = deviceOf(PRESETS[2]);
+    expect(laptop.mobile).toBe(false);
+    expect(laptop.ua).toMatch(/Chrome\/[\d.]+ Safari/);
+    expect(laptop.ua).not.toMatch(/Mobile/);
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("something without a chrome version");
+    expect(deviceOf(PRESETS[1]).ua).toBeNull();
+  });
+});
+
 describe("loadSize", () => {
   it("reads back what was saved", () => {
     saveSize({ width: 500, height: 900, mode: "100" });
     expect(loadSize()).toEqual({ width: 500, height: 900, mode: "100" });
+  });
+
+  // The device outlives the window with the size it was chosen at: a page
+  // opened later answers as the device the person left it standing on.
+  it("remembers the device a frame was chosen from", () => {
+    const device = { mobile: true, dpr: 0, ua: "Mozilla/5.0 (Linux; Android 14) Chrome/1 Mobile" };
+    saveSize({ width: 393, height: 852, mode: "fit", device });
+    expect(loadSize().device).toEqual(device);
+  });
+
+  it("drops a device that is not one rather than answering as a stranger", () => {
+    localStorage.setItem("rx-browser-size", JSON.stringify({ width: 500, height: 900, mode: "fit", device: { mobile: "yes" } }));
+    expect(loadSize().device?.mobile).toBe(false);
   });
 
   // A page still has to be framed, so a value that will not parse is the

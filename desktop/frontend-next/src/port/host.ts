@@ -113,8 +113,10 @@ export interface HostPort {
   hideBrowserView(): void;
   /** Lay the page out in a viewport of this size, or in its own when null: a
    *  frame 393 wide answers a phone's media queries, so this is what the page
-   *  thinks it is rather than only how large it looks. */
-  frameBrowserView(target: string, size: { width: number; height: number; zoom?: string } | null): void;
+   *  thinks it is rather than only how large it looks. The device is what the
+   *  page answers as — its UA, its mobile layout — kept on the entry so a
+   *  page that sniffs for it meets the device the row chose. */
+  frameBrowserView(target: string, size: { width: number; height: number; zoom?: string; device?: { mobile: boolean; dpr: number; ua: string | null } | null } | null): void;
   /** Put the page on screen away the way hideBrowserView does, answering with
    *  a picture of what it showed at that moment, drawn at `at` — the rectangle
    *  the view stood in relative to the slot — or an empty picture when none
@@ -239,7 +241,7 @@ interface ElectronBridge {
   openWorkspace?(root: string): Promise<Refusal | null>;
   showBrowserView?(target: string, rect: ViewRect): Promise<void>;
   hideBrowserView?(): Promise<void>;
-  frameBrowserView?(target: string, size: { width: number; height: number; zoom?: string } | null): Promise<void>;
+  frameBrowserView?(target: string, size: { width: number; height: number; zoom?: string; device?: { mobile: boolean; dpr: number; ua: string | null } | null } | null): Promise<void>;
   freezeBrowserView?(): Promise<{ picture: string; at: ViewRect | null }>;
   controlBrowserView?(target: string, action: string): Promise<void>;
   navigateBrowserView?(target: string, address: string): Promise<BrowserRefusal>;

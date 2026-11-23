@@ -449,14 +449,25 @@ ipcMain.handle("browser:hide", (event) => {
 // The size a person watching the page wants it laid out in, or null for the
 // size the agent asked for. A number that is not a size is refused here rather
 // than handed to the view, which would otherwise be told to draw nothing. The
-// zoom is one of the scales the row offers, or nothing at all for `fit`.
+// zoom is one of the scales the row offers, or nothing at all for `fit`. The
+// device is what the page answers as — the row says it whole every time, null
+// for the desktop the page would answer on its own, so a page that sniffs for
+// a phone meets one when the row says it does.
 ipcMain.handle("browser:frame", (event, targetId, size) => {
   if (!fromWindow(event)) return;
   const width = Number(size?.width);
   const height = Number(size?.height);
   const valid = Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0;
   const zoom = ["50", "75", "100"].includes(String(size?.zoom)) ? String(size.zoom) : "fit";
-  browserViews?.frame(String(targetId), valid ? { width: Math.round(width), height: Math.round(height), zoom } : null);
+  const raw = size?.device && typeof size.device === "object" ? size.device : null;
+  const device = raw
+    ? {
+        mobile: raw.mobile === true,
+        dpr: Number.isFinite(Number(raw.dpr)) ? Math.max(0, Number(raw.dpr)) : 0,
+        ua: typeof raw.ua === "string" && raw.ua ? raw.ua.slice(0, 512) : null,
+      }
+    : null;
+  browserViews?.frame(String(targetId), valid ? { width: Math.round(width), height: Math.round(height), zoom, device } : null);
 });
 ipcMain.handle("browser:freeze", (event) => (fromWindow(event) ? (browserViews?.freeze() ?? { picture: "", at: null }) : { picture: "", at: null }));
 ipcMain.handle("browser:control", (event, targetId, action) => {

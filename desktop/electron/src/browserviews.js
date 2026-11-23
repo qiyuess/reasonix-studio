@@ -292,8 +292,12 @@ class BrowserViews {
     contents.once("destroyed", gone);
     contents.on("render-process-gone", gone);
     // A woken page must come back laid out at the viewport the agent set, not
-    // at whatever its view happens to be while it is parked.
+    // at whatever its view happens to be while it is parked. The device the
+    // row stood the page on comes back the same way, and before the load: the
+    // page's first request answers as that device, rather than answering as a
+    // desktop and being asked again.
     if (entry.emulated) contents.debugger.sendCommand("Emulation.setDeviceMetricsOverride", entry.emulated).catch(() => {});
+    if (entry.frame?.device?.ua) contents.debugger.sendCommand("Emulation.setUserAgentOverride", { userAgent: entry.frame.device.ua }).catch(() => {});
     // The page loads before the window holds it, or the platform hands it the
     // keyboard and ends the person's composition. The load's promise is what a
     // wake waits out; a create leaves the waiting to the kernel.
@@ -560,12 +564,34 @@ class BrowserViews {
   // then scaled into the rectangle it was given. deviceScaleFactor and mobile
   // are the plain desktop defaults; an agent's own resize brings its own, so
   // the frame's zoom is the one field stripped here — a stranger to this
-  // command, and one the protocol refuses the whole command over.
+  // command, and one the protocol refuses the whole command over. The device
+  // a person chose in the row is a stranger too, and half of it goes by its
+  // own way: the glass and the layout mode are this command's own fields, so
+  // they ride here, while the UA has a command of its own.
   setMetrics(entry, viewport) {
-    const { zoom, ...params } = viewport;
+    const { zoom, device, ...params } = viewport;
     return entry.view.webContents.debugger.sendCommand("Emulation.setDeviceMetricsOverride", {
-      deviceScaleFactor: 0, mobile: false, ...params, scale: entry.scale,
+      deviceScaleFactor: device ? device.dpr : 0, mobile: device ? device.mobile === true : false, ...params, scale: entry.scale,
     });
+  }
+
+  // sayUserAgent tells the page which device it is answering — or, with null,
+  // that it is answering on its own again. The answer is remembered so a fit
+  // does not say it twice, and a page that is being looked at is reloaded on
+  // the change: the UA a page sniffs for decides which self it answers with,
+  // and a page already answering the desktop one keeps answering it until it
+  // is asked again. That reload is what the toolbar's own device answer does
+  // too.
+  sayUserAgent(entry, ua) {
+    const cdp = entry.view?.webContents?.debugger;
+    if (!cdp) return false;
+    const was = entry.uaSent ?? null;
+    entry.uaSent = ua;
+    const said = ua
+      ? cdp.sendCommand("Emulation.setUserAgentOverride", { userAgent: ua }).catch(() => {})
+      : cdp.sendCommand("Emulation.clearUserAgentOverride").catch(() => {});
+    void said;
+    return ua !== was && !!entry.panel;
   }
 
   // frame sizes the rectangle a page is seen through, for somebody watching it
@@ -575,15 +601,27 @@ class BrowserViews {
   frame(targetId, size) {
     const entry = this.entries.get(targetId);
     if (!entry) return;
-    entry.frame = sized(size) ? { width: size.width, height: size.height, zoom: size.zoom } : null;
+    entry.frame = sized(size) ? { ...size } : null;
     // A slept page has no view to resize; the frame is applied by the fit its
-    // wake ends in.
+    // wake ends in, and the device it carries by the spawn that builds the
+    // view back — before the page loads, so the first request answers as the
+    // device the row chose rather than finding its desktop self already sent.
     if (entry.slept || !entry.panel) return;
     // Back to the rectangle: nothing is laid out in a viewport of its own any
     // more, and that has to be said. Leaving it unsaid leaves the page at the
     // last size somebody asked for, which for a page the agent never resized is
     // the only thing that would ever clear it.
     if (!this.viewportOf(entry) && entry.metrics) void this.clearMetrics(entry).catch(() => {});
+    // The device the frame stands for says which self the page answers as.
+    // A change is a question the page has to be asked again — the reload is
+    // what makes the new UA meet the page's own sniffing, the way the
+    // toolbar's device answer does.
+    const ua = entry.frame?.device?.ua ?? null;
+    if (ua !== (entry.uaSent ?? null)) {
+      if (this.sayUserAgent(entry, ua) && !entry.view.webContents.isDestroyed()) {
+        entry.view.webContents.reload();
+      }
+    }
     void this.fit(entry);
   }
 

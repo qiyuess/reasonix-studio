@@ -66,7 +66,7 @@ contextBridge.exposeInMainWorld("reasonixHost", {
   // itself was given. It decides what the page thinks it is, not just how big
   // it looks: a frame 393 wide answers a phone's media queries. The zoom is
   // how that frame is drawn into the slot: a percentage or `fit`.
-  frameBrowserView: (targetId, size) => ipcRenderer.invoke("browser:frame", String(targetId), size ? { width: size.width, height: size.height, zoom: size.zoom } : null),
+  frameBrowserView: (targetId, size) => ipcRenderer.invoke("browser:frame", String(targetId), size ? { width: size.width, height: size.height, zoom: size.zoom, device: size.device && typeof size.device === "object" ? { mobile: size.device.mobile === true, dpr: Number(size.device.dpr) || 0, ua: typeof size.device.ua === "string" ? size.device.ua : null } : null } : null),
   freezeBrowserView: () => ipcRenderer.invoke("browser:freeze"),
   controlBrowserView: (targetId, action) => ipcRenderer.invoke("browser:control", String(targetId), String(action)),
   navigateBrowserView: (targetId, address) => ipcRenderer.invoke("browser:navigate", String(targetId), String(address)),

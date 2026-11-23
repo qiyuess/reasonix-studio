@@ -350,8 +350,10 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
     let live = true;
     // Which frame has been sent to the shell: the poll re-places the page every
     // few hundred milliseconds, and a frame is a debugger command rather than a
-    // cheap property write, so it goes only when it changed.
-    let sent: { width: number; height: number; zoom?: string } | null | undefined;
+    // cheap property write, so it goes only when it changed. The device rides
+    // with the frame — it is half of what the page answers as, and a frame
+    // that changes it is a frame the page has not been told.
+    let sent: { width: number; height: number; zoom?: string; device?: { mobile: boolean; dpr: number; ua: string | null } | null } | null | undefined;
     // Which freeze is current: a picture answering an older one is stale.
     let frozen = 0;
     let freezes = 0;
@@ -369,7 +371,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       // somebody says otherwise. The zoom rides with it: the shell scales the
       // frame by it, so a percentage chosen in the row reaches the page.
       const { size, rowOpen } = askedRef.current;
-      const want = !rowOpen || size.framed === false ? null : { width: size.width, height: size.height, zoom: size.mode };
+      const want = !rowOpen || size.framed === false ? null : { width: size.width, height: size.height, zoom: size.mode, device: size.device ?? null };
       if (document.documentElement.hasAttribute(SWAP_MARK) || occluded(el, box)) {
         if (frozen) return;
         const turn = (frozen = ++freezes);
@@ -425,10 +427,19 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
       // arriving first would place the page at the slot's own size and then
       // have to move it. A null frame is a state too — the page laid out as
       // the room — so a sent marker says it went out, whatever it was.
+      // The device is compared whole: two frames of the same size with
+      // different devices are two answers the page gives, and a poll that
+      // found them equal would leave the page answering as the wrong one.
+      const sameDevice = (
+        a: { mobile: boolean; dpr: number; ua: string | null } | null | undefined,
+        b: { mobile: boolean; dpr: number; ua: string | null } | null | undefined,
+      ) =>
+        (a ?? null) === (b ?? null) ||
+        (!!a && !!b && a.mobile === b.mobile && a.dpr === b.dpr && a.ua === b.ua);
       const sameFrame =
         want === null
           ? sent === null
-          : sent != null && sent.width === want.width && sent.height === want.height && sent.zoom === want.zoom;
+          : sent != null && sent.width === want.width && sent.height === want.height && sent.zoom === want.zoom && sameDevice(sent.device, want.device);
       if (!sameFrame) {
         sent = want;
         shell.frameBrowserView(target, want);

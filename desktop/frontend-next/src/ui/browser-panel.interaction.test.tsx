@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "./testkit";
+import { PRESETS, deviceOf } from "./browserSize";
 import type { BrowserTab } from "../port/port";
 import type { ViewRect } from "../port/host";
 
@@ -428,7 +429,10 @@ describe("the size a page the shell draws is laid out in", () => {
     await userEvent.click(screen.getByRole("button", { name: /手机/ }));
     await userEvent.click(screen.getByRole("menuitem", { name: /平板/ }));
     await settle();
-    expect(bridge.frameBrowserView).toHaveBeenLastCalledWith("view-a", { width: 768, height: 1024, zoom: "fit" });
+    // The preset is a device, not only a size: the frame the shell is told
+    // carries what the page answers as — its mobile self, on the UA the
+    // app's own engine builds.
+    expect(bridge.frameBrowserView).toHaveBeenLastCalledWith("view-a", { width: 768, height: 1024, zoom: "fit", device: deviceOf(PRESETS[1]) });
   });
 
   // Going back is not the absence of a size: the page is still laid out in the

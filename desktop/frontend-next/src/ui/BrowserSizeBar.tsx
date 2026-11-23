@@ -2,7 +2,7 @@ import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react
 import { t } from "../i18n";
 import { Picker, type MenuItem } from "./Menu";
 import { StudioIcon } from "./StudioIcon";
-import { PRESETS, SCALES, clampSide, presetOf, PANEL, type Chosen } from "./browserSize";
+import { PRESETS, SCALES, clampSide, deviceOf, presetOf, PANEL, type Chosen } from "./browserSize";
 
 /** What a size's row calls itself: a preset's own name, the panel's when the
  *  page is laid out in the room itself, and "Custom" for a size somebody typed. */
@@ -43,11 +43,19 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
 
   const take = (value: string) => {
     if (value === PANEL) {
-      onChange({ ...size, framed: false });
+      // The panel's own size is the page as the room drew it: a desktop
+      // answering on its own, so the device the last preset stood for is
+      // taken away with it.
+      onChange({ ...size, framed: false, device: null });
       return;
     }
     const one = PRESETS.find((preset) => preset.id === value);
-    if (one) onChange({ width: one.width, height: one.height, mode: size.mode, framed: true });
+    // A preset is a device, not only a size: the page it frames answers as a
+    // phone or a tablet — its UA and its mobile layout — from the moment it
+    // is chosen, the way the toolbar's own device answer does. Numbers typed
+    // after keep the device, so changing how much of it shows is not asking
+    // the page to be a desktop again.
+    if (one) onChange({ width: one.width, height: one.height, mode: size.mode, framed: true, device: deviceOf(one) });
   };
 
   // Losing focus or pressing Enter settles a side. Anything that is not a
@@ -62,7 +70,10 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
     const value = clampSide(typed);
     // Typing a number is asking for a frame of that size — the row is open
     // because a size is wanted, so the numbers settle it rather than reading
-    // back into a page still laid out as the room.
+    // back into a page still laid out as the room. The device is kept: a
+    // frame someone resized is still standing on the same device, and the
+    // page keeps answering as it did — only the toolbar's device menu takes
+    // that identity away again.
     if (side === "height") {
       const width = locked && size.height > 0 ? clampSide(Math.round((value * size.width) / size.height)) : size.width;
       onChange({ ...size, width, height: value, framed: true });
