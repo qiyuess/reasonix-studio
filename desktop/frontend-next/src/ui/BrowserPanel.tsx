@@ -371,7 +371,16 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
         if (frozen) return;
         const turn = (frozen = ++freezes);
         void shell.freezeBrowserView().then((picture) => {
-          if (live && frozen === turn) setFrame(picture);
+          if (!live || frozen !== turn) return;
+          setFrame(picture);
+          // The view goes away only once the picture is on screen: hiding it
+          // first left a hole between the two, which read as the page
+          // blinking whenever a menu opened over it. An empty answer is the
+          // shell having put the view away itself.
+          if (!picture) return;
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (live && frozen === turn) shell.hideBrowserView();
+          }));
         });
         return;
       }

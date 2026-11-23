@@ -674,7 +674,11 @@ class BrowserViews {
     } catch {
       picture = "";
     }
-    if (this.placed === turn && this.shown === id) this.hide();
+    // A picture in hand lets the page time the swap: it hides the view only
+    // once the picture is on screen, so the two never leave a hole between
+    // them. A freeze that photographed nothing has nothing to stand in for
+    // the view, and the view must still give way to what covers it.
+    if (this.placed === turn && this.shown === id && !picture) this.hide();
     return picture;
   }
 
