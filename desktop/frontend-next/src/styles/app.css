@@ -1798,7 +1798,7 @@
 
   .navbtn[aria-current] { color: var(--text); background: var(--raised); box-shadow: var(--lit), inset 0 0 0 1px var(--hair) }
   .navbtn[aria-current]::before { content: ""; position: absolute; left: -7px; top: 9px; bottom: 9px; width: 2px; border-radius: var(--r-pill); background: var(--muted) }
-  .navhint { position: absolute; left: calc(100% + 10px); top: 50%; z-index: 40; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--float); box-shadow: var(--shadow-float); color: var(--text); font: var(--w-med) var(--fs-ui) var(--ui); white-space: nowrap; opacity: 0; pointer-events: none; transform: translate(-3px, -50%); transition: opacity var(--m-line), transform var(--m-line) }
+  .navhint { position: absolute; left: calc(100% + 10px); top: 50%; z-index: 40; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--float); box-shadow: var(--shadow-float); color: var(--text); font: var(--w-med) var(--fs-ui) var(--ui); white-space: nowrap; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; opacity: 0; pointer-events: none; transform: translate(-3px, -50%); transition: opacity var(--m-line), transform var(--m-line) }
   .navbtn:hover .navhint, .navbtn:focus-visible .navhint { opacity: 1; transform: translate(0, -50%) }
 
   .side { border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0 }
@@ -4398,7 +4398,7 @@
     background: var(--net); color: var(--accent-fg, #fff); font: var(--w-semi) var(--fs-micro)/1 var(--mono);
   }
   .pc-note-pop {
-    position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; white-space: nowrap;
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; white-space: nowrap; max-width: min(320px, calc(100vw - 24px)); overflow: hidden; text-overflow: ellipsis;
     padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
     background: var(--raised); box-shadow: 0 12px 30px -16px var(--shade);
     color: var(--text); font: var(--w-med) var(--fs-meta)/1 var(--ui);

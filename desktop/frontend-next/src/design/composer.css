@@ -18,7 +18,7 @@
 .compose .studio-runstate .rmark { width: 12px; height: 12px; color: currentColor; filter: none; }
 .compose:has(.changedpill) .studio-runtokens { display: none; }
 .compose .changedpill-row { display: flex; justify-content: flex-end; align-items: center; min-width: 0; height: 24px; margin: -24px 12px 0; }
-.compose .changedpill { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--r-pill); background: transparent; color: var(--text); font: var(--w-reg) var(--fs-micro)/1 var(--ui); white-space: nowrap; cursor: pointer; }
+.compose .changedpill { display: inline-flex; align-items: center; gap: 5px; height: 22px; max-width: 100%; padding: 0 9px; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--r-pill); background: transparent; color: var(--text); font: var(--w-reg) var(--fs-micro)/1 var(--ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .compose .changedpill:hover { background: var(--overlay); }
 .compose .changedpill i { font-style: normal; font-weight: var(--w-reg); }
 .compose .changedpill i[data-io="up"] { color: var(--add); }

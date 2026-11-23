@@ -27,7 +27,7 @@
 .fbk-standing-btn { height: 28px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: none; color: var(--muted); font: var(--w-reg) var(--fs-meta)/1 var(--ui); cursor: pointer; }
 .fbk-standing-btn:hover, .fbk-standing-btn[aria-expanded="true"] { background: var(--overlay); color: var(--text); }
 .fbk-standing-pop {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 5; width: 420px; max-height: 70vh; overflow: auto; box-sizing: border-box;
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 5; width: 420px; max-width: calc(100vw - 24px); max-height: 70vh; overflow: auto; box-sizing: border-box;
   display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md);
   background: var(--float); box-shadow: var(--shadow-float);
 }
