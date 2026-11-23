@@ -15,14 +15,28 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
   /* See shell.css: the top inset is measured natively into `--rx-inset-top`,
      because `env()` reports the bar's height whether or not the window already
-     cleared it, and Capacitor's own variable was measured never to arrive. */
-  padding: var(--rx-inset-top, env(safe-area-inset-top, 0px)) var(--pad)
+     cleared it, and Capacitor's own variable was measured never to arrive.
+     The inset belongs to this frame, not to the scroller: a scroller's padding
+     scrolls with its content, so a page scrolled to its top painted its cards
+     and the sticky bar through the padding into the status bar itself. */
+  padding: var(--rx-inset-top, env(safe-area-inset-top, 0px)) 0
     calc(24px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   background: transparent;
+  overflow: hidden;
+}
+
+/* The one scroller: the settings bar rides its top edge, so the bar is where
+   the page's content stops and nothing ever scrolls past it. */
+.connect-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 var(--pad);
   /* A vertical scroll keeps the page, a horizontal drag is the pane switch. */
   touch-action: pan-y pinch-zoom;
 }

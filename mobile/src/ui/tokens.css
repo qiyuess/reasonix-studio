@@ -283,7 +283,7 @@ summary:focus-visible {
 .body,
 .transcript,
 .sheet,
-.connect,
+.connect-scroll,
 .wb,
 .todos ol {
   scrollbar-width: none;
@@ -293,7 +293,7 @@ summary:focus-visible {
 .body::-webkit-scrollbar,
 .transcript::-webkit-scrollbar,
 .sheet::-webkit-scrollbar,
-.connect::-webkit-scrollbar,
+.connect-scroll::-webkit-scrollbar,
 .wb::-webkit-scrollbar,
 .todos ol::-webkit-scrollbar {
   display: none;

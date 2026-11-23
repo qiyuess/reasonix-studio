@@ -813,7 +813,7 @@ export function ConnectScreen({ onConnected, onFailed, onDisconnected, onClose, 
       movable: true,
     })),
     enabled: busy === "" && pane === "connect",
-    scrollerSelector: ".connect",
+    scrollerSelector: ".connect-scroll",
     place: (key, index) => setSaved(moveConnectionGroup(key, index)),
   });
   const spare = config ? config.candidates.length - 1 : 0;
@@ -842,7 +842,8 @@ export function ConnectScreen({ onConnected, onFailed, onDisconnected, onClose, 
         : `${storage.entries} 段 · ${storage.rows.toLocaleString()} 行 · 约 ${formatBytes(storage.bytes)}`;
 
   return (
-    <div className="connect" ref={scrollRef}>
+    <div className="connect">
+      <div className="connect-scroll" ref={scrollRef}>
       <div className="settings-bar">
         <header className="settings-head">
           {onClose ? (
@@ -1402,6 +1403,7 @@ export function ConnectScreen({ onConnected, onFailed, onDisconnected, onClose, 
           </>
         ) : null}
 
+      </div>
       </div>
 
       {forgetAsk ? (

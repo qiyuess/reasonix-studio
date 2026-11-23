@@ -427,6 +427,20 @@ describe("ConnectScreen", () => {
       expect(css).toMatch(/\.settings-bar\s*\{[^}]*transform:\s*translateZ\(0\)/);
     });
 
+    // The status bar's inset belongs to a frame that does not scroll. A
+    // scroller's padding scrolls with its content, so when the inset was the
+    // scroller's own padding a page scrolled to its top painted the cards and
+    // the sticky bar through that padding into the status bar itself.
+    it("spends the status bar inset on a frame that cannot scroll", () => {
+      const css = readFileSync("src/ui/connect.css", "utf8");
+      const frame = css.match(/\.connect\s*\{[^}]*\}/)?.[0] ?? "";
+      expect(frame).toMatch(/--rx-inset-top/);
+      expect(frame).not.toMatch(/overflow-y:\s*auto/);
+      const scroller = css.match(/\.connect-scroll\s*\{[^}]*\}/)?.[0] ?? "";
+      expect(scroller).toMatch(/overflow-y:\s*auto/);
+      expect(scroller).not.toMatch(/--rx-inset-top/);
+    });
+
   });
 });
 
