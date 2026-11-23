@@ -4,6 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "./testkit";
 import type { BrowserTab } from "../port/port";
+import type { ViewRect } from "../port/host";
 
 // The page never draws the agent's browser: it reserves a rectangle and tells
 // the shell which page to draw over it. What is held here is what it tells the
@@ -18,7 +19,7 @@ const bridge = {
   showBrowserView: vi.fn(async () => {}),
   hideBrowserView: vi.fn(async () => {}),
   frameBrowserView: vi.fn(async () => {}),
-  freezeBrowserView: vi.fn(async () => ({ picture: PICTURE, at: null })),
+  freezeBrowserView: vi.fn(async (): Promise<{ picture: string; at: ViewRect | null }> => ({ picture: PICTURE, at: null })),
   controlBrowserView: vi.fn(async () => {}),
   navigateBrowserView: vi.fn(async (_target: string, _address: string): Promise<string> => ""),
   onBrowserLoadState: vi.fn((listener: LoadState) => {
@@ -68,7 +69,7 @@ async function panel(props: { tabs: BrowserTab[]; shown: boolean; onOpenDocument
 beforeEach(() => {
   for (const fn of [bridge.showBrowserView, bridge.hideBrowserView, bridge.frameBrowserView, bridge.freezeBrowserView, bridge.controlBrowserView, bridge.navigateBrowserView]) fn.mockClear();
   bridge.navigateBrowserView.mockImplementation(async () => "");
-  bridge.freezeBrowserView.mockImplementation(async () => ({ picture: PICTURE, at: null }));
+  bridge.freezeBrowserView.mockImplementation(async (): Promise<{ picture: string; at: ViewRect | null }> => ({ picture: PICTURE, at: null }));
   above = [];
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"], shouldAdvanceTime: true });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
@@ -355,6 +356,39 @@ describe("a layer the page draws over the view", () => {
     await settle(500);
     await act(async () => answer({ picture: PICTURE, at: null }));
     expect(document.querySelector(".bview img")).toBeNull();
+  });
+
+  it("keeps the picture until the live view answers that it is back over the slot", async () => {
+    let answer: () => void = () => {};
+    bridge.showBrowserView.mockImplementation(() => new Promise<void>((resolve) => (answer = resolve)));
+    await panel({ tabs, shown: true });
+    above = [layer("background:#000")];
+    await settle();
+    above = [];
+    await act(async () => {
+      document.dispatchEvent(new Event("transitionend"));
+      vi.advanceTimersByTime(60);
+      await Promise.resolve();
+    });
+    expect(bridge.showBrowserView).toHaveBeenCalled();
+    // The show has not answered yet, so the picture still stands in for the
+    // page — clearing it here is the hole the slot showed between the two.
+    expect(document.querySelector(".bview img")?.getAttribute("src")).toBe(PICTURE);
+    await act(async () => answer());
+    expect(document.querySelector(".bview img")).toBeNull();
+  });
+
+  it("draws the picture where the view stood, not across the whole slot", async () => {
+    const at = { x: 12, y: 8, width: 300, height: 200 };
+    bridge.freezeBrowserView.mockImplementation(async () => ({ picture: PICTURE, at }));
+    await panel({ tabs, shown: true });
+    above = [layer("background:#000")];
+    await settle();
+    const img = document.querySelector<HTMLElement>(".bview img");
+    expect(img?.style.left).toBe("12px");
+    expect(img?.style.top).toBe("8px");
+    expect(img?.style.width).toBe("300px");
+    expect(img?.style.height).toBe("200px");
   });
 
   it("freezes the page while a view transition runs, and draws it once it ends", async () => {

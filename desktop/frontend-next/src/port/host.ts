@@ -106,8 +106,10 @@ export interface HostPort {
   /** Whether this shell draws the agent's browser pages inside the window. */
   drawsBrowserViews(): boolean;
   /** Draw one of the agent's pages over rect, in on-screen coordinates, and
-   *  hide every other; hideBrowserView puts them all away again. */
-  showBrowserView(target: string, rect: ViewRect): void;
+   *  hide every other; hideBrowserView puts them all away again. The answer
+   *  waits until the shell has the view over the slot again — which is what
+   *  a frozen picture stands on until. */
+  showBrowserView(target: string, rect: ViewRect): Promise<void>;
   hideBrowserView(): void;
   /** Lay the page out in a viewport of this size, or in its own when null: a
    *  frame 393 wide answers a phone's media queries, so this is what the page
@@ -356,7 +358,11 @@ class ElectronHost implements HostPort {
     return typeof this.api.showBrowserView === "function";
   }
   showBrowserView(target: string, rect: ViewRect) {
-    void this.api.showBrowserView?.(target, rect);
+    // The bridge's answer is the view's own: it lands once the shell has the
+    // view over the slot again, and a caller standing a picture in for the
+    // page waits on it before taking the picture away. A shell without the
+    // verb has no view to wait on.
+    return this.api.showBrowserView?.(target, rect) ?? Promise.resolve();
   }
   hideBrowserView() {
     void this.api.hideBrowserView?.();
@@ -478,7 +484,9 @@ class BrowserHost implements HostPort {
   drawsBrowserViews() {
     return false;
   }
-  showBrowserView() {}
+  showBrowserView() {
+    return Promise.resolve();
+  }
   hideBrowserView() {}
   frameBrowserView() {}
   freezeBrowserView() {

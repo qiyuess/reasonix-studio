@@ -24,7 +24,7 @@ beforeEach(() => {
   const shell = host();
   vi.spyOn(shell, "drawsBrowserViews").mockReturnValue(true);
   vi.spyOn(shell, "picksBrowserElements").mockReturnValue(true);
-  vi.spyOn(shell, "showBrowserView").mockImplementation(() => {});
+  vi.spyOn(shell, "showBrowserView").mockImplementation(() => Promise.resolve());
   vi.spyOn(shell, "hideBrowserView").mockImplementation(() => {});
   pick = vi.fn(async () => picked);
   cancel = vi.fn();

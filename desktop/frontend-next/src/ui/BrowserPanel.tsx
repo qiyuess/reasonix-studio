@@ -377,8 +377,31 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
           if (!live || frozen !== turn) return;
           // An empty answer is the shell having put the view away itself:
           // nothing stands in for the page, and nothing is left to hide.
-          setFrame(shot.picture ? shot : null);
-          if (!shot.picture) return;
+          if (!shot.picture) {
+            setFrame(null);
+            return;
+          }
+          // The rectangle comes relative to the box this placement reported —
+          // the visible part of the slot, cut to the window and to clipping
+          // ancestors. The picture is drawn from the slot's own origin
+          // instead, which is the same place only while nothing clips it: put
+          // the reported offset back in window terms (it was measured from
+          // the box, so it rides back on it) and take the slot's origin off,
+          // and a clipped slot gets its picture where the view stood rather
+          // than slid by the clip.
+          const slot = el.getBoundingClientRect();
+          setFrame({
+            picture: shot.picture,
+            at:
+              shot.at && box
+                ? {
+                    x: shot.at.x + box.x - slot.left,
+                    y: shot.at.y + box.y - slot.top,
+                    width: shot.at.width,
+                    height: shot.at.height,
+                  }
+                : null,
+          });
           // The view goes away only once the picture is on screen: hiding it
           // first left a hole between the two, which read as the page
           // blinking whenever a menu opened over it.
@@ -410,10 +433,7 @@ function AgentBrowserView({ tabs, shown, showTabs = true, onOpenDocument, editPa
         sent = want;
         shell.frameBrowserView(target, want);
       }
-      // The promise stands for the view's answer whatever the bridge hands
-      // back — an older shell speaks the verb as void, and undefined has no
-      // then to wait on.
-      void Promise.resolve(shell.showBrowserView(target, box)).catch(() => {}).then(() => {
+      void shell.showBrowserView(target, box).catch(() => {}).then(() => {
         if (live && unfroze && frozen === 0) setFrame(null);
       });
     };

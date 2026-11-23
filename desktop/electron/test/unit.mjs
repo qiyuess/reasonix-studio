@@ -2667,6 +2667,54 @@ test("a parked page is attached again when it is shown, and a page already on sc
   assert.deepEqual(calls, ["remove", "add", "bounds 10"], "a page put away and shown again is attached again");
 });
 
+// A freeze answers with the picture and the rectangle the view stood in, said
+// against the panel the page reported: a percentage frame draws the view
+// centred and small, and the picture has to land there rather than across the
+// slot. A slept page has only the picture it was photographed with, and no
+// rectangle to place it by.
+test("a freeze answers with the picture where the view stood, and a slept page with its picture alone", async () => {
+  const Module = require("node:module");
+  const load = Module._load;
+  Module._load = function (request, ...rest) {
+    if (request === "electron") return { WebContentsView: class {}, session: { fromPartition: () => ({}) } };
+    return load.call(this, request, ...rest);
+  };
+  let BrowserViews;
+  try {
+    ({ BrowserViews } = require("../src/browserviews.js"));
+  } finally {
+    Module._load = load;
+  }
+  const win = {
+    on() {},
+    isDestroyed: () => false,
+    isFocused: () => false,
+    webContents: Object.assign(new EventEmitter(), { isFocused: () => false }),
+    getContentBounds: () => ({ width: 1200, height: 800 }),
+    contentView: { addChildView() {}, removeChildView() {} },
+  };
+  const views = new BrowserViews({ win, kernelOrigin: "http://127.0.0.1:1" });
+  views.keepKeyboard = () => {};
+  const image = { isEmpty: () => false, toJPEG: () => ({ toString: () => "Zm9yeg==" }) };
+  const view = { setBounds() {}, webContents: { isDestroyed: () => false, capturePage: async () => image } };
+  views.entries.set("t1", {
+    view,
+    at: { x: 562, y: 217, width: 197, height: 426 },
+    panel: { x: 380, y: 60, width: 560, height: 620 },
+    attached: true,
+  });
+  views.shown = "t1";
+  const shot = await views.freeze();
+  assert.equal(shot.picture, "data:image/jpeg;base64,Zm9yeg==");
+  assert.deepEqual(shot.at, { x: 182, y: 157, width: 197, height: 426 }, "the rectangle is the view's own, said against the panel the page reported");
+
+  views.entries.set("t2", { view, slept: { url: "https://example.com/", picture: "data:image/jpeg;base64,QQ==" }, attached: false });
+  views.shown = "t2";
+  const slept = await views.freeze();
+  assert.equal(slept.picture, "data:image/jpeg;base64,QQ==");
+  assert.equal(slept.at, null, "a slept page has no view on screen, so no rectangle to place its picture by");
+});
+
 test("a page laid out wider than the pane is scaled to fit it, and keeps the viewport the agent asked for", async () => {
   const Module = require("node:module");
   const load = Module._load;

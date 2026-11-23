@@ -756,9 +756,14 @@
   /* The picture answers the view's own rectangle: the shell says where the
      view stood, and the picture is placed there, one place for one page. It
      cannot be an object-fit of the slot — a page a percentage drew centred
-     and small reads as a jump when its full-slot fill replaces it. */
+     and small reads as a jump when its full-slot fill replaces it.
+     A picture the shell could not place is the one a sleeping page was
+     photographed on: taken at its parked size, it has no rectangle of its
+     own, and filling the slot with it stretches it — so that one keeps its
+     ratio and centres, the way a page far from the room it was framed in
+     reads on the shell-drawn side of this line. */
   .bframe { position: absolute; object-fit: fill; user-select: none; pointer-events: none }
-  .bframe:not([style]) { inset: 0; width: 100%; height: 100% }
+  .bframe:not([style]) { inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center }
   .bpage { max-width: 560px; padding: 24px; display: grid; gap: 8px; justify-items: start; color: var(--muted) }
   .bpage b { max-width: 100%; font: var(--w-med) var(--fs-lead) var(--ui); color: var(--text); overflow-wrap: anywhere }
   .bpage code { max-width: 100%; font: var(--w-reg) var(--fs-meta) var(--mono); color: var(--muted); overflow-wrap: anywhere }

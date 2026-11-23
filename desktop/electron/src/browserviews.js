@@ -682,9 +682,10 @@ class BrowserViews {
     if (this.placed === turn && this.shown === id && !picture) this.hide();
     // The picture answers the view's own rectangle, which a frame a person
     // chose is not the slot: a percentage draws the view centred and small
-    // inside it. The rectangle is said against the slot — the panel the page
-    // reported — so the page can put the picture where the view stood instead
-    // of filling the slot with it and reading as a jump.
+    // inside it. The rectangle is said against the panel the page reported
+    // — the box the placement was given — and the page puts its own slot's
+    // origin back on it, so the picture lands where the view stood even
+    // where that box was the slot cut down to what the window shows.
     const panel = entry.panel;
     const at = entry.at;
     return {
