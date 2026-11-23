@@ -15,6 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConnectionSnapshot } from "../net/connection";
+import { NO_PROJECT_LABEL } from "../net/connection";
 import type { TreeProject, TreeSession } from "../wire/tree";
 import { decisionLabel, decisionVerb } from "../net/status";
 import {
@@ -141,7 +142,14 @@ function matches(text: string, query: string): boolean {
 }
 
 function projectMatches(project: TreeProject, query: string): boolean {
-  return matches(project.name, query) || matches(project.root, query);
+  return matches(projectNameFor(project), query) || matches(project.root, query);
+}
+
+/** The name every surface shows a project by. The app's own folder — the
+ *  kernel marks it auto — is the phone's 任务, the same constant a pane's
+ *  title reads; its directory name "auto" is a machine word nobody chose. */
+export function projectNameFor(project: TreeProject): string {
+  return project.auto ? NO_PROJECT_LABEL : project.name;
 }
 
 function sessionMatches(row: RecentRow, query: string): boolean {
@@ -355,7 +363,7 @@ function RecentItem({
             {session.runtimeId ? <span className="pill">运行中</span> : null}
           </span>
           <span className="session-meta">
-            {busy ? "正在打开…" : [project.name, relativeTime(session.lastActiveAt)].filter(Boolean).join(" · ")}
+            {busy ? "正在打开…" : [projectNameFor(project), relativeTime(session.lastActiveAt)].filter(Boolean).join(" · ")}
           </span>
         </span>
         <Chevron />
@@ -624,10 +632,10 @@ function ProjectItem({
       {...drag}
     >
       <button type="button" className="project" onClick={onOpen}>
-        <span className="project-mark" aria-hidden="true">{project.name.slice(0, 1)}</span>
+        <span className="project-mark" aria-hidden="true">{projectNameFor(project).slice(0, 1)}</span>
         <span className="row-main">
           <span className="project-name">
-            <span className="row-title">{project.name}</span>
+            <span className="row-title">{projectNameFor(project)}</span>
             {project.open ? (
               <span className="dot ok" role="img" aria-label="桌面端已打开" title="桌面端已打开" />
             ) : null}
@@ -1159,7 +1167,7 @@ export function Home({
       {menu ? (
         <SessionSheet
           title={sessionTitle(menu.session)}
-          projectName={menu.project.name}
+          projectName={projectNameFor(menu.project)}
           when={relativeTime(menu.session.lastActiveAt)}
           pinned={menu.session.pinned === true}
           projects={projects}

@@ -216,6 +216,34 @@ describe("Home", () => {
     expect(container.textContent).toContain("运行中");
   });
 
+  // The app's own folder is the phone's 任务: the kernel marks it auto and its
+  // directory name is a machine word, so a recent row naming it must read the
+  // label, and the project view still gives it no row of its own.
+  it("names the auto project's conversations 任务, never the directory word", () => {
+    render({
+      tree: tree({
+        projects: [
+          project(),
+          project({
+            root: "/data/auto",
+            name: "auto",
+            auto: true,
+            remembered: false,
+            sessions: [
+              { path: "/data/auto/s.jsonl", name: "s", title: "没归项目的想法", lastActiveAt: Date.now() - 1_000 },
+            ],
+          }),
+        ],
+      }),
+    });
+    expect(container.querySelectorAll(".session")).toHaveLength(3);
+    expect(container.textContent).toContain("任务");
+    expect(container.textContent).not.toContain("auto");
+
+    act(() => nav("项目").click());
+    expect(container.querySelectorAll(".project")).toHaveLength(1);
+  });
+
   it("switches to the project view and back", () => {
     render();
     expect(container.querySelectorAll(".project")).toHaveLength(0);
