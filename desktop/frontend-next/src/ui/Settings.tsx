@@ -17,6 +17,7 @@ import { SECTION_NAME, SETTING_AT, pageHome } from "./prefsnav";
 import { SettingsNav, SettingsTitle } from "./SettingsNav";
 import { SettingsPageStyle, SoloStyle } from "./SettingsPageStyle";
 import { firstPage, pageOf } from "./settingPages";
+import { lastSettingsPage, rememberSettingsPage } from "../state/settingsPage";
 import { Group, SCOPE_SAID } from "./Group";
 import { CommonSettings } from "./CommonSettings";
 import { AgentSettings } from "./AgentSettings";
@@ -82,9 +83,12 @@ export function Settings({ hub, onError, port, networkPort, localWorkspacePort, 
   const solo = !!soloSection;
   const openedSection = soloSection ?? openedName;
   const [picked, setPicked] = useState<ExtPicked | null>(null);
-  const [at, setAt] = useState<Section>(homeFor((openedSection as Section) || "session", openedAnchor));
+  // An explicit request wins; a plain open returns to where the reader left the
+  // sheet, and the first visit lands on 常用 rather than on a page they never chose.
+  const landing = (openedSection as Section) || lastSettingsPage() || "common";
+  const [at, setAt] = useState<Section>(homeFor(landing, openedAnchor));
   const [pages, setPages] = useState<Partial<Record<Section, string>>>(() => {
-    const home = homeFor((openedSection as Section) || "session", openedAnchor);
+    const home = homeFor(landing, openedAnchor);
     const first = pageOf(home, openedAnchor);
     return first ? { [home]: first } : {};
   });
@@ -330,6 +334,12 @@ export function Settings({ hub, onError, port, networkPort, localWorkspacePort, 
     else navigation.leave(land);
   };
   useSettingLanding(root, landed, at, setLanded);
+  // A page opened on its own (an extension manager, a spend view) is that
+  // surface's destination, not a settings page, so it is not what the sheet
+  // comes back to.
+  useEffect(() => {
+    if (!solo) rememberSettingsPage(at);
+  }, [at, solo]);
 
   return (
     <SettingsLeaveContext.Provider value={navigation.register}><div
