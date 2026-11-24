@@ -159,6 +159,14 @@ func (e *ProviderEntry) HasVisionModel(model string) bool {
 	return false
 }
 
+// mergeVisionModels keeps a written list authoritative: two absent lists are
+// not a declaration and must not merge into an empty one.
+func mergeVisionModels(entry, old *ProviderEntry) {
+	if entry.VisionModels != nil || old.VisionModels != nil {
+		entry.VisionModels = mergeModelLists(entry.VisionModels, old.VisionModels)
+	}
+}
+
 func isOfficialMimoVisionEntry(e *ProviderEntry) bool {
 	if !isOpenAIProviderKind(e) || !mimoVisionModels[strings.ToLower(strings.TrimSpace(e.Model))] {
 		return false

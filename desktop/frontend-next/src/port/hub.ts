@@ -24,6 +24,9 @@ export interface RuntimeView {
   base: string;
   root: string;
   name: string;
+  // The name the person gave the project in the sidebar; `name` stays the
+  // folder's own, which is what a row falls back to.
+  displayName?: string;
   sessionPath?: string;
   // Set only on a pane whose kernel runs on another machine, naming it. Absence
   // is what marks a pane as this machine's own, so the common case stays plain.

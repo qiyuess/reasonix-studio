@@ -12,15 +12,22 @@ const modulePrefix = "reasonix/"
 // below it may reach up. See REASONIX.md.
 var frontends = []string{
 	"internal/frontend/acp",
-	"internal/frontend/capdiag",
 	"internal/assembly/boot",
 	"internal/frontend/cli",
 	"internal/frontend/clisession",
-	"internal/frontend/doctor",
 	"internal/frontend/schedulerun",
 	"internal/frontend/serve",
-	"internal/frontend/termrender",
 	"internal/frontend/tui",
+}
+
+// Frontend helpers are owned by the frontend layer but sit beside it rather
+// than on it: a frontend may use one, and nothing below a frontend may reach
+// one. They do not gain a frontend's right to import the controller or the
+// composition root.
+var frontendHelpers = []string{
+	"internal/frontend/capdiag",
+	"internal/frontend/doctor",
+	"internal/frontend/termrender",
 }
 
 // Utility layer: these packages carry no knowledge of the kernel and must
@@ -125,6 +132,8 @@ func violates(pkg, dep string) string {
 		return fmt.Sprintf("%s may not import %s: the controller is reachable from frontends and entrypoints only", pkg, dep)
 	case matches(frontends, dep) && !above(pkg):
 		return fmt.Sprintf("%s may not import the %s frontend: move shared behavior below the controller", pkg, dep)
+	case matches(frontendHelpers, dep) && !above(pkg) && !matches(frontendHelpers, pkg):
+		return fmt.Sprintf("%s may not import the %s frontend helper: it is owned by the frontend layer", pkg, dep)
 	case matches(hostAdapters, dep) && !above(pkg):
 		return fmt.Sprintf("%s may not import the %s host adapter: it is assembled by hosts, not reached from below", pkg, dep)
 	}

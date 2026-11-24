@@ -179,7 +179,7 @@ export function PaneTabs({ tabs, active, showRoot, onFocus, onClose, onRename }:
           ) : (
             <span className="ptab-nm">{title}</span>
           )}
-          {showRoot && <span className="ptab-ws">{rt.name}</span>}
+          {showRoot && <span className="ptab-ws">{rt.displayName || rt.name}</span>}
           {/* Which machine is running this. Panes from two hosts sit side by
               side, and a command lands wherever the focused tab points. */}
           {rt.host && <span className="ptab-host"><StudioIcon name="server" />{rt.host}</span>}

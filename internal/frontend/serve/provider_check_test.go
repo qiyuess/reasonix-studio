@@ -21,6 +21,18 @@ import (
 func TestCheckProviderReportsWhatTheEndpointSaid(t *testing.T) {
 	s := newProviderEditServer(t)
 	s.AllowProviderEdit()
+	// The fixture's .invalid address answers only as fast as the host resolver
+	// decides; one that blackholes it turns this into a timeout. A closed
+	// loopback port refuses at once, which is the answer this case names.
+	path := config.UserConfigPath()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closed := strings.ReplaceAll(string(raw), "https://example.invalid/v1", closedEndpoint(t))
+	if err := os.WriteFile(path, []byte(closed), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	srv := httptest.NewServer(operatorHandler(s))
 	defer srv.Close()
 
@@ -589,4 +601,13 @@ func TestCheckProviderRefusesAnUnsupportedDraftKind(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest || reason.Code != "provider.kind_unsupported" {
 		t.Fatalf("status %d code %q, want 400 provider.kind_unsupported", resp.StatusCode, reason.Code)
 	}
+}
+
+// closedEndpoint is an address that refuses at once: a listener opened and
+// closed leaves the port answering nothing.
+func closedEndpoint(t *testing.T) string {
+	t.Helper()
+	dead := httptest.NewServer(http.NotFoundHandler())
+	defer dead.Close()
+	return dead.URL + "/v1"
 }

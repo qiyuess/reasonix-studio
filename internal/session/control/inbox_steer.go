@@ -149,13 +149,9 @@ func (c *Controller) steerInboxItem(id string, holdIfPaused bool) (sessioninbox.
 	if err := st.SetState(id, sessioninbox.StateSteerAccepted, ""); err != nil {
 		return sessioninbox.InboxReceipt{}, err
 	}
-	// A picture is worth steering when this turn's model can read it, or a
-	// vision model is configured to read it on the turn's delegation — the
-	// words then carry the same routing note a whole turn's input gets, so the
-	// model hands the picture over instead of the line waiting out the turn as
-	// a follow-up nobody asked for. With neither reader, the follow-up path
-	// below runs a whole turn and says the attachment never reached the model.
-	// Read before the lock: it loads config.
+	// A picture steers when this turn's model reads it, or a vision model is
+	// configured to read it on the turn's delegation; otherwise it waits as a
+	// follow-up. Read before the lock: it loads config.
 	reads := len(env.FrozenImages) == 0 || c.imageInputEnabled() || c.visionModelRef() != ""
 	c.mu.Lock()
 	accepted := reads && !c.gate.closed && !c.gate.rotating && c.gate.running && c.executor != nil && c.steerItemAs(meta.Origin, id, loader, imagesLoader, env.Via, env.DisplayText)
@@ -227,11 +223,9 @@ func (c *Controller) steerLoaders(st *sessioninbox.Store, id string) (func() (st
 				return
 			}
 			text, images = firstNonEmptyStr(materialized, body), pictures
-			// A model that cannot read the pictures still gets the words, and
-			// the note they arrive with says where the pictures go — the same
-			// note a whole turn's input carries, so it delegates instead of
-			// answering as though nothing was attached. The admission above has
-			// already said a reader exists.
+			// A model that cannot read the pictures still gets the words; the
+			// note says where they go, so it delegates. Admission already said
+			// a reader exists.
 			if len(images) > 0 && !c.imageInputEnabled() {
 				text += c.imageRoutingNote(len(images))
 			}

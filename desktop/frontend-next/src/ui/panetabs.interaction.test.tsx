@@ -32,6 +32,15 @@ function draw(tabs: TabView[]) {
 
 const confirmBtn = () => within(screen.getByRole("alertdialog")).getByRole("button", { name: "关闭" });
 
+it("names the workspace by the sidebar's display name when one is set", () => {
+  const named: TabView = {
+    ...tab("A", false),
+    rt: { id: "A", root: "/w/A", name: "folder", displayName: "我的项目" } as RuntimeView,
+  };
+  render(<PaneTabs tabs={[named]} active="A" showRoot onFocus={() => {}} onClose={() => {}} onRename={() => {}} />);
+  expect(document.querySelector(".ptab-ws")?.textContent).toBe("我的项目");
+});
+
 describe("closing a pane that is still working", () => {
   it("asks nothing at all when nothing is running", async () => {
     const { onClose, closerOf, ask } = draw([tab("A", false), tab("B", false)]);

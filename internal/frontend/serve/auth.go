@@ -550,11 +550,8 @@ func (ag *authGate) signSession() string {
 	expiry := time.Now().Add(sessionDuration).Unix()
 	nonce := make([]byte, 16)
 	if _, err := rand.Read(nonce); err != nil {
-		// crypto/rand.Read cannot fail on modern systems; panic rather than
-		// fall back to an all-zero nonce. Forging a cookie still requires the
-		// PBKDF2-derived sessKey, so this is not an auth bypass, but a constant
-		// nonce weakens session token uniqueness/unpredictability and is the
-		// same anti-pattern generateToken/sessionKeyForPasswordHash panic on.
+		// crypto/rand.Read cannot fail on modern systems; a constant nonce
+		// would weaken uniqueness, and forging still needs the derived key.
 		panic("serve/auth: crypto/rand.Read failed: " + err.Error())
 	}
 
@@ -639,12 +636,9 @@ func acceptsHTML(r *http.Request) bool {
 	return false
 }
 
-// clientIP extracts the client IP from the request. When behindProxy is
-// true, it trusts the rightmost entry in X-Forwarded-For — the address the
-// trusted reverse proxy saw and appended last; anything to its left was
-// supplied by untrusted hops and can be forged to reset the rate limiter.
-// Otherwise it uses RemoteAddr directly — X-Forwarded-For is ignored
-// because an attacker can forge it.
+// clientIP extracts the client IP. Behind a proxy it trusts the rightmost
+// X-Forwarded-For entry — the one the proxy appended; anything to its left is
+// client-supplied and forgeable. Without a proxy it uses RemoteAddr.
 func (ag *authGate) clientIP(r *http.Request) string {
 	if ag.behindProxy {
 		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {

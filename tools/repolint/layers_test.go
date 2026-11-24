@@ -15,6 +15,8 @@ func TestLayeringContract(t *testing.T) {
 		{"diagnostics may not reach the composition root", "internal/frontend/capdiag", "internal/assembly/boot", true},
 		{"frontend may use the controller", "internal/frontend/serve", "internal/session/control", false},
 		{"frontend may use another frontend", "internal/frontend/cli", "internal/frontend/serve", false},
+		{"a frontend helper may not be reached from below", "internal/runtime/agent", "internal/frontend/doctor", true},
+		{"a frontend may use a frontend helper", "internal/frontend/cli", "internal/frontend/termrender", false},
 		{"frontend subpackage may use its parent", "internal/frontend/serve/hub", "internal/frontend/serve", false},
 		{"entrypoint may use a frontend", "cmd/reasonix", "internal/frontend/cli", false},
 		{"desktop host may use the controller", "desktop", "internal/session/control", false},
