@@ -1725,13 +1725,27 @@ describe("ChatScreen composer", () => {
       expect.objectContaining({ method: "POST" }),
     );
 
+    // A staged chip is independent of the draft: typing must not revoke it.
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    await act(async () => {
+      setter?.call(textarea, "看一下这张图");
+      textarea.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush();
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("看一下这张图");
+    expect(container.querySelector(".attachment")).not.toBeNull();
+
     act(() =>
       (
         container.querySelector('button[aria-label="移除附件 photo.png"]') as HTMLButtonElement
       ).click(),
     );
 
-    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("");
+    // Removing the chip leaves the draft alone, as it left the chip alone.
+    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("看一下这张图");
     expect(container.querySelector(".attachment")).toBeNull();
     expect(preview).toHaveBeenCalled();
   });

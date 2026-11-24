@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -77,6 +78,15 @@ public class PairActivity extends ComponentActivity {
         // code can see rather than the copy it could not tell apart from one.
         credentialBefore = deviceCookieValue();
 
+        // The bar is painted by the window, not by any page here, and
+        // Capacitor's SystemBars repaints it from the *system* theme when this
+        // activity's bridge starts — which is how a paired sheet opened on a
+        // dark app and found a light band across its top. The palette the page
+        // last reported is remembered app-wide, so dressing this activity in
+        // it is one call.
+        ThemeBarPlugin.reapply(this);
+        boolean lightBar = ThemeBarPlugin.rememberedLightIcons(this);
+
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.TRANSPARENT);
 
@@ -98,32 +108,68 @@ public class PairActivity extends ComponentActivity {
         web.setAlpha(0f);
         root.addView(web, new FrameLayout.LayoutParams(2, 2));
 
+        // The card answers the app's palette rather than a hard-coded grey:
+        // a dark app opened this sheet and got a light rectangle whose only
+        // kin was the status bar band above it. The remembered bar colour is
+        // the one page-chosen colour available here; raised above it, with
+        // the ink and the button following the light/dark answer.
+        String barColor = ThemeBarPlugin.rememberedColor(this);
+        int cardBackground;
+        int cardInk;
+        int cardMuted;
+        if (!barColor.isEmpty()) {
+            cardBackground = blend(Color.parseColor(barColor), lightBar ? 0xFFFFFF : 0x000000, 0.06f);
+            cardInk = lightBar ? Color.rgb(20, 23, 28) : Color.rgb(232, 235, 240);
+            cardMuted = lightBar ? Color.rgb(90, 96, 105) : Color.rgb(150, 156, 165);
+        } else {
+            cardBackground = Color.rgb(247, 248, 250);
+            cardInk = Color.rgb(20, 23, 28);
+            cardMuted = Color.rgb(90, 96, 105);
+        }
+
+        // Rounded the way the app's own cards are: a plain rectangle read as a
+        // system dialog that had lost its way, not as this app asking.
+        GradientDrawable cardShape = new GradientDrawable();
+        cardShape.setColor(cardBackground);
+        cardShape.setCornerRadius(dp(14));
+
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER);
-        card.setPadding(48, 48, 48, 32);
-        card.setBackgroundColor(Color.rgb(247, 248, 250));
+        card.setPadding(dp(24), dp(28), dp(24), dp(22));
+        card.setBackground(cardShape);
 
         ProgressBar progress = new ProgressBar(this);
         TextView label = new TextView(this);
         label.setText("正在配对…");
         label.setTextSize(16);
-        label.setTextColor(Color.rgb(20, 23, 28));
-        label.setPadding(0, 16, 0, 20);
+        label.setTextColor(cardInk);
+        label.setPadding(0, dp(16), 0, dp(6));
+
+        TextView hint = new TextView(this);
+        hint.setText("正在与电脑交换配对凭据");
+        hint.setTextSize(13);
+        hint.setTextColor(cardMuted);
+        hint.setPadding(0, 0, 0, dp(18));
 
         Button cancel = new Button(this);
         cancel.setText("取消");
         cancel.setAllCaps(false);
+        cancel.setTextColor(cardInk);
+        cancel.setTextSize(15);
+        cancel.setBackground(null);
         cancel.setOnClickListener(v -> finishWith(RESULT_CANCELED, "cancelled"));
 
         card.addView(progress);
         card.addView(label);
+        card.addView(hint);
         card.addView(cancel, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         cardParams.gravity = Gravity.CENTER;
+        cardParams.topMargin = (int) dp(12);
         root.addView(card, cardParams);
 
         setContentView(root);
@@ -195,6 +241,19 @@ public class PairActivity extends ComponentActivity {
         data.putExtra(EXTRA_REASON, reason);
         setResult(resultCode, data);
         finish();
+    }
+
+    /** Two colours by weight, as CSS `color-mix` would blend them. */
+    private static int blend(int base, int with, float weight) {
+        float inverse = 1f - weight;
+        int red = (int) (Color.red(base) * inverse + Color.red(with) * weight);
+        int green = (int) (Color.green(base) * inverse + Color.green(with) * weight);
+        int blue = (int) (Color.blue(base) * inverse + Color.blue(with) * weight);
+        return Color.rgb(red, green, blue);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     @Override

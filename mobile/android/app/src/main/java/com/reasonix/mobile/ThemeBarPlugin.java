@@ -100,9 +100,33 @@ public class ThemeBarPlugin extends Plugin {
         editor.apply();
     }
 
-    private static SharedPreferences prefs(Activity activity) {
-        return activity.getApplicationContext()
+    private static SharedPreferences prefs(Context context) {
+        return context.getApplicationContext()
                 .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    /**
+     * The remembered bar colour, or "" before the page has ever reported one.
+     *
+     * A surface the page does not paint — the pairing sheet — reads this to
+     * dress itself in the same palette, so its card and its buttons answer the
+     * theme instead of a hard-coded light grey.
+     */
+    static String rememberedColor(Context context) {
+        if (!lastColor.isEmpty()) return lastColor;
+        return prefs(context).getString(KEY_COLOR, "");
+    }
+
+    /**
+     * Whether the remembered bar is light (dark icons), or true when unknown —
+     * the app has shipped light-first, so an unrecorded install reads light.
+     */
+    static boolean rememberedLightIcons(Context context) {
+        if (lastDarkIcons != null) return lastDarkIcons;
+        SharedPreferences prefs = prefs(context);
+        return prefs.getBoolean(KEY_HAS_ICONS, false)
+                ? prefs.getBoolean(KEY_DARK_ICONS, false)
+                : true;
     }
 
     private static void applyTwice(Activity activity, String color, Boolean darkIcons) {

@@ -1668,19 +1668,9 @@ export function ChatScreen({
     [],
   );
 
-  // Editing a reference out of the draft is also removing that attachment;
-  // otherwise the chip would stay but the turn would not mention the image.
-  // Compared one by one so deleting one ref keeps the others.
-  useEffect(() => {
-    setAttachments((current) => {
-      const kept = current.filter((entry) => draft.includes(entry.ref));
-      if (kept.length === current.length) return current;
-      for (const entry of current) {
-        if (!kept.includes(entry) && entry.url) URL.revokeObjectURL(entry.url);
-      }
-      return kept;
-    });
-  }, [draft]);
+  // A staged attachment is a chip: its reference rides composeMessage at send
+  // time and is never written into the draft, so nothing below clears chips
+  // as the draft changes. Deleting one is the × on its chip.
 
   const pickImage = useCallback(() => {
     imageRef.current?.click();
