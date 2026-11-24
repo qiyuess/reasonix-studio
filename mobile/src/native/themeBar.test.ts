@@ -36,7 +36,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  document.documentElement.removeAttribute("data-style");
   vi.useRealTimers();
   vi.restoreAllMocks();
   Reflect.deleteProperty(document, "visibilityState");

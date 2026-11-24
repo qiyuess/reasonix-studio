@@ -2,18 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <queries>
-        <intent>
-            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
-        </intent>
-        <!-- The in-process recognizer binds a RecognitionService directly;
-             without this query Android 11+ hides every service and
-             isRecognitionAvailable() is false on a phone that has one. -->
-        <intent>
-            <action android:name="android.speech.RecognitionService" />
-        </intent>
-    </queries>
-
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -66,6 +54,7 @@
             android:name=".PairActivity"
             android:label="连接 Reasonix"
             android:theme="@style/PairTheme"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
             android:exported="false" />
 
         <service

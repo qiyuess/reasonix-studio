@@ -46,7 +46,6 @@ vi.mock("@capacitor/barcode-scanner", () => ({
 }));
 vi.mock("../native/login", () => ({ NativeLogin: { open: vi.fn(async () => {}) } }));
 vi.mock("../native/pair", () => ({ NativePair: { pair: vi.fn() } }));
-vi.mock("../native/webmode", () => ({ WebMode: { open: vi.fn(async () => {}) } }));
 vi.mock("../native/turn", () => ({
   loadBackgroundStatus: vi.fn(async () => null),
   openBatterySettings: vi.fn(),
@@ -299,7 +298,6 @@ describe("ConnectScreen", () => {
 
     afterEach(() => {
       document.documentElement.removeAttribute("data-theme");
-      document.documentElement.removeAttribute("data-style");
     });
 
     async function renderPrefs(): Promise<void> {
