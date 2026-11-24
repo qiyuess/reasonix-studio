@@ -12,11 +12,14 @@ const modulePrefix = "reasonix/"
 // below it may reach up. See REASONIX.md.
 var frontends = []string{
 	"internal/frontend/acp",
+	"internal/frontend/capdiag",
 	"internal/assembly/boot",
 	"internal/frontend/cli",
 	"internal/frontend/clisession",
+	"internal/frontend/doctor",
 	"internal/frontend/schedulerun",
 	"internal/frontend/serve",
+	"internal/frontend/termrender",
 	"internal/frontend/tui",
 }
 
@@ -25,6 +28,7 @@ var frontends = []string{
 // One may reach another: the layer is closed, so that drags nothing in, and
 // refusing it is what leaves the same judgement copied into several of them.
 var leaves = []string{
+	"internal/base/backgroundwork",
 	"internal/base/workspacefile",
 	"internal/contract/delivery",
 	"internal/contract/ablation",
@@ -34,6 +38,7 @@ var leaves = []string{
 	"internal/contract/surfacespec",
 	"internal/contract/walletformat",
 	"internal/model/billing",
+	"internal/base/externalurl",
 	"internal/platform/browser",
 	"internal/platform/computer",
 	"internal/base/diff",
@@ -47,8 +52,12 @@ var leaves = []string{
 	"internal/base/fileutil/encoding",
 	"internal/base/flexstr",
 	"internal/base/frontmatter",
+	"internal/base/gitignore",
+	"internal/base/hostwrite",
 	"internal/base/i18n",
 	"internal/contract/mcpdiag",
+	"internal/base/netclient",
+	"internal/base/netdns",
 	"internal/base/neterr",
 	"internal/base/nilutil",
 	"internal/platform/openwith",
@@ -64,11 +73,15 @@ var leaves = []string{
 	"internal/base/retrieval",
 	"internal/base/rulelist",
 	"internal/base/scratch",
+	"internal/base/secrets",
 	"internal/base/shellparse",
 	"internal/state/store",
 	"internal/state/trustedstate",
 	"internal/contract/surface",
 	"internal/base/sysproxy",
+	"internal/base/tempdir",
+	"internal/base/testenv",
+	"internal/base/testscope",
 	"internal/base/textutil",
 	"internal/base/tokencount",
 	"internal/state/usagereport",

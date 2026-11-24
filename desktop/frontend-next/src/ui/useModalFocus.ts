@@ -31,9 +31,15 @@ export function useModalFocus(ref: RefObject<HTMLElement | null>, active = true)
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const ringed = opener?.matches(":focus-visible") ?? false;
     open.push(root);
+    // A big sheet pays a full focusable scan per Tab keypress otherwise; the
+    // list is kept until the tree under the dialog changes, which is the only
+    // thing that can move a stop.
+    let stops: HTMLElement[] | null = null;
+    const observer = new MutationObserver(() => { stops = null; });
+    observer.observe(root, { childList: true, attributes: true, subtree: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Tab" || open[open.length - 1] !== root) return;
-      const stops = reachable(root);
+      if (stops === null) stops = reachable(root);
       if (stops.length === 0) {
         e.preventDefault();
         root.focus();
@@ -55,6 +61,7 @@ export function useModalFocus(ref: RefObject<HTMLElement | null>, active = true)
     };
     document.addEventListener("keydown", onKey, true);
     return () => {
+      observer.disconnect();
       document.removeEventListener("keydown", onKey, true);
       const i = open.lastIndexOf(root);
       if (i >= 0) open.splice(i, 1);

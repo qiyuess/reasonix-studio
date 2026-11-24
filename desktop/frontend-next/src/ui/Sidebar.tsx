@@ -2,7 +2,7 @@ import { FEEDBACK_RETIRED } from "../feedbackchannel";
 import { SidebarTools } from "./SidebarTools";
 import { SidebarDestinations } from "./SidebarDestinations";
 import { FeedbackBadge, feedbackEntryTab } from "./feedbackentry";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { t } from "../i18n";
 import logoWordmark from "../assets/logo-wordmark.svg";
 import type { ApprovalMode } from "../port/port";
@@ -158,11 +158,11 @@ export function Sidebar({
   const online = (remotes ?? []).filter((h) => h.status === "connected" || h.status === "degraded").length;
   // A new conversation belongs to no project; the pill on its composer is where
   // one is chosen. Only a pane on another machine keeps that machine's folder.
-  const startConversation = () => {
+  const startConversation = useCallback(() => {
     if (onNew) return onNew();
     const runtime = runtimes.find((rt) => rt.id === active);
     return runtime?.host ? onOpenRemote(runtime.host, runtime.root) : onOpen({ noProject: true });
-  };
+  }, [onNew, runtimes, active, onOpenRemote, onOpen]);
   const paletteSettings = useMemo(() => {
     return SETTINGS.filter((x) => !x.hidden).map((x) => ({ id: `${x.section}:${x.anchor}`, label: t(x.title), path: t(SECTION_NAME[x.section] ?? x.section), keywords: (x.keywords ?? []).join(" ") }));
   }, []);
@@ -232,7 +232,7 @@ export function Sidebar({
       { id: "settings", label: t("common.settings"), icon: "settings", keywords: "settings preferences 设置 偏好",
         run: () => onSettings() },
     ],
-    [onNew, onOpen, onOpenRemote, runtimes, active, onFiles, onView, onSettings, onFeedback, feedbackUnread, onFind, onError],
+    [startConversation, onFiles, onView, onSettings, onFeedback, feedbackUnread, onFind, onError],
   );
 
   const onFold = (root: string, shut: boolean) => {

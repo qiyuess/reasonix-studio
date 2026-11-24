@@ -95,7 +95,7 @@ export type { PaneReport };
 const NO_JOBS: JobEntry[] = [];
 const NO_COST: CurrencyAmount[] = [];
 
-type SessionRead = { kind: "pending" } | { kind: "settled"; status: SessionStatus | null };
+type SessionRead = { kind: "pending" } | { kind: "settled"; status: SessionStatus | null; sig?: string };
 
 const totalsOf = (st: SessionStatus) => ({
   kind: "__totals",
@@ -209,8 +209,12 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
     // payload that cannot say leaves the wire's own running standing.
     if (next.running === false) pacer.flush();
     if (next.running !== undefined) dispatch({ kind: "__running", running: next.running });
-    setSessionRead((prev) => (prev.kind === "settled" && prev.status && JSON.stringify(prev.status) === JSON.stringify(next)
-      ? prev : { kind: "settled", status: next }));
+    // /status is polled four times a second and most answers are word-for-word
+    // the previous one: one serialization of the new answer against the kept
+    // signature of the old, not two full-body serializations per poll.
+    const sig = JSON.stringify(next);
+    setSessionRead((prev) => (prev.kind === "settled" && prev.status && prev.sig === sig
+      ? prev : { kind: "settled", status: next, sig }));
   }, [pacer]);
 
   const readJob = useCallback((id: string) => port.jobOutput(id), [port]);
