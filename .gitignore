@@ -72,6 +72,9 @@ desktop/**/.reasonix/
 # CodeGraph per-project index (rebuilt locally; never committed)
 .codegraph/
 
+# Security-scan hook state; per session, never committed.
+.mimosa/
+
 # Editor / OS
 .DS_Store
 Thumbs.db
