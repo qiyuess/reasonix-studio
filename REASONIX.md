@@ -553,6 +553,25 @@ of what this project has done.
 from a later upstream commit, it is read, understood and written here on its own
 merit; it is not merged, and its authorship is not inherited.
 
+### Branches
+
+- `studio-dev` is the development branch and the checked-out line. It holds
+  the whole tree — kernel, `desktop/` and `mobile/` — because a branch is a
+  line of commits, not a directory.
+- `studio` mirrors `origin/studio`, the release line. Do not develop on it.
+- `reasonix-Android` was the old local name for the development line. It was
+  renamed to `studio-dev` on 2026-11-24 because the name read as mobile-only
+  while the branch carried every later kernel and desktop commit. Do not
+  recreate it.
+- Publishing pushes the development line onto the release line:
+  `git -c http.proxy=http://127.0.0.1:7890 push origin studio-dev:studio`.
+  The proxy is this workstation's; read the unpushed count from
+  `git rev-list --count origin/studio..HEAD` instead of trusting a number
+  written here.
+- `origin/reasonix-Android` is the phone client's last release ref, not the
+  development branch; it may trail `studio-dev`. The phone ships with the
+  `studio-v*` release, so its tag is the repository owner's call.
+
 ### What this repository carries on top of 2.61.0
 
 Three customisations predate the handover, and they stay. Everything else the
