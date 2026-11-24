@@ -187,7 +187,7 @@ it.each(["collapsed", "off"])("reaches usage, account, and settings with the rai
   const railShown = mode === "collapsed";
   if (railShown) await toggleSidebar();
   const entries = railShown ? navEl()! : document.querySelector<HTMLElement>(".rail")!;
-  for (const [label, section, action] of [["用量", "storage"], ["设置", "session", "chrome.settings"]]) {
+  for (const [label, section, action] of [["用量", "storage"], ["设置", "common", "chrome.settings"]]) {
     const button = within(entries).getByRole("button", { name: new RegExp(`^${label}`) });
     if (action) expect(entries.querySelector(`[data-action="${action}"]`)).toBe(button);
     await userEvent.click(button);
@@ -246,7 +246,7 @@ it("the rail starts a session and opens the palette, the same two the sidebar le
   expect(await screen.findByRole("dialog", { name: "搜索与快捷操作" })).toBeTruthy();
   await userEvent.keyboard("{Escape}");
   await userEvent.click(within(navEl()!).getByRole("button", { name: /^设置/ }));
-  expect((await screen.findByRole("tabpanel")).getAttribute("data-sec")).toBe("session");
+  expect((await screen.findByRole("tabpanel")).getAttribute("data-sec")).toBe("common");
 });
 
 it("keeps desktop navigation usable after closing settings without a top toggle", async () => {

@@ -507,6 +507,7 @@ export const ACTIONS: UIAction[] = [
   { id: "provider.probe", kind: "repeatable", target: "none", proof: "interaction" },
   { id: "provider.refresh", kind: "kernel-mutation", target: "entity", proof: "interaction" },
   { id: "provider.draft", kind: "interaction", target: "none", proof: "interaction" },
+  { id: "provider.fold", kind: "view", target: "none", proof: "interaction" },
   { id: "provider.price-source", kind: "shell-native", target: "entity", proof: "interaction" },
   { id: "provider.discard-edits", kind: "destructive", target: "none", proof: "interaction" },
   { id: "provider.revert", kind: "interaction", target: "none", proof: "interaction" },

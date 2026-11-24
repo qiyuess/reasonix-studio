@@ -58,7 +58,9 @@ it("checks on opening, shows wallet failures and keeps selection and management 
   expect(screen.getByRole("menuitem", { name: /alpha/ }).hasAttribute("data-on")).toBe(true);
   fireEvent.click(screen.getByRole("menuitem", { name: /gamma/ }));
   await waitFor(() => expect(pick).toHaveBeenCalledWith("two/gamma"));
-  fireEvent.click(screen.getByRole("menuitem", { name: /Manage models and connections|管理模型与连接/ }));
+  // A pick closes the menu; managing models is a second visit to it.
+  fireEvent.click(trigger);
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Manage models and connections|管理模型与连接/ }));
   expect(settings).toHaveBeenCalledWith("providers");
 });
 

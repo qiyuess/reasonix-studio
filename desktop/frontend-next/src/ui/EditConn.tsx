@@ -385,7 +385,7 @@ export function EditConn({
           shut behind its heading; the two actions stay one press away. */}
       <div className="mlist" data-shut={!modelsOpen || undefined}>
         <div className="mlhead">
-          <button type="button" className="mtoggle" aria-expanded={modelsOpen} onClick={() => setModelsOpen((v) => !v)}>
+          <button type="button" className="mtoggle" data-action="provider.fold" data-value="models" aria-expanded={modelsOpen} onClick={() => setModelsOpen((v) => !v)}>
             <StudioIcon name="down" />
             <span className="ttl">{t("common.models")}</span>
           </button>

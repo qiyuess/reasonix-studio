@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "./testkit";
 import { HttpError, type ProviderEdit, type ProviderEntry } from "../port/port";
@@ -83,12 +83,20 @@ function harness(over: { edit?: (e: ProviderEdit) => Promise<void> } = {}) {
 const detail = () => screen.getByRole("region");
 const url = () => within(detail()).getByLabelText("接口地址") as HTMLInputElement;
 const win = () => within(detail()).getByLabelText("上下文窗口") as HTMLInputElement;
-const visionTag = () => within(detail()).getByRole("button", { name: "vision-chat 的图片输入" });
+const visionTag = () => {
+  const found = within(detail()).queryByRole("button", { name: "vision-chat 的图片输入" });
+  if (found) return found;
+  // A save re-read rebuilds the editor folded; the toggle is behind the fold.
+  fireEvent.click(within(detail()).getByRole("button", { name: "模型" }));
+  return within(detail()).getByRole("button", { name: "vision-chat 的图片输入" });
+};
 const save = () => within(detail()).getByRole("button", { name: /^保存/ });
 
 async function open() {
   await screen.findAllByText("relay.example");
   await waitFor(() => expect(url().value).toBe("https://relay.example/v1"));
+  // The model list folds shut; the vision toggle and its rows live behind it.
+  fireEvent.click(within(detail()).getByRole("button", { name: "模型" }));
 }
 
 async function draft(nextUrl: string, nextWin: string) {
