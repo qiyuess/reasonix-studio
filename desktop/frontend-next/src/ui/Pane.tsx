@@ -549,7 +549,10 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
       data-run={run}
       data-plan={tab === "flow" && (s.plan.length > 0 || status?.goal) ? "" : undefined}
       data-off={visible ? undefined : ""}
+      // aria-hidden alone still leaves the pane reachable by Tab; inert is
+      // the half that makes hidden mean unreachable (Sidebar's rail does the same).
       aria-hidden={visible ? undefined : true}
+      inert={!visible || undefined}
       data-active={active ? "" : undefined}
       aria-label={title}
       onMouseDownCapture={active ? undefined : onFocus}

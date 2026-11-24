@@ -470,7 +470,8 @@ export function Transcript({ items: every, port, historyPaging, entering, onEnte
   const onBring = useMemo(() => (bring ? (id: string) => { bring(id); resume(); } : undefined), [bring, resume]);
   const rowProps = { onBring, owed, echoes, port, onApprove, onFullAccess, onPlan, onAnswer, onForget, onSettings, onExtInvoke, takeovers, onExtSubmit, onPrepareRewind, onCommitRewind, onPrepareFileRevert, onCommitFileRevert, reply, onResend, onWithdraw };
 
-  const marks = railMarks(blocks, (id) => checkpoints.get(id)?.files ?? 0);
+  // Recomputed on every render would cost a full pass per streaming delta.
+  const marks = useMemo(() => railMarks(blocks, (id) => checkpoints.get(id)?.files ?? 0), [blocks, checkpoints]);
 
   return (
     <div

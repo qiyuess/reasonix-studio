@@ -596,8 +596,20 @@ export function App({ hub }: { hub: HubPort }) {
     );
   }
 
+  // A fresh closure per render would redraw every pane's composition picker;
+  // the callback is pinned until what it dispatches to changes.
+  const startComposition = useCallback(
+    (id: string) => {
+      const rt = runtimes.find((v) => v.id === active);
+      void (rt?.host
+        ? openRemotePane(rt.host, rt.root, undefined, id)
+        : openPane({ noProject: true, agentComposition: id })).catch(fail);
+    },
+    [runtimes, active, openRemotePane, openPane, fail],
+  );
+
   return (
-    <CompositionNewContext.Provider value={(id) => {const rt=runtimes.find((v)=>v.id===active);void (rt?.host?openRemotePane(rt.host,rt.root,undefined,id):openPane({noProject:true,agentComposition:id})).catch(fail);}}>
+    <CompositionNewContext.Provider value={startComposition}>
     <div
       className="app"
       data-run={report.run}
