@@ -28,37 +28,39 @@ on first, and the people this repository is for read Chinese.
 
 ```
 reasonix/
-├── go.mod / go.sum          # module reasonix; require BurntSushi/toml
-├── Makefile                 # build / cross / vet / fmt / test
-├── README.md                # Chinese; the landing page
-├── reasonix.example.toml         # sample config
-├── docs/SPEC.md             # this file
-├── cmd/reasonix/main.go          # entry; blank-imports built-in providers/tools
-├── cmd/reasonix-plugin-example/  # reference MCP stdio plugin (a runnable example)
+├── go.mod / go.sum           # module reasonix
+├── Makefile                  # build / cross / vet / fmt / test
+├── README.md                 # Chinese; the landing page
+├── reasonix.example.toml     # sample config
+├── docs/SPEC.md              # this file
+├── cmd/
+│   ├── reasonix/             # CLI entry
+│   ├── reasonix-studio-host/ # desktop host assembly
+│   └── reasonix-plugin-example/
+├── desktop/                  # nested Go module: Electron shell + React SPA
+├── mobile/                   # Capacitor Android client
 └── internal/
-    ├── cli/                 # subcommand routing, flags, assembly, exit codes
-    ├── config/              # TOML loading (flag > project > user > defaults)
-    ├── provider/            # Provider interface + types + kind→factory registry
-    │   └── openai/          # OpenAI-compatible impl; init() registers "openai"
-    ├── tool/                # Tool interface + Registry
-    │   └── builtin/         # read_file/write_file/edit_file/move_file/bash/ls/glob/grep
-    ├── permission/          # per-call Policy: allow/ask/deny rules → Decision
-    ├── command/             # custom slash commands loaded from .reasonix/commands/*.md
-    ├── plugin/              # stdio JSON-RPC (MCP) client; adapts remote tools
-    ├── remote/              # SSH transport for the Remote-SSH module
-    │   ├── forward/         # -L / -R port-forward lifecycle
-    │   ├── sftpfs/          # SFTP file layer (quarantines pkg/sftp)
-    │   └── bootstrap/       # detached `reasonix serve` bootstrap over SSH
-    └── agent/               # Session + harness loop
+    ├── assembly/boot/        # composition root
+    ├── base/                 # closed utility layer
+    ├── contract/             # interfaces, wire contracts, config
+    ├── ext/                  # MCP, plugins, skills, hooks
+    ├── frontend/             # acp, cli, serve, tui, ...
+    ├── model/                # provider adapters and catalog
+    ├── platform/             # OS capabilities
+    ├── runtime/              # agent, coordinator, delegation
+    ├── safety/               # permission, sandbox, egress
+    ├── session/control/      # transport-agnostic Controller
+    ├── state/                # session store, checkpoints, memory
+    └── tools/                # built-in tools
 ```
 
-Dependency direction (acyclic): `cli → {agent, plugin, config} → {tool, provider}`.
-Built-in subpackages (`provider/openai`, `tool/builtin`) import their parent to
-self-register; parents never import children. The Remote-SSH module layers
-`cli → remote/bootstrap → remote → {remote/forward, remote/sftpfs, config,
-netclient}`; `remote` and its subpackages never import `cli`, `agent`, or
-`serve`, and all interactivity flows through callbacks (host-key / secret
-prompts) so the desktop module consumes the same surface. See §Remote below.
+Dependency direction is enforced by `tools/repolint/layers.go`. Utility packages
+under `internal/base` (and the other declared leaves) may import only one
+another; only frontends (`internal/frontend/*`, `internal/assembly/boot`) and
+hosts (`cmd/`, `desktop/`, `benchmarks/`) may reach
+`internal/session/control`; nothing below a frontend may import a frontend or
+the host adapters under `internal/frontend/remotehost`. The nested `desktop`
+module and the `mobile` client sit above the kernel.
 
 ## 3. Core Abstractions
 

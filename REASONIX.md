@@ -538,19 +538,16 @@ is here is what this project maintains.
 
 ### The shape of the history
 
-Eleven commits, and the first is the only one that is not this repository's work:
-
-| Commit | Is |
-| --- | --- |
-| `5377525` `chore: import upstream studio-v2.61.0` | That release's tree, entire. Its tree hash is `79fc400ec`, which is `cd20bb50b^{tree}`. |
-| `0d48157` the boot screen and the icons | The two customisations the previous fork carried; they predate 2.61.0 and are kept. |
-| the nine above it | Everything after 2.61.0, which is this project's own work. |
+The base is `72d7bc882` `chore: import upstream studio-v2.61.0` — that
+release's tree, entire. Its tree hash is `79fc400ec`, which is
+`cd20bb50b^{tree}`. Everything above it is this project's own work;
+`git log --oneline 72d7bc882..HEAD` lists it.
 
 The base is one tree rather than one commit's ancestry on purpose: the fork this
 replaced merged twenty upstream release tags across 13000 commits, and none of
 that says anything about what this project maintains. A base that is a single
-tree is a base anyone can diff against — `git diff 5377525 HEAD` is the whole of
-what this project has done.
+tree is a base anyone can diff against — `git diff 72d7bc882 HEAD` is the whole
+of what this project has done.
 
 **Nothing is ever merged from `upstream` again.** If a future change is wanted
 from a later upstream commit, it is read, understood and written here on its own
