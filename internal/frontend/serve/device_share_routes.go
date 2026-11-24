@@ -114,9 +114,9 @@ func (h *Hub) shareSetPublicOrigin(w http.ResponseWriter, r *http.Request) {
 	switch err := h.opts.Share.SetPublicOrigin(*body.Origin); {
 	case errors.Is(err, config.ErrPublicOriginInvalid):
 		// The address is the user's to get wrong: say so as a refusal of the
-		// value rather than a failure of this machine. The wording reads
-		// `{error}`, so the sentence has to travel with the refusal.
-		refuse(w, http.StatusBadRequest, codeShareOriginSave, err.Error(), map[string]any{"error": err.Error()})
+		// value rather than a failure of this machine. The message carries the
+		// sentence the user needs.
+		refuse(w, http.StatusBadRequest, codeShareOriginSave, err.Error(), nil)
 	case err != nil:
 		saveFailed(w, http.StatusInternalServerError, codeShareOriginSave, err)
 	default:
@@ -154,11 +154,10 @@ func (h *Hub) shareClose(w http.ResponseWriter, _ *http.Request) {
 }
 
 // shareOffer mints a pairing code for one door. The channel names which: a
-// window drawing both the local and the proxy channel asks per channel, and the
-// default is the local one so a caller that predates the choice keeps working.
-// Link asks for a code that rides a copied link rather than the symbol on
-// screen: the two are separate credentials, so handing one out cannot spend the
-// other.
+// window drawing both the local and the proxy channel asks per channel, and
+// the default is the local one so a caller that predates the choice keeps
+// working. Link asks for a copied link rather than the symbol on screen; the
+// two are separate credentials, and one cannot spend the other.
 func (h *Hub) shareOffer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	channel := OfferLAN
