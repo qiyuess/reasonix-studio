@@ -634,7 +634,7 @@ function ProjectItem({
             ) : null}
             {project.missing ? <span className="pill">文件夹不见了</span> : null}
           </span>
-          <span className="project-path">{project.root}</span>
+          {project.auto ? null : <span className="project-path">{project.root}</span>}
           <span className="project-meta">
             {summary(project)}
             {when ? ` · ${when}` : ""}

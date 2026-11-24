@@ -243,6 +243,7 @@ describe("Home", () => {
     act(() => nav("项目").click());
     expect(container.querySelectorAll(".project")).toHaveLength(2);
     expect([...container.querySelectorAll(".project .row-title")].map((el) => el.textContent)).toContain("任务");
+    expect(container.textContent).not.toContain("auto");
   });
 
   it("switches to the project view and back", () => {

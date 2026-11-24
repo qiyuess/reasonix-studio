@@ -258,17 +258,7 @@ public class PairActivity extends ComponentActivity {
      */
     private String deviceCookieValue() {
         try {
-            String cookie = CookieManager.getInstance().getCookie(ProxyCookies.cookieUrl(origin));
-            if (cookie == null) return "";
-            for (String part : cookie.split(";")) {
-                String trimmed = part.trim();
-                int equals = trimmed.indexOf('=');
-                if (equals <= 0) continue;
-                if (trimmed.substring(0, equals).trim().equals("reasonix_device=")) {
-                    return trimmed.substring(equals + 1).trim();
-                }
-            }
-            return "";
+            return PairCookie.value(CookieManager.getInstance().getCookie(ProxyCookies.cookieUrl(origin)));
         } catch (RuntimeException e) {
             return "";
         }
