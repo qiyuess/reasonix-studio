@@ -217,8 +217,13 @@ function WorkspacesView({ hub, tree, treeRead, answered = null, runtimes, active
   };
   const [spread, setSpread] = useState<Set<string>>(new Set());
   // Two folders can share a name — a worktree copy carries the project's own.
-  // Only then is the extra word worth the room it takes.
-  const twice = new Set(tree.map((w) => w.name).filter((n, i, all) => all.indexOf(n) !== i));
+  // Only then is the extra word worth the room it takes. One counting pass,
+  // not a scan of every prefix per row.
+  const twice = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const w of tree) seen.set(w.name, (seen.get(w.name) ?? 0) + 1);
+    return new Set([...seen].filter(([, n]) => n > 1).map(([n]) => n));
+  }, [tree]);
 
   // A row that is already open is a pane to focus, never a second runtime for
   // one transcript — the kernel refuses that, and it is what forked a recovery

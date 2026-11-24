@@ -760,8 +760,8 @@ const Row = memo(function Row({
             onExtInvoke={onExtInvoke}
             onPrepareFileRevert={onPrepareFileRevert}
             onCommitFileRevert={onCommitFileRevert}
-            onBring={it.tool.id && onBring ? () => onBring(it.tool.id!) : undefined}
-            onStop={port?.stopToolCall && it.tool.id ? () => void port.stopToolCall!(it.tool.id!).catch(() => {}) : undefined}
+            onBring={it.tool.id && onBring ? () => { const v = it.tool.id; if (v) onBring(v); } : undefined}
+            onStop={port?.stopToolCall && it.tool.id ? () => { const v = it.tool.id; if (v) void port.stopToolCall?.(v).catch(() => {}); } : undefined}
           />
         );
         const chart = activity ? null : chartOfTool(it.tool);

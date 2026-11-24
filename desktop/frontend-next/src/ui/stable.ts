@@ -34,7 +34,10 @@ export function keepSame<T extends { id: string }>(cur: T[], next: T[]): T[] {
     const held = cur.find((c) => c.id === item.id);
     const a = held as unknown as Record<string, unknown> | undefined;
     const b = item as unknown as Record<string, unknown>;
-    return held && Object.keys({ ...a, ...b }).every((k) => a![k] === b[k]) ? held : item;
+    // A key only b carries with an undefined value is still a difference from
+    // a lacking it entirely, so both key sets are read and a may be absent.
+    const keys = new Set([...Object.keys(a ?? {}), ...Object.keys(b)]);
+    return held && [...keys].every((k) => a?.[k] === b[k]) ? held : item;
   });
   return reused.length === cur.length && reused.every((item, i) => item === cur[i]) ? cur : reused;
 }

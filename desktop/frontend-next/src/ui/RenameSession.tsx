@@ -22,7 +22,8 @@ export function RenameSession({ session, hub, onClose, onSaved }: Props) {
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    const el = dialog.current!;
+    const el = dialog.current;
+    if (!el) return;
     el.showModal();
     input.current?.select();
     return () => { el.close(); previous?.focus(); };
