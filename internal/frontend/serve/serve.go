@@ -218,8 +218,8 @@ func (s *Server) switchModelLocked(ctx context.Context, ref string) error {
 	// on restart. AdoptHistory retained the loaded CAS baseline for this rewrite.
 	if err := s.rebindSessionLeaseFor(newPath, newCtrl); err != nil {
 		discard()
-		if errors.Is(err, sessionstore.ErrSessionLeaseHeld) {
-			return fmt.Errorf("switch model: %s", sessionInUseError(err))
+		if held, ok := refuseIfLeaseHeld("switch model", err); ok {
+			return held
 		}
 		return fmt.Errorf("switch model: unable to secure replacement session")
 	}
@@ -235,8 +235,8 @@ func (s *Server) switchModelLocked(ctx context.Context, ref string) error {
 	activePath := newCtrl.SessionPath()
 	if err := s.rebindSessionLeaseFor(activePath, newCtrl); err != nil {
 		discard()
-		if errors.Is(err, sessionstore.ErrSessionLeaseHeld) {
-			return fmt.Errorf("switch model: %s", sessionInUseError(err))
+		if held, ok := refuseIfLeaseHeld("switch model", err); ok {
+			return held
 		}
 		slog.Error("serve: bind replacement session lease", "err", err)
 		return fmt.Errorf("switch model: unable to secure replacement session")
@@ -295,8 +295,8 @@ func (s *Server) reloadExtensions(ctx context.Context) error {
 	newCtrl.SetOnSessionRecovered(sessionLeaseRecoveryHandler(s.leases))
 	if err := s.rebindSessionLeaseFor(newCtrl.SessionPath(), newCtrl); err != nil {
 		newCtrl.Close()
-		if errors.Is(err, sessionstore.ErrSessionLeaseHeld) {
-			return fmt.Errorf("reload extensions: %s", sessionInUseError(err))
+		if held, ok := refuseIfLeaseHeld("reload extensions", err); ok {
+			return held
 		}
 		return fmt.Errorf("reload extensions: unable to secure replacement session")
 	}
@@ -309,8 +309,8 @@ func (s *Server) reloadExtensions(ctx context.Context) error {
 	}
 	if err := s.rebindSessionLeaseFor(newCtrl.SessionPath(), newCtrl); err != nil {
 		newCtrl.Close()
-		if errors.Is(err, sessionstore.ErrSessionLeaseHeld) {
-			return fmt.Errorf("reload extensions: %s", sessionInUseError(err))
+		if held, ok := refuseIfLeaseHeld("reload extensions", err); ok {
+			return held
 		}
 		return fmt.Errorf("reload extensions: unable to secure replacement session")
 	}
@@ -844,14 +844,26 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusForbidden, codeSessionOutside, "that path is outside the session directory", nil)
 		return
 	}
+	// The lexical check cannot see a symlink inside the directory pointing
+	// out of it; resolution can. A name that resolves to nothing takes the
+	// ordinary path below, where the destroy answers it.
+	if resolved, rerr := filepath.EvalSymlinks(abs); rerr == nil {
+		if realDir, derr := filepath.EvalSymlinks(absDir); derr == nil &&
+			(resolved == realDir || !strings.HasPrefix(resolved, realDir+string(filepath.Separator))) {
+			refuse(w, http.StatusForbidden, codeSessionOutside, "that path is outside the session directory", nil)
+			return
+		}
+	}
 	if filepath.Clean(abs) == filepath.Clean(s.ctl().SessionPath()) {
 		busy(w, codeSessionActive, "this session is the one open here", nil)
 		return
 	}
 	destroy := s.ctl().BeginDestroySession(abs)
 	if result := finishSessionDestroy(destroy); result.HasTimedOut() {
+		// A marker that cannot be written stops the delete: reporting failure
+		// while it goes on behind the back of the caller invites a retry into
+		// the same half-deleted state.
 		if err := sessionstore.MarkCleanupPending(abs, "delete"); err != nil {
-			go delayedSessionDelete(absDir, abs, destroy)
 			writeErr(w, http.StatusInternalServerError, err)
 			return
 		}

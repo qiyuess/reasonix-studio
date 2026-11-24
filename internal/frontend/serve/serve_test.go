@@ -824,6 +824,18 @@ func TestDeleteSessionRequiresSessionNameInsideSessionDir(t *testing.T) {
 	if _, err := os.Stat(escape); err != nil {
 		t.Fatalf("sibling session was removed: %v", err)
 	}
+	// A symlink inside the directory pointing out of it passes the lexical
+	// check; resolution must refuse it before anything is destroyed.
+	link := filepath.Join(dir, "linked.jsonl")
+	if err := os.Symlink(escape, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if got := post(`{"name":"linked"}`); got != http.StatusForbidden {
+		t.Fatalf("symlink escape delete status = %d, want 403", got)
+	}
+	if _, err := os.Stat(escape); err != nil {
+		t.Fatalf("symlink target was removed: %v", err)
+	}
 	if got := post(`{"name":"active"}`); got != http.StatusConflict {
 		t.Fatalf("active delete status = %d, want 409", got)
 	}

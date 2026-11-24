@@ -4,6 +4,8 @@ package serve
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -69,6 +71,16 @@ func unknownProject(w http.ResponseWriter, root string) {
 // failure — nothing is broken and nothing needs reporting.
 func sessionInUse(w http.ResponseWriter, err error) {
 	busy(w, codeSessionInUse, sessionInUseError(err), map[string]any{"detail": sessionInUseError(err)})
+}
+
+// refuseIfLeaseHeld is sessionInUse in error form for the rebuild sequences:
+// the lease refusal reaches writeErr as a coded session.in_use instead of a
+// sentence, so a caller that tells refusals apart by code still can.
+func refuseIfLeaseHeld(scope string, err error) (error, bool) {
+	if !sessionLeaseUnavailable(err) {
+		return nil, false
+	}
+	return fmt.Errorf("%s: %w", scope, refusal(http.StatusConflict, codeSessionInUse, errors.New(sessionInUseError(err)), nil)), true
 }
 
 // badValue refuses a field whose value is not one this build accepts. The
