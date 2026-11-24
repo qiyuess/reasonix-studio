@@ -87,8 +87,14 @@ func EffectiveVision(e *ProviderEntry) bool {
 	if enabled, explicit := explicitModelVision(e); explicit {
 		return enabled
 	}
+	// Precedence when both are set: the provider-wide flag outranks a written
+	// list, so a name it omits still reads images — a settled choice a test
+	// (edit_test.go) holds, not an accident.
 	if e.Vision {
 		return true
+	}
+	if e.VisionModels != nil {
+		return false
 	}
 	return isOfficialMimoVisionEntry(e)
 }
@@ -104,6 +110,12 @@ func VisionDeclared(e *ProviderEntry) bool {
 		return true
 	}
 	if _, explicit := explicitModelVision(e); explicit {
+		return true
+	}
+	// A written list answers for a name left off it — text-only — and the
+	// empty list is the choice "nothing here reads images". Nil alone means
+	// nobody said.
+	if e.VisionModels != nil {
 		return true
 	}
 	return e.Vision || isOfficialMimoVisionEntry(e)

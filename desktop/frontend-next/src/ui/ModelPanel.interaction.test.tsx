@@ -53,14 +53,14 @@ describe("the model and its reasoning effort share one button and one panel", ()
     expect((document.querySelector(".portmenu.has-aside") as HTMLElement).hidden).toBe(true);
   });
 
-  it("applies a model and leaves the panel open so an effort can follow", async () => {
+  it("applies a model and closes the panel — the effort ladder is one reopen away", async () => {
     const port = new MockPort();
     const set = vi.spyOn(port, "setModel");
     const { container } = draw(status(), port);
     await open(container);
     fireEvent.click(document.querySelector('.portmenu [data-action="model.select"][data-value="deepseek/deepseek-flash"]')!);
     await waitFor(() => expect(set).toHaveBeenCalledWith("deepseek/deepseek-flash"));
-    expect((document.querySelector(".portmenu.has-aside") as HTMLElement).hidden).toBe(false);
+    expect((document.querySelector(".portmenu.has-aside") as HTMLElement).hidden).toBe(true);
   });
 
   it("points at where levels are declared when the model reports none", async () => {

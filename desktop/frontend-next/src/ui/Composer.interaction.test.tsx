@@ -468,6 +468,20 @@ describe("composer stop under a starved window", () => {
 });
 
 describe("composer menus", () => {
+  it("closes the menu and opens settings when the manage-models row is taken", async () => {
+    const port = new MockPort();
+    vi.spyOn(port, "models").mockResolvedValue([{ ref: "alpha/first", provider: "alpha", model: "first", vendor: "alpha.example" }]);
+    const onSettings = vi.fn();
+    const view = render(<Composer port={port as unknown as AgentPort} status={status({ modelRef: "alpha/first" })} running={false} focus={0}
+      onSubmit={vi.fn(async () => true)} onChanged={vi.fn()} onError={vi.fn()} onSettings={onSettings} />);
+    await waitFor(() => expect(view.container.querySelector(".model-picker")?.textContent).toContain("first"));
+    fireEvent.click(view.container.querySelector('button.model-picker')!);
+    const manage = await screen.findByRole("menuitem", { name: /管理模型与连接/ });
+    fireEvent.click(manage);
+    expect(onSettings).toHaveBeenCalledExactlyOnceWith("providers");
+    expect((document.querySelector(".portmenu") as HTMLElement).hidden).toBe(true);
+  });
+
   it("shows the session's current model first and refreshes that position with canonical status", async () => {
     const port = new MockPort();
     const models: ModelEntry[] = [
@@ -489,6 +503,9 @@ describe("composer menus", () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
     expect(setModel).toHaveBeenCalledExactlyOnceWith("alpha/second");
     view.rerender(<Composer {...props} status={status({ modelRef: "alpha/second" })} />);
+    // A pick closes the panel; the canonical position is read on the next open.
+    fireEvent.click(view.container.querySelector('button.model-picker')!);
+    await waitFor(() => expect(screen.getAllByRole("menuitem").filter((el) => !el.closest(".menu-aside"))).toHaveLength(4));
     expect(screen.getAllByRole("menuitem")[0].getAttribute("data-value")).toBe("alpha/second");
     expect(screen.getAllByRole("menuitem")[0].hasAttribute("data-on")).toBe(true);
     expect(screen.getAllByRole("menuitem").filter((el) => el.getAttribute("data-value") === "alpha/second")).toHaveLength(1);

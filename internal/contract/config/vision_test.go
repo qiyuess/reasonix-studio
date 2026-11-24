@@ -21,10 +21,66 @@ func TestVisionDeclaredSeparatesNoFromNobodySaid(t *testing.T) {
 		t.Fatal("ticking the model in the panel is what settles it, and it did not")
 	}
 
+	// A saved panel writes the list it was handed, empty included. An explicit
+	// empty list is the choice "nothing here reads images", not a silence.
+	saved := &ProviderEntry{Name: "relay", Kind: "openai", BaseURL: "https://relay.example.com/v1",
+		Model: "claude-sonnet-4-5", Models: []string{"claude-sonnet-4-5"}, VisionModels: []string{}}
+	if EffectiveVision(saved) {
+		t.Fatal("an empty saved list must not send pixels")
+	}
+	if !VisionDeclared(saved) {
+		t.Fatal("an empty saved list answers the question, so the panel must not call it undeclared")
+	}
+
+	// A list that omits the model answers for it too: the row left unticked
+	// reads as text-only, not as unlabelled.
+	omitted := &ProviderEntry{Name: "relay", Kind: "openai", BaseURL: "https://relay.example.com/v1",
+		Model: "claude-haiku-4-5", Models: []string{"claude-sonnet-4-5", "claude-haiku-4-5"}, VisionModels: []string{"claude-sonnet-4-5"}}
+	if EffectiveVision(omitted) {
+		t.Fatal("a list omitting this model must not send pixels for it")
+	}
+	if !VisionDeclared(omitted) {
+		t.Fatal("a list omitting this model settles it as text-only, not undeclared")
+	}
+
+	// A hand-written config may set the provider-wide flag beside a list. The
+	// flag outranks it (edit_test.go holds that choice), and VisionDeclared
+	// still calls the pair answered rather than a silence.
+	flagged := &ProviderEntry{Name: "relay", Kind: "openai", BaseURL: "https://relay.example.com/v1",
+		Model: "claude-haiku-4-5", Models: []string{"claude-sonnet-4-5", "claude-haiku-4-5"}, Vision: true,
+		VisionModels: []string{"claude-sonnet-4-5"}}
+	if !EffectiveVision(flagged) {
+		t.Fatal("the provider-wide flag outranks a written list that omits this model")
+	}
+	if !VisionDeclared(flagged) {
+		t.Fatal("flag and list together are still an answer, not a silence")
+	}
+	noFlag := &ProviderEntry{Name: "relay", Kind: "openai", BaseURL: "https://relay.example.com/v1",
+		Model: "claude-haiku-4-5", Models: []string{"claude-sonnet-4-5", "claude-haiku-4-5"},
+		VisionModels: []string{"claude-sonnet-4-5"}}
+	if EffectiveVision(noFlag) {
+		t.Fatal("without the flag, a list that omits this model keeps it text-only")
+	}
+
 	// An endpoint the kernel refuses images for has been answered, by the kernel.
 	deepseek := &ProviderEntry{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4"}
 	if EffectiveVision(deepseek) || !VisionDeclared(deepseek) {
 		t.Fatal("the kernel's own refusal is a settled answer, not a silence")
+	}
+}
+
+// Two absent lists must not merge into an empty declaration: the merge
+// behind a legacy migration is where that could silently happen.
+func TestMergingTwoAbsentVisionListsStaysSilent(t *testing.T) {
+	entry := &ProviderEntry{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4"}
+	old := &ProviderEntry{Name: "deepseek-old"}
+	mergeLegacyDeepSeekModelConfiguration(entry, old)
+	if entry.VisionModels != nil {
+		t.Fatalf("two absent vision lists merged into %#v, want nil", entry.VisionModels)
+	}
+	mergeLegacyDeepSeekModelConfiguration(entry, &ProviderEntry{Name: "old", VisionModels: []string{"deepseek-v4-flash"}})
+	if entry.VisionModels == nil || len(entry.VisionModels) != 1 {
+		t.Fatalf("a present list must still arrive: %#v", entry.VisionModels)
 	}
 }
 

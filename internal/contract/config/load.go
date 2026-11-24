@@ -1836,7 +1836,11 @@ func mergeLegacyDeepSeekModelConfiguration(entry, old *ProviderEntry) {
 	if entry.ModelOverrides == nil {
 		entry.ModelOverrides = map[string]ProviderModelOverride{}
 	}
-	entry.VisionModels = mergeModelLists(entry.VisionModels, old.VisionModels)
+	// A written list is a declaration; two absent ones must not merge into an
+	// empty one, which would answer "nothing here reads images" nobody said.
+	if entry.VisionModels != nil || old.VisionModels != nil {
+		entry.VisionModels = mergeModelLists(entry.VisionModels, old.VisionModels)
+	}
 	for model, price := range old.Prices {
 		entry.Prices[model] = clonePricing(price)
 	}

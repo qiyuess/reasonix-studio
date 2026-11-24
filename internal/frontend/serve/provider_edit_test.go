@@ -148,6 +148,33 @@ func TestEditProviderVisionSelectionIsAuthoritative(t *testing.T) {
 	}
 }
 
+// An empty vision list is the saved answer "nothing here reads images", and
+// the status the composer reads must call it declared, or the panel keeps
+// saying nobody said.
+func TestSavedEmptyVisionListAnswersTheModel(t *testing.T) {
+	srv := newRichProviderServer(t)
+
+	resp := postProvider(t, srv.URL, "/providers/edit", `{
+		"name":"rich","models":["alpha","beta"],"default":"alpha","vision":[]
+	}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("POST /providers/edit = %d", resp.StatusCode)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	alpha, ok := cfg.ResolveModel("rich/alpha")
+	if !ok || config.EffectiveVision(alpha) {
+		t.Fatal("an empty saved list must not send pixels")
+	}
+	if !config.VisionDeclared(alpha) {
+		t.Fatal("an empty saved list is an answer, not a silence")
+	}
+}
+
 // The list has to show the current answer, or the form asks the user to
 // remember which models read images.
 func TestProvidersListReportsWhichModelsReadImages(t *testing.T) {

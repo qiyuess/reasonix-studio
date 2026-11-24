@@ -753,7 +753,6 @@ export function Composer({ port, status, running, queued = false, quote, restore
             onOpen={() => { void modelHealth.check(loadModels()); }}
             pending={busy["model"] || busy["effort"] || busy["mode"]}
             asideClassName="studio-effort-menu"
-            stayOpen={(ref) => ref !== "__manage-models"}
             onPick={(ref) => ref === "__manage-models" ? onSettings("providers") : change("model", () => port.setModel(ref))}
             aside={status ? (close) => (
               <EffortColumn
