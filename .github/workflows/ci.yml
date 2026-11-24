@@ -1201,3 +1201,76 @@ jobs:
           name: coverage-report
           path: coverage.out
           retention-days: 7
+
+  mobile:
+    needs: changes
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.code != 'false')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: install
+        working-directory: mobile
+        run: npm ci
+
+      - name: lint
+        working-directory: mobile
+        run: npm run lint
+
+      - name: typecheck
+        working-directory: mobile
+        run: npm run typecheck
+
+      - name: test
+        working-directory: mobile
+        run: npm test
+
+      - name: build
+        working-directory: mobile
+        run: npm run build
+
+  mobile-android:
+    needs: changes
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.code != 'false')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: install
+        working-directory: mobile
+        run: npm ci
+
+      - name: build the web bundle
+        working-directory: mobile
+        run: npm run build
+
+      - name: sync the Android shell
+        working-directory: mobile
+        run: node ./node_modules/@capacitor/cli/bin/capacitor sync android
+
+      - name: unit tests
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest --console=plain
