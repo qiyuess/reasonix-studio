@@ -1,11 +1,11 @@
 {
-  "tag": "v1.1.1",
-  "version": "1.1.1",
-  "versionCode": 32,
-  "apk": "reasonix-for-android-1.1.1.apk",
-  "notes": "# 1.1.1\n\n应用内更新切换到官方发布源：此前更新清单读的是并入 Studio 仓库之前的旧地址（一个仍在独立发版的第三方仓库），「检查更新」会拿到不属于本产品的旧版本号。本版起清单与安装包都从官方 Studio 发布页读取。\n\n> 可以直接在「设置 → 偏好 → 关于」检查并安装这一版，配对信息、连接记录和本地设置都会保留。\n\n## 修复\n\n- **更新源指向官方仓库**：`UpdaterPlugin` 的清单地址、下载地址与镜像全部改指 qiyuess/reasonix-studio——手机端随 Studio 一起发布，安装包一直挂在 Studio 的发布页上，清单没有理由再去别处读。下载跟随发布页的「最新」链接，无需在手机上解析任何 tag。\n- **清单校验更严**：安装包文件名必须与清单声明 的版本一致，避免下到名字对不上号的包；manifest 的 tag 仍须与版本一致。\n\n## 说明\n\n- `versionCode` 从 30 进到 32（Android 不接受重复或倒退的 versionCode；中间的 31 让给了更新源切换前的历史线）。\n- 从 1.1.0 及更早版本覆盖安装即可，无需卸载，配对信息与本地设置保留。",
+  "tag": "v1.1.2",
+  "version": "1.1.2",
+  "versionCode": 33,
+  "apk": "reasonix-for-android-1.1.2.apk",
+  "notes": "# 1.1.2\n\n设置页、扫码配对与附件的三处修复。\n\n> 覆盖安装即可，配对信息、连接记录与本地设置都会保留。\n\n## 修复\n\n- **设置页只在自己的标题下滚动**：此前整页一起滚，往下翻设置项时标题栏和返回按钮会一起滚出屏幕，翻到深处就找不到回去的路；现在标题固定、只有内容区滚动\n- **扫码配对的页面跟随应用主题**：此前配对时状态栏是系统配色，和应用主题割裂；「正在配对」弹窗也是一块突兀的系统灰卡，现在和应用一样是圆角卡片，深浅色都跟随主题\n- **选图后再输入文字，图片不再消失**：此前选好图片后一输入文字，图片就被悄悄移除，只能重新选；现在图片会一直保留到发送\n- **自动识别出的项目在手机上显示为「任务」**：电脑端把临时/自动归类的分组叫「任务」，手机端此前显示成别的名字，两端对不上；现在读同一个名字\n\n## 说明\n\n- `versionCode` 从 32 进到 33（Android 不接受重复或倒退的 versionCode）。\n- 从 1.1.1 及更早版本覆盖安装即可，无需卸载。",
   "mirrors": [
-    "https://gh-proxy.com/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.1.apk",
-    "https://ghfast.top/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.1.apk"
+    "https://gh-proxy.com/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.2.apk",
+    "https://ghfast.top/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.2.apk"
   ]
 }
