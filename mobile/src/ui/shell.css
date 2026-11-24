@@ -1659,27 +1659,6 @@ pre.frame {
   opacity: 0.45;
 }
 
-.dispatch-hint {
-  display: flex;
-  gap: 9px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--accent-soft);
-  color: var(--fg-dim);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.dispatch-hint .dot {
-  flex: none;
-  margin-top: 4px;
-}
-
-.dispatch-hint b {
-  color: var(--fg);
-  font-weight: 600;
-}
-
 
 
 
@@ -1767,40 +1746,6 @@ pre.frame {
   max-width: 55%;
 }
 
-.dispatch-tools .mic {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  background: transparent;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.dispatch-tools .mic svg {
-  width: 18px;
-  height: 18px;
-}
-
-.dispatch-tools .mic.live {
-  color: var(--accent-fill);
-  background: var(--accent-soft);
-}
-
-.dispatch-tools .mic.cancel {
-  color: var(--bad);
-  background: rgba(var(--bad-rgb), 0.14);
-}
-
-.dispatch-voice-error {
-  margin: 0 0 4px;
-  color: var(--bad);
-  font-size: 11px;
-}
-
 .dispatch-send {
   height: 44px;
   padding: 0 18px;
@@ -1815,10 +1760,6 @@ pre.frame {
 
 .dispatch-send:disabled {
   opacity: 0.45;
-}
-
-.dispatch-page .dispatch-hint {
-  margin: 0;
 }
 
 .dispatch-models {

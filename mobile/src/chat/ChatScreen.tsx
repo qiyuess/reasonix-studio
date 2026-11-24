@@ -34,9 +34,6 @@ import type { EnterPref } from "../app/enterPref";
 import { compactCount } from "../app/format";
 import { loadTodos, todoRevision } from "../net/todos";
 import { startTurnNotification } from "../native/turn";
-import { speechSupported } from "../native/speech";
-import { useDictation } from "./dictation";
-import { MicButton, VoiceLive } from "./MicButton";
 import type { WireTodo } from "../wire/todos";
 import type { EventPayload, WireAskAnswer } from "../wire/events";
 import { closeApproval, emptyTranscript, markAnswered, markAnsweredSurface, optimisticUser, reduce, removeLocalUser } from "./transcript";
@@ -1595,25 +1592,6 @@ export function ChatScreen({
     input.style.height = `${input.scrollHeight}px`;
   }, []);
 
-  const voiceText = useCallback((text: string) => {
-    setDraft((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text));
-    requestAnimationFrame(() => {
-      grow();
-      inputRef.current?.focus();
-    });
-  }, [grow]);
-  const voiceError = useCallback((message: string) => setPromptError(message), []);
-  const {
-    session: voice,
-    down: voiceDown,
-    move: voiceMove,
-    up: voiceUp,
-    cancel: cancelVoice,
-  } = useDictation({
-    onText: voiceText,
-    onError: voiceError,
-  });
-
   // A cold link may not know the session path on the first render. When it
   // arrives, adopt the draft taken under the pane id instead of abandoning it
   // at the next remount; a draft already stored under the path wins.
@@ -2547,7 +2525,6 @@ export function ChatScreen({
               ))}
             </div>
           ) : null}
-          <VoiceLive session={voice} onCancel={cancelVoice} />
           <textarea
             ref={inputRef}
             value={draft}
@@ -2588,15 +2565,6 @@ export function ChatScreen({
                 }`}
               </button>
             )}
-            {speechSupported() ? (
-              <MicButton
-                session={voice}
-                disabled={runtime.readOnly === true}
-                down={voiceDown}
-                move={voiceMove}
-                up={voiceUp}
-              />
-            ) : null}
             {streaming ? (
               <button
                 type="button"

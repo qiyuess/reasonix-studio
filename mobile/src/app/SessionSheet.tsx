@@ -16,6 +16,7 @@ import { useState } from "react";
 import type { TreeWrite } from "../net/pin";
 import { treeWriteMessage } from "../net/pin";
 import type { TreeProject } from "../wire/tree";
+import { treeProjectLabel } from "../net/connection";
 import { useBackCloser } from "./backStack";
 import { swallowNextClick } from "./longPress";
 
@@ -229,7 +230,7 @@ export function SessionSheet({
                       disabled={working}
                       onClick={() => void run(() => onMoveTo?.(project.root) ?? Promise.resolve({ ok: true }))}
                     >
-                      <span className="move-name">{project.name}</span>
+                      <span className="move-name">{treeProjectLabel(project)}</span>
                       <span className="move-root">{project.root}</span>
                     </button>
                   </li>

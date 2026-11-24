@@ -122,13 +122,6 @@ vi.mock("@capacitor/core", () => ({
   // The Capacitor plugins register at import time.
   registerPlugin: vi.fn(() => ({ open: vi.fn(async () => {}) })),
 }));
-vi.mock("../native/speech", () => ({
-  speechSupported: () => false,
-  beginSpeechHold: vi.fn(),
-  WAVE_BARS: 14,
-  CANCEL_DISTANCE: 64,
-  FINISH_WAIT_MS: 15_000,
-}));
 const appMock = vi.hoisted(() => ({
   back: null as (() => void) | null,
   state: null as ((state: { isActive: boolean }) => void) | null,

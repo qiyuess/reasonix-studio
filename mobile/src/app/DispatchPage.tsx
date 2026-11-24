@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TreeProject } from "../wire/tree";
+import { treeProjectLabel } from "../net/connection";
 import { effortChoices, effortDisplayName, loadGlobalModels, modelShortName } from "../net/models";
 import type { ModelCatalog, ModelOption } from "../net/models";
-import { speechSupported } from "../native/speech";
-import { useDictation } from "../chat/dictation";
-import { MicButton, VoiceLive } from "../chat/MicButton";
 import { DispatchModelSheet } from "./DispatchModelSheet";
 
 export interface DispatchOptions {
@@ -22,12 +20,10 @@ export interface DispatchResult {
 
 export function DispatchPage({
   projects,
-  computerName,
   onDispatch,
   onSent,
 }: {
   projects: TreeProject[];
-  computerName?: string | undefined;
   /** The native watcher only reaches a LAN proxy; cloud has no background read. */
   onDispatch: (
     root: string,
@@ -47,7 +43,6 @@ export function DispatchPage({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState("");
-  const [voiceError, setVoiceError] = useState("");
   const [model, setModel] = useState("");
   const [effort, setEffort] = useState("");
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
@@ -73,18 +68,6 @@ export function DispatchPage({
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
   }, []);
-
-  const voiceText = useCallback((spoken: string) => {
-    setText((current) => (current.trim() ? `${current.trimEnd()} ${spoken}` : spoken));
-    requestAnimationFrame(() => {
-      grow();
-      inputRef.current?.focus();
-    });
-  }, [grow, setText]);
-  const { session: voice, down, move, up, cancel: cancelVoice } = useDictation({
-    onText: voiceText,
-    onError: setVoiceError,
-  });
 
   // One attempt per mount: a failed read must not retrigger itself (the
   // effect re-runs whenever loading flips back), or a computer without a
@@ -189,7 +172,7 @@ export function DispatchPage({
                 setSent("");
               }}
             >
-              {project.name}
+              {treeProjectLabel(project)}
             </button>
           ))}
         </div>
@@ -203,20 +186,9 @@ export function DispatchPage({
 
         {error ? <div className="notice error">{error}</div> : null}
         {sent ? <div className="dispatch-sent" role="status">{sent}</div> : null}
-
-        <div className="dispatch-hint">
-          <span className="dot ok" aria-hidden="true" />
-          <div>
-            <b>{computerName ?? "这台电脑"}</b>
-            <br />
-            任务在电脑后台运行；需要你处理或完成时会通知。
-          </div>
-        </div>
       </div>
 
       <div className="dispatch-composer">
-        <VoiceLive session={voice} onCancel={cancelVoice} />
-        {voiceError ? <div className="dispatch-voice-error">{voiceError}</div> : null}
         <textarea
           ref={inputRef}
           className="dispatch-input"
@@ -240,15 +212,6 @@ export function DispatchPage({
           >
             {chip}
           </button>
-          {speechSupported() ? (
-            <MicButton
-              session={voice}
-              disabled={busy}
-              down={down}
-              move={move}
-              up={up}
-            />
-          ) : null}
           <button
             type="button"
             className="dispatch-send"

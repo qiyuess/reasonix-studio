@@ -111,6 +111,7 @@ function project(value: unknown): TreeProject | null {
   }
   if (row.open === true) out.open = true;
   if (row.remembered === true) out.remembered = true;
+  if (row.auto === true) out.auto = true;
   if (row.missing === true) out.missing = true;
   if (count(row.archived) > 0) out.archived = count(row.archived);
   return out;

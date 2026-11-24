@@ -1424,79 +1424,6 @@ html[data-chat-font="xl"] {
   -webkit-touch-callout: none;
 }
 
-.composer-bar .mic {
-  touch-action: none;
-}
-
-.composer-bar .mic svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Press-and-hold dictation. The live strip sits above the textarea, the
-   way a keyboard suggestion bar does; red means the hold is armed to be
-   thrown away. */
-.composer-bar .mic.live {
-  color: var(--accent-fill);
-  background: var(--accent-soft);
-}
-
-.composer-bar .mic.cancel {
-  color: var(--bad);
-  background: rgba(var(--bad-rgb), 0.14);
-}
-
-.voice-live {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 0;
-  margin: 0 2px;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--fg);
-  font: inherit;
-  font-size: 13px;
-  line-height: 18px;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  animation: rx-fade var(--dur-1) var(--ease-out);
-}
-
-.voice-live.cancel {
-  background: rgba(var(--bad-rgb), 0.14);
-  color: var(--bad);
-}
-
-/* The microphone level, one sliding bar per 80ms RMS sample from the
-   recognizer. Height is set inline from the level; the base height below
-   is what a silent mic shows. */
-.voice-wave {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 21px;
-}
-
-.voice-wave i {
-  width: 3px;
-  border-radius: 2px;
-  background: currentColor;
-  opacity: 0.8;
-}
-
-.voice-live-text {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 .composer-bar .modelchip {
   margin: 0 auto;
 }
@@ -2568,8 +2495,4 @@ html[data-chat-font="xl"] {
 
 .interject .chip {
   border-color: var(--line-strong);
-}
-
-.voice-live-text {
-  flex: 1;
 }

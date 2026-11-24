@@ -20,6 +20,7 @@
 
 import { useRef, useState } from "react";
 import type { ConnectionSnapshot } from "../net/connection";
+import { treeProjectLabel } from "../net/connection";
 import { openRuntime } from "../net/workspaces";
 import { moveSessionTo, removeSession, renameSession, setArchived, setPinned } from "../net/pin";
 import type { TreeWrite } from "../net/pin";
@@ -361,7 +362,7 @@ export function SessionList({
         <button type="button" className="iconbtn" onClick={onBack} aria-label="返回项目列表">
           ←
         </button>
-        <h1>{project.name}</h1>
+        <h1>{treeProjectLabel(project)}</h1>
         <button type="button" className="iconbtn" onClick={onRefresh} aria-label="刷新">
           ⟳
         </button>
@@ -476,7 +477,7 @@ export function SessionList({
       {menu ? (
         <SessionSheet
           title={sessionTitle(menu)}
-          projectName={project.name}
+          projectName={treeProjectLabel(project)}
 
           when={relativeTime(menu.lastActiveAt)}
           pinned={menu.pinned === true}

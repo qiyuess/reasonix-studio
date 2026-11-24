@@ -10,39 +10,6 @@ import type { RuntimeView } from "../wire/runtime";
 import { saveReading } from "./reading";
 import { resetTranscriptCache, scheduleSaveRows } from "./transcriptCache";
 
-vi.mock("../native/speech", () => ({
-  speechSupported: () => true,
-  // A hold that starts already mid-sentence and delivers on release, the
-  // way a fast recognizer does.
-  beginSpeechHold: vi.fn(async (onChange: (state: Record<string, unknown>) => void) => {
-    const state = {
-      transcript: "修复登录白屏",
-      // A mid-hold wave: the sliding samples the recognizer has streamed.
-      levels: Array.from({ length: 14 }, (_, i) => (i % 4) / 4),
-      ready: true,
-      cancelArmed: false,
-      ended: false,
-      error: "",
-    };
-    onChange({ ...state });
-    return {
-      hold: {
-        session: 1,
-        state,
-        move: () => {},
-        release: () => {
-          state.ended = true;
-          onChange({ ...state });
-        },
-        abandon: () => {
-          state.ended = true;
-          onChange({ ...state });
-        },
-      },
-    };
-  }),
-}));
-
 /**
  * The screen's own job — putting the stored conversation under the live stream
  * — is the part a fold test cannot reach. A session that has been running for
@@ -1235,86 +1202,6 @@ describe("ChatScreen composer", () => {
     render(snapshot());
     await flush();
     expect(container.textContent).toContain("还没有消息");
-  });
-
-  it("appends dictation to the draft", async () => {
-    stubKernel();
-    render(snapshot());
-    await flush();
-    typeDraft("先看看");
-
-    const mic = container.querySelector('button[aria-label="按住说话"]') as HTMLButtonElement;
-    expect(mic).toBeTruthy();
-    // Press: the hold opens and the partial transcript shows up live.
-    await act(async () => {
-      mic.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientY: 200 }));
-      await flush();
-    });
-    const live = container.querySelector(".voice-live");
-    expect(live?.textContent).toContain("修复登录白屏");
-    // The wave rides along: one bar per sliding level sample.
-    expect(container.querySelectorAll(".voice-wave i")).toHaveLength(14);
-
-    // Release: the final text lands in the draft, next to what was typed.
-    await act(async () => {
-      mic.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
-      await flush();
-    });
-    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe(
-      "先看看 修复登录白屏",
-    );
-  });
-
-  it("cancels dictation by tapping the live strip", async () => {
-    stubKernel();
-    render(snapshot());
-    await flush();
-    typeDraft("先看看");
-
-    const mic = container.querySelector('button[aria-label="按住说话"]') as HTMLButtonElement;
-    await act(async () => {
-      mic.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientY: 200 }));
-      await flush();
-    });
-    const live = container.querySelector(".voice-live") as HTMLButtonElement;
-    expect(live).toBeTruthy();
-    expect(live.textContent).not.toContain("取消");
-
-    act(() => live.click());
-    await flush();
-
-    expect(container.querySelector(".voice-live")).toBeNull();
-    expect((container.querySelector("textarea") as HTMLTextAreaElement).value).toBe("先看看");
-  });
-
-  it("puts the mic immediately left of the send control", async () => {
-    stubKernel();
-    render(snapshot());
-    await flush();
-
-    const mic = container.querySelector('button[aria-label="按住说话"]') as HTMLButtonElement;
-    const send = container.querySelector('button[aria-label="发送"]') as HTMLButtonElement;
-    expect(mic).toBeTruthy();
-    expect(send).toBeTruthy();
-    expect(mic.nextElementSibling).toBe(send);
-  });
-
-  it("keeps a long press from opening the copy menu on the mic", async () => {
-    stubKernel();
-    render(snapshot());
-    await flush();
-
-    const mic = container.querySelector('button[aria-label="按住说话"]') as HTMLButtonElement;
-    expect(mic.querySelector("svg")).toBeTruthy();
-    // No text inside the button means the selection engine has nothing to
-    // copy; the context menu is refused as well.
-    expect(mic.textContent?.trim()).toBe("");
-    const menu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
-    let allowed = true;
-    await act(async () => {
-      allowed = mic.dispatchEvent(menu);
-    });
-    expect(allowed).toBe(false);
   });
 
   it("restores a draft left in this pane before an interruption", async () => {

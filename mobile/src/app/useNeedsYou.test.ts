@@ -45,6 +45,20 @@ describe("paneCandidates", () => {
     ]);
   });
 
+  it("names the app's own folder 任务 from the tree label", () => {
+    const auto = project({
+      root: "/data/auto",
+      name: "auto",
+      auto: true,
+      sessions: [{ path: "/data/auto/s.jsonl", name: "s", runtimeId: "r2" }],
+    });
+    const rows = paneCandidates(
+      [runtime({ root: "/data/auto", name: "auto", sessionPath: "/data/auto/s.jsonl" })],
+      [auto],
+    );
+    expect(rows[0]?.projectName).toBe("任务");
+  });
+
   it("labels a pane the tree does not know from the runtime itself", () => {
     const rows = paneCandidates(
       [

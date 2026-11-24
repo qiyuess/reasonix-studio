@@ -73,6 +73,17 @@ describe("loadTree", () => {
     expect(url).toContain("limit=20");
   });
 
+  it("carries the kernel's auto marker, so the phone can label the folder", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      json([{ root: "/data/auto", name: "auto", auto: true, total: 0, remaining: 0, sessions: [] }]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadTree({ limit: 20 });
+    if (!result.ok) throw new Error(result.code);
+    expect(result.projects[0]?.auto).toBe(true);
+  });
+
   it("reads the computer's rename ahead of the folder's own name", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       json([

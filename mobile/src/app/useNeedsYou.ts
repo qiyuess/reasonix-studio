@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Attention, decisionKey, runningKey } from "./attention";
 import { loadStatus } from "../net/status";
-import { NO_PROJECT_LABEL, projectLabel } from "../net/connection";
+import { NO_PROJECT_LABEL, projectLabel, treeProjectLabel } from "../net/connection";
 import type { Decision } from "../net/status";
 import type { RuntimeView } from "../wire/runtime";
 import type { TreeProject } from "../wire/tree";
@@ -84,7 +84,7 @@ export function paneCandidates(runtimes: RuntimeView[], projects: TreeProject[])
     for (const session of project.sessions) {
       if (!session.runtimeId) continue;
       labels.set(session.runtimeId, {
-        projectName: project.name,
+        projectName: treeProjectLabel(project),
         title: sessionTitle(session),
       });
     }

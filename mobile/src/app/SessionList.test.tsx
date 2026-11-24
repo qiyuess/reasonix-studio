@@ -157,6 +157,12 @@ describe("SessionList", () => {
     expect(container.querySelector(".section-head .meta")?.textContent).toBe("2");
   });
 
+  it("names the app's own folder 任务 in its header", async () => {
+    const auto = project({ root: "/data/auto", name: "auto", auto: true });
+    await render({ project: auto, tree: tree({ projects: [auto] }) });
+    expect(container.querySelector(".bar h1")?.textContent).toBe("任务");
+  });
+
   it("opens a stored conversation by posting its path", async () => {
     const fetchMock = route(() =>
       json({ id: "r7", base: "/rt/r7", root: "/work/app", name: "app" }),

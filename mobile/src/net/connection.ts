@@ -88,6 +88,13 @@ export function projectLabel(runtime: RuntimeView): string {
   return runtime.displayName || runtime.name || runtime.root;
 }
 
+/** The name every surface shows a tree project by. The app's own folder — the
+ *  kernel marks it auto — is the phone's 任务; its directory name is a machine
+ *  word nobody chose. */
+export function treeProjectLabel(project: { auto?: boolean; name: string }): string {
+  return project.auto ? NO_PROJECT_LABEL : project.name;
+}
+
 /** A runtime base may be absolute when the pane lives on another machine. */
 function absolute(base: string): string {
   return new URL(base, window.location.origin).toString();

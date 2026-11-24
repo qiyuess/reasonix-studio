@@ -23,7 +23,6 @@ public class MainActivity extends BridgeActivity {
         // cookie must already be in this app's cookie jar.
         boolean proxyStarted = LoopbackProxy.start(getApplicationContext());
         LoopbackProxy.installWebViewCookie(getApplicationContext());
-        registerPlugin(SpeechPlugin.class);
         registerPlugin(PairPlugin.class);
         registerPlugin(NetworkWatchPlugin.class);
         registerPlugin(TurnPlugin.class);
