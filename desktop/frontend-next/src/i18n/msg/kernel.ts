@@ -773,6 +773,8 @@ export const KERNEL: Messages = {
   "kernel.this_server_has_not_asked": { zh: "这个服务器没有要求更多权限", en: "This server has not asked for more access" },
   "kernel.this_server_has_session_switching": { zh: "这台服务器已关闭会话切换", en: "This server has session switching turned off" },
   "kernel.this_server_runs_without_authentication": { zh: "该服务未开启认证，修改与审批需要本次启动的令牌，请用启动时打印的链接打开", en: "This server runs without authentication, so changes and approvals need this launch's token — open it with the link printed at startup" },
+  "kernel.this_request_is_not_authorized": { zh: "未授权：需要先登录", en: "Unauthorized: sign in first" },
+  "kernel.too_many_attempts_wait_a_minute": { zh: "尝试次数过多，请等待一分钟", en: "Too many attempts. Please wait a minute." },
   "kernel.this_server_runs_without_authentication_2": { zh: "该服务未开启认证，只接受发往本机或其监听地址的请求", en: "This server runs without authentication, so it only accepts requests addressed to this machine or its listening address" },
   "kernel.this_service_lists_count_models": { zh: "该服务列出了 {count} 个模型，但均不支持对话 —— 它可能仅提供向量或重排能力", en: "This service lists {count} models, none of which can hold a conversation — it may only do embeddings or reranking" },
   "kernel.this_session_cannot_rebuild_the": { zh: "当前会话无法重建，授权未更改", en: "This session cannot rebuild; the approval was not changed" },

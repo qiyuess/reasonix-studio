@@ -821,6 +821,8 @@ const SAID: Record<string, string> = {
   "loopback.misconfigured": "kernel.the_local_channel_was_never",
   "serve.host_rejected": "kernel.this_server_runs_without_authentication_2",
   "auth.launch_token_required": "kernel.this_server_runs_without_authentication",
+  "auth.unauthorized": "kernel.this_request_is_not_authorized",
+  "auth.rate_limited": "kernel.too_many_attempts_wait_a_minute",
 };
 
 /** Reason is what a refused request answers with. `error` is English fallback

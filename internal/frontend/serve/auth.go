@@ -400,12 +400,10 @@ func (ag *authGate) checkSession(w http.ResponseWriter, r *http.Request, next ht
 	ag.deny(w, r)
 }
 
-// deny sends a 401 response. The message is intentionally generic to avoid
+// deny sends a 401 refusal. The message is intentionally generic to avoid
 // leaking information about which auth mode is active.
-func (ag *authGate) deny(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusUnauthorized)
-	_, _ = w.Write([]byte("Unauthorized\n"))
+func (ag *authGate) deny(w http.ResponseWriter, _ *http.Request) {
+	refuse(w, http.StatusUnauthorized, "auth.unauthorized", "Unauthorized", nil)
 }
 
 // handleLogin serves the login page (GET) or processes a login attempt (POST).
@@ -434,9 +432,7 @@ func (ag *authGate) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	ip := ag.clientIP(r)
 	if !ag.rateLimit.allow(ip) {
 		slog.Warn("serve/auth: rate-limited login attempt", "ip", ip)
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusTooManyRequests)
-		_, _ = w.Write([]byte("Too many attempts. Please wait a minute.\n"))
+		refuse(w, http.StatusTooManyRequests, "auth.rate_limited", "Too many attempts. Please wait a minute.", nil)
 		return
 	}
 
@@ -643,17 +639,19 @@ func acceptsHTML(r *http.Request) bool {
 	return false
 }
 
-// clientIP extracts the client IP from the request. When behindProxy is true,
-// it trusts the leftmost entry in X-Forwarded-For (set by a trusted reverse
-// proxy). Otherwise it uses RemoteAddr directly — X-Forwarded-For is ignored
+// clientIP extracts the client IP from the request. When behindProxy is
+// true, it trusts the rightmost entry in X-Forwarded-For — the address the
+// trusted reverse proxy saw and appended last; anything to its left was
+// supplied by untrusted hops and can be forged to reset the rate limiter.
+// Otherwise it uses RemoteAddr directly — X-Forwarded-For is ignored
 // because an attacker can forge it.
 func (ag *authGate) clientIP(r *http.Request) string {
 	if ag.behindProxy {
 		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-			if before, _, ok := strings.Cut(fwd, ","); ok {
-				return strings.TrimSpace(before)
+			entries := strings.Split(fwd, ",")
+			if last := strings.TrimSpace(entries[len(entries)-1]); last != "" {
+				return last
 			}
-			return strings.TrimSpace(fwd)
 		}
 	}
 	// Strip port from RemoteAddr.

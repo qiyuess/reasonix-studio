@@ -675,8 +675,23 @@ func TestClientIPTrustsXForwardedForWithProxy(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "10.0.0.99:12345"
 	req.Header.Set("X-Forwarded-For", "192.0.2.42, 10.0.0.1")
-	if got := ag.clientIP(req); got != "192.0.2.42" {
-		t.Errorf("clientIP = %q, want 192.0.2.42", got)
+	if got := ag.clientIP(req); got != "10.0.0.1" {
+		t.Errorf("clientIP = %q, want 10.0.0.1 — the entry the trusted proxy appended, not the client-supplied one", got)
+	}
+}
+
+// A forged leftmost entry must not become the rate-limit key: the client
+// claims a different address per attempt, and the limiter still counts the
+// one real address the proxy kept stamping.
+func TestClientIPForgedLeftmostDoesNotResetTheLimiter(t *testing.T) {
+	ag := newAuthGate(config.ServeConfig{AuthMode: "token", Token: "x", BehindProxy: true})
+	for _, claimed := range []string{"192.0.2.42", "198.51.100.7", "203.0.113.9"} {
+		req, _ := http.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = "10.0.0.99:12345"
+		req.Header.Set("X-Forwarded-For", claimed+", 10.0.0.1")
+		if got := ag.clientIP(req); got != "10.0.0.1" {
+			t.Errorf("XFF %q: clientIP = %q, want the appended 10.0.0.1", claimed, got)
+		}
 	}
 }
 

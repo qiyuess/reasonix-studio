@@ -546,10 +546,7 @@ func (s *Server) context(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		slog.Warn("serve: writeJSON encode failed", "err", err)
-	}
+	writeJSONStatus(w, http.StatusOK, v)
 }
 
 // writeJSONStatus is writeJSON for a failure the client has to act on: the body
