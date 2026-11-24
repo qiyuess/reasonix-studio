@@ -30,14 +30,42 @@ export function useStableFor<A extends unknown[], R>(fn: (key: string, ...args: 
  *  each pane is memoized on its runtime, and a new object per reload redraws every
  *  transcript for nothing. */
 export function keepSame<T extends { id: string }>(cur: T[], next: T[]): T[] {
+  return keepSameBy("id", cur, next);
+}
+
+/** keepSame for rows whose identity is another field. */
+export function keepSameBy<T>(key: string, cur: T[], next: T[]): T[] {
   const reused = next.map((item) => {
-    const held = cur.find((c) => c.id === item.id);
-    const a = held as unknown as Record<string, unknown> | undefined;
-    const b = item as unknown as Record<string, unknown>;
-    // A key only b carries with an undefined value is still a difference from
-    // a lacking it entirely, so both key sets are read and a may be absent.
-    const keys = new Set([...Object.keys(a ?? {}), ...Object.keys(b)]);
-    return held && [...keys].every((k) => a?.[k] === b[k]) ? held : item;
+    const value = (item as Record<string, unknown>)[key];
+    const held = cur.find((c) => (c as Record<string, unknown>)[key] === value);
+    return held && sameFields(held, item) ? held : item;
   });
-  return reused.length === cur.length && reused.every((item, i) => item === cur[i]) ? cur : reused;
+  return sameArray(cur, reused) ? cur : reused;
+}
+
+/** A workspace is its root and a session is its path: a tree re-read that found
+ *  the same rows hands back the objects it already had. */
+export function keepSameTree<T extends { root: string; sessions: { path: string }[] }>(cur: T[], next: T[]): T[] {
+  const reused = next.map((ws) => {
+    const held = cur.find((c) => c.root === ws.root);
+    if (!held) return ws;
+    const sessions = keepSameBy("path", held.sessions, ws.sessions) as T["sessions"];
+    if (!sameFields(held, ws, "sessions")) return { ...ws, sessions };
+    return sessions === held.sessions ? held : { ...ws, sessions };
+  });
+  return sameArray(cur, reused) ? cur : reused;
+}
+
+function sameFields(a: unknown, b: unknown, except = ""): boolean {
+  const x = a as Record<string, unknown>;
+  const y = b as Record<string, unknown>;
+  // A key only b carries with an undefined value is still a difference from
+  // a lacking it entirely, so both key sets are read and a may be absent.
+  const keys = new Set([...Object.keys(x), ...Object.keys(y)]);
+  keys.delete(except);
+  return [...keys].every((k) => x[k] === y[k]);
+}
+
+function sameArray<T>(a: T[], b: T[]): boolean {
+  return a.length === b.length && b.every((item, i) => item === a[i]);
 }

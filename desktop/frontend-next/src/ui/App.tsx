@@ -425,6 +425,11 @@ export function App({ hub }: { hub: HubPort }) {
   const pickerSig = tree.map((w) => `${w.root}${w.name}${w.remembered ? 1 : 0}${w.missing ? 1 : 0}`).join("");
   const pickerTree = useRef({ sig: "", tree });
   if (pickerTree.current.sig !== pickerSig) pickerTree.current = { sig: pickerSig, tree };
+  // The same for the machine list: a pane reads it only for the picker, and a
+  // status poll that found the same machines must not redraw every pane.
+  const remotesSig = useMemo(() => JSON.stringify(remotes), [remotes]);
+  const pickerRemotes = useRef({ sig: "", remotes });
+  if (pickerRemotes.current.sig !== remotesSig) pickerRemotes.current = { sig: remotesSig, remotes };
   // The adder is handed to every pane, and a fresh closure here would redraw all
   // of them on every render: the ref keeps it stable while still calling the
   // latest openPane.
@@ -775,7 +780,7 @@ export function App({ hub }: { hub: HubPort }) {
                   onOpenProject={openProject}
                   onKeepHere={keepHere}
                   projectTree={pickerTree.current.tree}
-                  remotes={remotes}
+                  remotes={pickerRemotes.current.remotes}
                   remoteTrees={remoteTrees}
                   runtimes={runtimes}
                   adder={adder}

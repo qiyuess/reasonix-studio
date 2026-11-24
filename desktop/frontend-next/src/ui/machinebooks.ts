@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HubPort, TreeWorkspace } from "../port/hub";
 import type { RemoteHost } from "../port/remote";
+import { keepSameTree } from "./stable";
 
 // Machines whose book this window has read before. Their sessions are what a
 // person comes back for after a restart, so the window reads them again on
@@ -45,7 +46,11 @@ export function useMachineBooks(hub: HubPort, remotes: RemoteHost[] | null) {
   const read = useCallback(
     async (host: string) => {
       const tree = await hub.remoteTree(host);
-      setTrees((prev) => ({ ...prev, [host]: tree }));
+      setTrees((prev) => {
+        const held = prev[host];
+        const kept = tree ? keepSameTree(held ?? [], tree) : tree;
+        return held === kept ? prev : { ...prev, [host]: kept };
+      });
       if (tree) remember(host);
     },
     [hub],
