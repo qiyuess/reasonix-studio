@@ -133,7 +133,7 @@ final class InsetBridge {
 
     /** Falls back to 0 when the ROM exposes no such dimension. */
     @SuppressLint({"InternalInsetResource", "DiscouragedApi"})
-    private static int statusBarHeight(Activity activity) {
+    static int statusBarHeight(Activity activity) {
         int id = activity.getResources().getIdentifier("status_bar_height", "dimen", "android");
         return id > 0 ? activity.getResources().getDimensionPixelSize(id) : 0;
     }

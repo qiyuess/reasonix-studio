@@ -4,8 +4,10 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Build;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -87,6 +89,44 @@ public class ThemeBarPlugin extends Plugin {
             darkIcons = lastDarkIcons;
         }
         activity.runOnUiThread(() -> applyTwice(activity, color, darkIcons));
+    }
+
+    /**
+     * Dress a translucent surface — the pairing sheet — in the app's bar
+     * appearance without painting the window. The decor stays transparent so
+     * the app behind is the backdrop; colouring it would turn the sheet into a
+     * full-screen panel.
+     */
+    static void dressTranslucent(Activity activity) {
+        if (activity == null) return;
+        final boolean darkIcons = rememberedLightIcons(activity);
+        activity.runOnUiThread(() -> {
+            applyTranslucent(activity, darkIcons);
+            View decor = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
+            if (decor != null) decor.post(() -> applyTranslucent(activity, darkIcons));
+        });
+    }
+
+    private static void applyTranslucent(Activity activity, boolean darkIcons) {
+        Window window = activity.getWindow();
+        if (window == null) return;
+        // Target 36 enforces edge-to-edge, where setStatusBarColor is a no-op:
+        // the sheet draws its own strip under the clear bar instead.
+        window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
+                | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setStatusBarContrastEnforced(false);
+            window.setNavigationBarContrastEnforced(false);
+        }
+        View decor = window.getDecorView();
+        decor.setBackgroundColor(Color.TRANSPARENT);
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decor);
+        controller.setAppearanceLightStatusBars(darkIcons);
+        controller.setAppearanceLightNavigationBars(darkIcons);
     }
 
     private static void remember(Activity activity, String color, Boolean darkIcons) {

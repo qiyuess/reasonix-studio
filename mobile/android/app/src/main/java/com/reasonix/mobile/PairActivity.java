@@ -4,11 +4,13 @@ import android.annotation.SuppressLint;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.WebResourceError;
@@ -24,6 +26,8 @@ import android.widget.TextView;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 /**
  * The Studio share page, loaded invisibly to spend a pairing code.
@@ -78,17 +82,43 @@ public class PairActivity extends ComponentActivity {
         // code can see rather than the copy it could not tell apart from one.
         credentialBefore = deviceCookieValue();
 
-        // The bar is painted by the window, not by any page here, and
-        // Capacitor's SystemBars repaints it from the *system* theme when this
-        // activity's bridge starts — which is how a paired sheet opened on a
-        // dark app and found a light band across its top. The palette the page
-        // last reported is remembered app-wide, so dressing this activity in
-        // it is one call.
-        ThemeBarPlugin.reapply(this);
-        boolean lightBar = ThemeBarPlugin.rememberedLightIcons(this);
+        // The sheet is translucent, so the bar is the only part of the window
+        // that paints; the decor must stay clear or the whole screen becomes an
+        // opaque panel. The app's remembered palette dresses that bar.
+        ThemeBarPlugin.dressTranslucent(this);
+        boolean darkIcons = ThemeBarPlugin.rememberedLightIcons(this);
+
+        String barColor = ThemeBarPlugin.rememberedColor(this);
+        int appBarColor;
+        try {
+            appBarColor = Color.parseColor(barColor);
+        } catch (IllegalArgumentException ignored) {
+            appBarColor = Color.rgb(244, 246, 250);
+        }
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.TRANSPARENT);
+
+        // Target 36 enforces edge-to-edge: the bar is clear and whatever the
+        // window draws below it is what shows. A translucent sheet has no such
+        // window, so it paints the bar's own height — the strip and the card,
+        // nothing else.
+        View barBackdrop = new View(this);
+        barBackdrop.setBackgroundColor(appBarColor);
+        FrameLayout.LayoutParams barParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, InsetBridge.statusBarHeight(this), Gravity.TOP);
+        root.addView(barBackdrop, barParams);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+            int top = Math.max(
+                    insets.getInsets(WindowInsetsCompat.Type.statusBars()).top,
+                    insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top);
+            if (top > 0 && barParams.height != top) {
+                barParams.height = top;
+                barBackdrop.setLayoutParams(barParams);
+            }
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(root);
 
         WebView web = this.web = new WebView(this);
         CookieManager cookies = CookieManager.getInstance();
@@ -113,43 +143,53 @@ public class PairActivity extends ComponentActivity {
         // kin was the status bar band above it. The remembered bar colour is
         // the one page-chosen colour available here; raised above it, with
         // the ink and the button following the light/dark answer.
-        String barColor = ThemeBarPlugin.rememberedColor(this);
         int cardBackground;
         int cardInk;
         int cardMuted;
+        int cardLine;
         if (!barColor.isEmpty()) {
-            cardBackground = blend(Color.parseColor(barColor), lightBar ? 0xFFFFFF : 0x000000, 0.06f);
-            cardInk = lightBar ? Color.rgb(20, 23, 28) : Color.rgb(232, 235, 240);
-            cardMuted = lightBar ? Color.rgb(90, 96, 105) : Color.rgb(150, 156, 165);
+            // Raised above the bar in both themes: dark mode lifts toward white
+            // rather than darkening, which is how the app's raised surface sits.
+            cardBackground = blend(appBarColor, 0xFFFFFF, darkIcons ? 0.45f : 0.06f);
+            cardInk = darkIcons ? Color.rgb(20, 23, 28) : Color.rgb(232, 235, 240);
+            cardMuted = darkIcons ? Color.rgb(90, 96, 105) : Color.rgb(150, 156, 165);
+            cardLine = blend(cardBackground, darkIcons ? 0x000000 : 0xFFFFFF, 0.10f);
         } else {
             cardBackground = Color.rgb(247, 248, 250);
             cardInk = Color.rgb(20, 23, 28);
             cardMuted = Color.rgb(90, 96, 105);
+            cardLine = Color.rgb(230, 232, 236);
         }
 
-        // Rounded the way the app's own cards are: a plain rectangle read as a
-        // system dialog that had lost its way, not as this app asking.
+        // Rounded, outlined and lifted the way the app's own cards are: a plain
+        // rectangle read as a system dialog that had lost its way.
         GradientDrawable cardShape = new GradientDrawable();
         cardShape.setColor(cardBackground);
         cardShape.setCornerRadius(dp(14));
+        cardShape.setStroke(dp(1), cardLine);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER);
         card.setPadding(dp(24), dp(28), dp(24), dp(22));
         card.setBackground(cardShape);
+        card.setElevation(dp(10));
+        card.setMinimumWidth(dp(240));
 
         ProgressBar progress = new ProgressBar(this);
         TextView label = new TextView(this);
         label.setText("正在配对…");
         label.setTextSize(16);
         label.setTextColor(cardInk);
+        label.setGravity(Gravity.CENTER);
+        label.setTypeface(null, Typeface.BOLD);
         label.setPadding(0, dp(16), 0, dp(6));
 
         TextView hint = new TextView(this);
         hint.setText("正在与电脑交换配对凭据");
         hint.setTextSize(13);
         hint.setTextColor(cardMuted);
+        hint.setGravity(Gravity.CENTER);
         hint.setPadding(0, 0, 0, dp(18));
 
         Button cancel = new Button(this);

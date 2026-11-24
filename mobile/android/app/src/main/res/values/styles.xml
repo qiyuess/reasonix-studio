@@ -35,4 +35,25 @@
         <item name="android:statusBarColor">@color/app_background</item>
         <item name="android:windowLightStatusBar">@bool/status_bar_icons_dark</item>
     </style>
+
+    <!-- The pairing sheet is a translucent surface over the app. It paints its
+         own status-bar strip, so the window has to draw the system bars and
+         stay clear everywhere else; the platform translucent theme leaves the
+         bar to the system, which on API 35+ draws a black one above it. -->
+    <style name="PairTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- The platform translucent theme opts out of API 35's edge-to-edge
+             enforcement on some builds; that leaves the sheet below an opaque
+             system bar. The sheet paints its own bar strip, so it wants the
+             edge-to-edge layout. -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
 </resources>
