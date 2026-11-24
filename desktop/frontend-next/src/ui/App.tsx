@@ -581,6 +581,20 @@ export function App({ hub }: { hub: HubPort }) {
     },
   });
 
+  // A fresh closure per render would redraw every pane's composition picker;
+  // the callback is pinned until what it dispatches to changes. It must stay
+  // above the early returns below: a hook reached only on some renders is the
+  // order violation that blanks the window.
+  const startComposition = useCallback(
+    (id: string) => {
+      const rt = runtimes.find((v) => v.id === active);
+      void (rt?.host
+        ? openRemotePane(rt.host, rt.root, undefined, id)
+        : openPane({ noProject: true, agentComposition: id })).catch(fail);
+    },
+    [runtimes, active, openRemotePane, openPane, fail],
+  );
+
   if (setup === undefined || welcomed === undefined) return <div className="app" data-run="idle" />;
   if (first.gate) return first.gate;
   if (!welcomed && activePort) {
@@ -595,18 +609,6 @@ export function App({ hub }: { hub: HubPort }) {
       />
     );
   }
-
-  // A fresh closure per render would redraw every pane's composition picker;
-  // the callback is pinned until what it dispatches to changes.
-  const startComposition = useCallback(
-    (id: string) => {
-      const rt = runtimes.find((v) => v.id === active);
-      void (rt?.host
-        ? openRemotePane(rt.host, rt.root, undefined, id)
-        : openPane({ noProject: true, agentComposition: id })).catch(fail);
-    },
-    [runtimes, active, openRemotePane, openPane, fail],
-  );
 
   return (
     <CompositionNewContext.Provider value={startComposition}>
