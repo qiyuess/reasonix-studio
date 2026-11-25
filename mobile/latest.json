@@ -1,11 +1,11 @@
 {
-  "tag": "v1.1.2",
-  "version": "1.1.2",
-  "versionCode": 33,
-  "apk": "reasonix-for-android-1.1.2.apk",
-  "notes": "# 1.1.2\n\n设置页、扫码配对与附件的三处修复。\n\n> 覆盖安装即可，配对信息、连接记录与本地设置都会保留。\n\n## 修复\n\n- **设置页只在自己的标题下滚动**：此前整页一起滚，往下翻设置项时标题栏和返回按钮会一起滚出屏幕，翻到深处就找不到回去的路；现在标题固定、只有内容区滚动\n- **扫码配对的页面跟随应用主题**：此前配对时状态栏是系统配色，和应用主题割裂；「正在配对」弹窗也是一块突兀的系统灰卡，现在和应用一样是圆角卡片，深浅色都跟随主题\n- **选图后再输入文字，图片不再消失**：此前选好图片后一输入文字，图片就被悄悄移除，只能重新选；现在图片会一直保留到发送\n- **自动识别出的项目在手机上显示为「任务」**：电脑端把临时/自动归类的分组叫「任务」，手机端此前显示成别的名字，两端对不上；现在读同一个名字\n\n## 说明\n\n- `versionCode` 从 32 进到 33（Android 不接受重复或倒退的 versionCode）。\n- 从 1.1.1 及更早版本覆盖安装即可，无需卸载。",
+  "tag": "v1.2.0",
+  "version": "1.2.0",
+  "versionCode": 34,
+  "apk": "reasonix-for-android-1.2.0.apk",
+  "notes": "# 1.2.0\n\n配对页与「任务」入口的修复，语音输入整体移除。\n\n> 覆盖安装即可，配对信息、连接记录与本地设置都会保留。\n\n## 修复\n\n- 扫码配对页保留自己的标题与返回栏，不再被内容盖住；状态栏跟随应用主题绘制 (90a1ce760)\n- 自动归类的项目在手机上保留「任务」入口，项目行不再显示它的内部路径 (15f9239fb, 1c85943a4)\n- 配对 cookie 按名字读取，不再依赖整段 cookie 的排列 (1c85943a4)\n\n## 移除\n\n- 语音输入、麦克风按钮与整套 speech 声明；手机只保留文字输入 (15f9239fb, c52602eac)\n\n## 说明\n\n- `versionCode` 从 33 进到 34（Android 不接受重复或倒退的 versionCode）。\n- 从 1.1.2 及更早版本覆盖安装即可，无需卸载。",
   "mirrors": [
-    "https://gh-proxy.com/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.2.apk",
-    "https://ghfast.top/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.1.2.apk"
+    "https://gh-proxy.com/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.2.0.apk",
+    "https://ghfast.top/https://github.com/qiyuess/reasonix-studio/releases/latest/download/reasonix-for-android-1.2.0.apk"
   ]
 }
