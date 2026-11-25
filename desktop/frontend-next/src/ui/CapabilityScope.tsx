@@ -133,6 +133,7 @@ function ScopePicker({
           role="option"
           aria-selected={sc.root === at}
           className="pk"
+          data-action="capability.scope"
           onClick={() => onPick(sc.root)}
         >
           <span className="nm">

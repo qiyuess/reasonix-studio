@@ -19,20 +19,33 @@ const canvas = () => document.querySelector(".studio-browser-canvas");
 describe("the size a page is framed at", () => {
   // The frame is what the page is laid out in, so its box has to be the size
   // the person asked for — not the size of the panel around it.
-  it("starts at a phone and frames the page at that size", () => {
+  it("starts on the device the toolbar leaves selected", () => {
     open();
     expect(canvas()).not.toBeNull();
-    expect(viewport()?.style.width).toBe("393px");
-    expect(viewport()?.style.height).toBe("852px");
+    expect(viewport()?.style.width).toBe("412px");
+    expect(viewport()?.style.height).toBe("914px");
+    expect(screen.getByRole("button", { name: /Samsung Galaxy A51\/71/ })).toBeTruthy();
   });
 
-  it("frames the page at a preset chosen from the row", async () => {
+  it("frames the page at a device chosen from the row", async () => {
     const user = userEvent.setup();
     open();
-    await user.click(screen.getByRole("button", { name: /手机/ }));
-    await user.click(screen.getByRole("menuitem", { name: /平板/ }));
-    expect(viewport()?.style.width).toBe("768px");
-    expect(viewport()?.style.height).toBe("1024px");
+    await user.click(screen.getByRole("button", { name: /Samsung Galaxy A51\/71/ }));
+    await user.click(screen.getByRole("menuitem", { name: /iPhone 12 Pro/ }));
+    expect(viewport()?.style.width).toBe("390px");
+    expect(viewport()?.style.height).toBe("844px");
+    expect(screen.getByRole("button", { name: /iPhone 12 Pro/ })).toBeTruthy();
+  });
+
+  it("keeps the device's name after rotating it", async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole("button", { name: /Samsung Galaxy A51\/71/ }));
+    await user.click(screen.getByRole("menuitem", { name: /iPhone 12 Pro/ }));
+    await user.click(screen.getByRole("button", { name: "旋转" }));
+    expect(viewport()?.style.width).toBe("844px");
+    expect(viewport()?.style.height).toBe("390px");
+    expect(screen.getByRole("button", { name: /iPhone 12 Pro/ })).toBeTruthy();
   });
 
   // The two fields are the page's own CSS pixels: typing 393 is what makes the
@@ -52,7 +65,19 @@ describe("the size a page is framed at", () => {
     const width = screen.getByRole("textbox", { name: "宽度" });
     await user.clear(width);
     await user.type(width, "500{Enter}");
-    expect(viewport()?.style.height).toBe("852px");
+    expect(viewport()?.style.height).toBe("914px");
+  });
+
+  // Typing a size leaves the device behind: Chrome calls that row Responsive,
+  // and a page still answering with a phone's UA while the row says another
+  // size would be the row and the page disagreeing.
+  it("switches to Responsive when a side is typed", async () => {
+    const user = userEvent.setup();
+    open();
+    const width = screen.getByRole("textbox", { name: "宽度" });
+    await user.clear(width);
+    await user.type(width, "500{Enter}");
+    expect(screen.getByRole("button", { name: /自适应/ })).toBeTruthy();
   });
 
   // A field on its way to a number is not a size yet: clamping "5" to the floor
@@ -64,7 +89,7 @@ describe("the size a page is framed at", () => {
     await user.clear(width);
     await user.type(width, "5");
     expect(width).toHaveProperty("value", "5");
-    expect(viewport()?.style.width).toBe("393px");
+    expect(viewport()?.style.width).toBe("412px");
   });
 
   it("puts the frame back when the field is left empty", async () => {
@@ -73,8 +98,8 @@ describe("the size a page is framed at", () => {
     const width = screen.getByRole("textbox", { name: "宽度" });
     await user.clear(width);
     await user.tab();
-    expect(width).toHaveProperty("value", "393");
-    expect(viewport()?.style.width).toBe("393px");
+    expect(width).toHaveProperty("value", "412");
+    expect(viewport()?.style.width).toBe("412px");
   });
 
   it("follows the other side when the ratio is locked", async () => {
@@ -83,10 +108,10 @@ describe("the size a page is framed at", () => {
     await user.click(screen.getByRole("button", { name: "锁定宽高比" }));
     const width = screen.getByRole("textbox", { name: "宽度" });
     await user.clear(width);
-    await user.type(width, "786{Enter}");
-    expect(viewport()?.style.width).toBe("786px");
-    // 393 × 852 doubled, so the ratio the frame started at is kept.
-    expect(viewport()?.style.height).toBe("1704px");
+    await user.type(width, "824{Enter}");
+    expect(viewport()?.style.width).toBe("824px");
+    // 412 × 914 doubled, so the ratio the frame started at is kept.
+    expect(viewport()?.style.height).toBe("1828px");
   });
 
   // The choice outlives the tab: a page opened after this one is framed the

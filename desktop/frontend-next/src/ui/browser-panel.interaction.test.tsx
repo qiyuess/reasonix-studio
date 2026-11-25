@@ -416,23 +416,23 @@ describe("the size a page the shell draws is laid out in", () => {
     expect(bridge.frameBrowserView).toHaveBeenCalledWith("view-a", null);
   });
 
-  it("tells the shell the viewport once a preset is picked", async () => {
+  it("tells the shell the viewport once a device is picked", async () => {
     await panel({ tabs, shown: true });
     await settle();
     // The row arrives with the free-size toggle: off, the page is the size of
     // the room and there is nothing to pick from. Opening it frames the page
-    // at the preset the window last chose, so picking that same preset again
+    // at the device the window last chose, so picking that same device again
     // says nothing new — the change is what the shell hears.
     await userEvent.click(screen.getByRole("button", { name: /自由尺寸/ }));
     await settle();
     bridge.frameBrowserView.mockClear();
-    await userEvent.click(screen.getByRole("button", { name: /手机/ }));
-    await userEvent.click(screen.getByRole("menuitem", { name: /平板/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Samsung Galaxy A51\/71/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /iPhone 12 Pro/ }));
     await settle();
     // The preset is a device, not only a size: the frame the shell is told
     // carries what the page answers as — its mobile self, on the UA the
     // app's own engine builds.
-    expect(bridge.frameBrowserView).toHaveBeenLastCalledWith("view-a", { width: 768, height: 1024, zoom: "fit", device: deviceOf(PRESETS[1]) });
+    expect(bridge.frameBrowserView).toHaveBeenLastCalledWith("view-a", { width: 390, height: 844, zoom: "fit", device: deviceOf(PRESETS.find((one) => one.id === "iphone-12-pro")!) });
   });
 
   // Going back is not the absence of a size: the page is still laid out in the
@@ -442,9 +442,9 @@ describe("the size a page the shell draws is laid out in", () => {
     await settle();
     await userEvent.click(screen.getByRole("button", { name: /自由尺寸/ }));
     await settle();
-    // The window remembers the size the previous case picked, so the row
-    // opens at tablet rather than phone; either preset is a way in.
-    await userEvent.click(screen.getByRole("button", { name: /平板/ }));
+    // The window remembers the device the previous case picked, so the row
+    // opens at the iPhone rather than the default; either device is a way in.
+    await userEvent.click(screen.getByRole("button", { name: /iPhone 12 Pro/ }));
     await userEvent.click(screen.getByRole("menuitem", { name: /面板大小/ }));
     await settle();
     expect(bridge.frameBrowserView).toHaveBeenLastCalledWith("view-a", null);

@@ -51,9 +51,16 @@ describe("clampSide", () => {
 });
 
 describe("presetOf", () => {
-  it("names the preset a size matches", () => {
-    expect(presetOf({ width: 393, height: 852 })).toBe("phone");
-    expect(presetOf({ width: 768, height: 1024 })).toBe("tablet");
+  it("names the device a size matches", () => {
+    expect(presetOf({ width: 375, height: 667 })).toBe("iphone-se");
+    expect(presetOf({ width: 768, height: 1024 })).toBe("ipad-mini");
+  });
+
+  it("keeps a device's name when it is rotated", () => {
+    // A rotated iPhone is the same device at the other orientation; the
+    // stored preset is what carries the name when the numbers alone would
+    // also match a different device.
+    expect(presetOf({ width: 844, height: 390, preset: "iphone-12-pro" })).toBe("iphone-12-pro");
   });
 
   it("calls a size no preset matches custom", () => {
@@ -68,23 +75,31 @@ describe("presetOf", () => {
 });
 
 describe("deviceOf", () => {
-  it("builds a phone's UA on the Chromium this app itself runs", () => {
+  it("builds an Android phone's UA on the Chromium this app itself runs", () => {
     vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36");
-    const phone = deviceOf(PRESETS[0]);
+    const phone = deviceOf(PRESETS.find((one) => one.id === "pixel-7")!);
     expect(phone.mobile).toBe(true);
+    expect(phone.dpr).toBe(2.625);
     // The engine is the app's own — only which self the page answers with
     // changes, never the engine it answers on.
-    expect(phone.ua).toBe("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36");
+    expect(phone.ua).toBe("Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36");
   });
 
-  it("answers a laptop as a desktop, and no UA when the engine is not known", () => {
-    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36");
-    const laptop = deviceOf(PRESETS[2]);
-    expect(laptop.mobile).toBe(false);
-    expect(laptop.ua).toMatch(/Chrome\/[\d.]+ Safari/);
-    expect(laptop.ua).not.toMatch(/Mobile/);
+  it("answers an iPhone with the Safari wording DevTools sends", () => {
     vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("something without a chrome version");
-    expect(deviceOf(PRESETS[1]).ua).toBeNull();
+    const iphone = deviceOf(PRESETS.find((one) => one.id === "iphone-12-pro")!);
+    expect(iphone.ua).toContain("iPhone; CPU iPhone OS");
+    expect(iphone.ua).toContain("Safari/604.1");
+  });
+
+  it("answers a desktop as a desktop, and no UA when the engine is not known", () => {
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36");
+    const desktop = deviceOf(PRESETS.find((one) => one.id === "nest-hub-max")!);
+    expect(desktop.mobile).toBe(false);
+    expect(desktop.ua).toMatch(/Chrome\/[\d.]+ Safari/);
+    expect(desktop.ua).not.toMatch(/Mobile/);
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("something without a chrome version");
+    expect(deviceOf(PRESETS.find((one) => one.id === "pixel-7")!).ua).toBeNull();
   });
 });
 

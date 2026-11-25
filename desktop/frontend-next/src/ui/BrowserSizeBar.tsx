@@ -1,14 +1,19 @@
-import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { t } from "../i18n";
 import { Picker, type MenuItem } from "./Menu";
 import { StudioIcon } from "./StudioIcon";
-import { PRESETS, SCALES, clampSide, deviceOf, presetOf, PANEL, type Chosen } from "./browserSize";
+import { PRESETS, SCALES, CUSTOM, clampSide, deviceOf, presetOf, PANEL, type Chosen } from "./browserSize";
 
-/** What a size's row calls itself: a preset's own name, the panel's when the
- *  page is laid out in the room itself, and "Custom" for a size somebody typed. */
+// The "Edit..." row at the foot of the list: it is not a device, it is the
+// way into the two fields, which are already on the row.
+const EDIT = "edit";
+
+/** What a size's row calls itself: a device's own name, the panel's when the
+ *  page is laid out in the room itself, and "Responsive" for a size somebody
+ *  typed — Chrome's own name for the same state. */
 const labelOf = (preset: string): string => {
   const chosen = PRESETS.find((one) => one.id === preset);
-  if (chosen) return t(chosen.key);
+  if (chosen) return chosen.name;
   return t(preset === PANEL ? "workbench.size_panel" : "workbench.size_custom");
 };
 
@@ -26,6 +31,7 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
   // yet — "39" on the way to "393" would otherwise be clamped to the floor.
   const [draft, setDraft] = useState({ width: String(size.width), height: String(size.height) });
   const [locked, setLocked] = useState(false);
+  const widthField = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDraft({ width: String(size.width), height: String(size.height) });
@@ -36,26 +42,37 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
   // where it means something, which is where the page is not one this panel
   // frames itself.
   const presetItems: MenuItem[] = [
+    { value: CUSTOM, label: t("workbench.size_custom") },
     ...(panel ? [{ value: PANEL, label: t("workbench.size_panel") }] : []),
-    ...PRESETS.map((one) => ({ value: one.id, label: t(one.key), meta: `${one.width} × ${one.height}` })),
+    ...PRESETS.map((one) => ({ value: one.id, label: one.name })),
+    { value: EDIT, label: t("workbench.size_edit"), divide: true, foot: true },
   ];
   const modeItems: MenuItem[] = SCALES.map((one) => ({ value: one.id, label: t(one.key) }));
 
   const take = (value: string) => {
+    if (value === EDIT) {
+      // Chrome's "Edit..." opens its device editor. This row's fields are that
+      // editor: a typed size is a custom viewport, and the width is the side
+      // people edit first.
+      onChange({ ...size, framed: true, device: null, preset: CUSTOM });
+      requestAnimationFrame(() => { widthField.current?.focus(); widthField.current?.select(); });
+      return;
+    }
     if (value === PANEL) {
       // The panel's own size is the page as the room drew it: a desktop
       // answering on its own, so the device the last preset stood for is
       // taken away with it.
-      onChange({ ...size, framed: false, device: null });
+      onChange({ ...size, framed: false, device: null, preset: undefined });
+      return;
+    }
+    if (value === CUSTOM) {
+      // Responsive: keep the current rectangle, but answer as no device, the
+      // way Chrome's Responsive row does.
+      onChange({ ...size, framed: true, device: null, preset: CUSTOM });
       return;
     }
     const one = PRESETS.find((preset) => preset.id === value);
-    // A preset is a device, not only a size: the page it frames answers as a
-    // phone or a tablet — its UA and its mobile layout — from the moment it
-    // is chosen, the way the toolbar's own device answer does. Numbers typed
-    // after keep the device, so changing how much of it shows is not asking
-    // the page to be a desktop again.
-    if (one) onChange({ width: one.width, height: one.height, mode: size.mode, framed: true, device: deviceOf(one) });
+    if (one) onChange({ width: one.width, height: one.height, mode: size.mode, framed: true, device: deviceOf(one), preset: one.id });
   };
 
   // Losing focus or pressing Enter settles a side. Anything that is not a
@@ -68,25 +85,24 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
       return;
     }
     const value = clampSide(typed);
-    // Typing a number is asking for a frame of that size — the row is open
-    // because a size is wanted, so the numbers settle it rather than reading
-    // back into a page still laid out as the room. The device is kept: a
-    // frame someone resized is still standing on the same device, and the
-    // page keeps answering as it did — only the toolbar's device menu takes
-    // that identity away again.
+    // Typing a number asks for a viewport of that size, which is Chrome's
+    // Responsive row rather than the device whose numbers were just left
+    // behind: a page still answering with the old phone's UA while the row
+    // says another size is the row and the page disagreeing.
     if (side === "height") {
       const width = locked && size.height > 0 ? clampSide(Math.round((value * size.width) / size.height)) : size.width;
-      onChange({ ...size, width, height: value, framed: true });
+      onChange({ ...size, width, height: value, framed: true, device: null, preset: CUSTOM });
       return;
     }
     const height = locked && size.width > 0 ? clampSide(Math.round((value * size.height) / size.width)) : size.height;
-    onChange({ ...size, width: value, height, framed: true });
+    onChange({ ...size, width: value, height, framed: true, device: null, preset: CUSTOM });
   };
 
   const field = (side: keyof typeof draft) => (
     <input
       className="size-side"
       data-action-change={`browser.size.${side}`}
+      ref={side === "width" ? widthField : undefined}
       inputMode="numeric"
       value={draft[side]}
       aria-label={t(side === "width" ? "workbench.size_width" : "workbench.size_height")}
@@ -103,6 +119,7 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
 
   return (
     <div className="studio-browser-size" role="group" aria-label={t("workbench.size_viewport")}>
+      <span className="size-label">{t("workbench.size_label")}</span>
       <Picker
         className="size-picker"
         data-action="browser.size.preset"
@@ -141,6 +158,16 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
           <StudioIcon name="down" />
         </>}
       />
+      <button
+        type="button"
+        className="size-rotate"
+        data-action="browser.size.rotate"
+        aria-label={t("workbench.size_rotate")}
+        title={t("workbench.size_rotate")}
+        onClick={() => onChange({ ...size, width: size.height, height: size.width })}
+      >
+        <StudioIcon name="refresh" />
+      </button>
     </div>
   );
 }

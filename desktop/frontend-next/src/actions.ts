@@ -146,6 +146,7 @@ export const ACTIONS: UIAction[] = [
   { id: "browser.free-size", kind: "view", target: "none", proof: "interaction" },
   { id: "browser.size.preset", kind: "view", target: "none", proof: "interaction" },
   { id: "browser.size.lock", kind: "view", target: "none", proof: "interaction" },
+  { id: "browser.size.rotate", kind: "view", target: "none", proof: "interaction" },
   { id: "browser.size.fit", kind: "view", target: "none", proof: "interaction" },
   { id: "tool.copy-output", kind: "shell-native", target: "none", proof: "interaction" },
   // The way out of a window whose assets an update replaced underneath it.
