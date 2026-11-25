@@ -51,18 +51,17 @@ export function BrowserSizeBar({ size, onChange, panel = false }: { size: Chosen
 
   const take = (value: string) => {
     if (value === EDIT) {
-      // Chrome's "Edit..." opens its device editor. This row's fields are that
-      // editor: a typed size is a custom viewport, and the width is the side
-      // people edit first.
-      onChange({ ...size, framed: true, device: null, preset: CUSTOM });
+      // Chrome's "Edit..." opens its device editor without committing anything.
+      // Here the fields are the editor: focusing them is the whole action, and
+      // only a typed side turns the frame into a custom viewport.
       requestAnimationFrame(() => { widthField.current?.focus(); widthField.current?.select(); });
       return;
     }
     if (value === PANEL) {
       // The panel's own size is the page as the room drew it: a desktop
-      // answering on its own, so the device the last preset stood for is
-      // taken away with it.
-      onChange({ ...size, framed: false, device: null, preset: undefined });
+      // answering on its own. It is also not any device's rectangle, so the
+      // row must not name one when the frame comes back.
+      onChange({ ...size, framed: false, device: null, preset: CUSTOM });
       return;
     }
     if (value === CUSTOM) {

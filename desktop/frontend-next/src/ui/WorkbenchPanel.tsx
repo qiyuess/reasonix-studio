@@ -63,6 +63,7 @@ export function WorkbenchPanel({
   tabs: allTabs,
   manual,
   shown,
+  open = true,
   scheme,
   changes,
   onTreeChanged,
@@ -94,6 +95,9 @@ export function WorkbenchPanel({
   manual: boolean;
   /** Counts the title-bar Browser presses; a change asks for a browser, not just the column. */
   shown: boolean;
+  /** Whether this workbench is the surface in front. A mounted panel that is
+   *  not on screen keeps its state but must not name the start page. */
+  open?: boolean;
   scheme: "light" | "dark";
   changes: WorkspaceChange[];
   /** Called after the panel committed, so the list is read again. */
@@ -332,6 +336,10 @@ export function WorkbenchPanel({
     surfaces.find((s) => keyOf(s) === selected) ??
     surfaces.find((s) => s.kind === "browser" && s.tab.active) ??
     surfaces[0];
+  // The start page is the workbench's empty state, not only the + button's
+  // toggle: with no tab and no file tree there is nothing else to draw. The
+  // strip reads this too, so the tab row and the canvas say the same thing.
+  const start = launcher || (!active && !showFiles);
   // A document opens rendered: it is read far more often than edited, and the
   // source view is one click away.
   const filePath = active?.kind === "file" ? active.path : "";
@@ -534,7 +542,7 @@ export function WorkbenchPanel({
       labelFor={labelFor}
       active={active}
       activeKey={activeKey}
-      launcher={launcher}
+      launcher={start && open}
       showFiles={showFiles}
       closing={closing}
       renaming={renaming}
@@ -587,9 +595,9 @@ export function WorkbenchPanel({
               {failed}
             </div>
           )}
-          {(launcher || !active) && (
+          {start && (
             <WorkbenchLauncher
-              key={String(launcher)} focus={launcher}
+              key={String(start)} focus={launcher}
               changes={changes.length}
               onFiles={chooseFiles}
               onBrowser={() => void addBrowser()} onTerminal={() => void terminals.open()}

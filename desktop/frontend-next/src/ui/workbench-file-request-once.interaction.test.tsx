@@ -11,7 +11,9 @@ import type { AgentPort } from "../port/port";
 
 const onCloseManual = vi.fn();
 const filesShown = () => document.querySelector(".workbench-body")!.hasAttribute("data-files");
-const tabs = () => [...document.querySelectorAll("[role=tab]")].map((e) => e.textContent?.trim());
+// The start page's own tab is not a file: these cases count what the
+// conversation opened, so the placeholder tab is left out.
+const tabs = () => [...document.querySelectorAll("[role=tab]:not([data-new])")].map((e) => e.textContent?.trim());
 
 function Harness({ port, root = "/w", panel = true }: { port: AgentPort; root?: string; panel?: boolean }) {
   const [presses, setPresses] = useState(0);

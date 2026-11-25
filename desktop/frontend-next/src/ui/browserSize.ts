@@ -147,12 +147,12 @@ export function clampSide(value: number): number {
 
 /** presetOf names the device a frame was chosen from, `CUSTOM` for a size
  *  somebody typed, and `PANEL` for a page laid out as the room. The stored
- *  preset is read first: a rotated device has the same name at the other
- *  orientation, and two presets can share a size. */
+ *  preset is the identity: two presets can share a size, and a size alone
+ *  never says the page was given a device. */
 export function presetOf(size: Size & { framed?: boolean; preset?: string }): string {
   if (size.framed === false) return PANEL;
-  if (size.preset === CUSTOM || PRESETS.some((one) => one.id === size.preset)) return size.preset!;
-  return PRESETS.find((one) => one.width === size.width && one.height === size.height)?.id ?? CUSTOM;
+  if (size.preset === CUSTOM) return CUSTOM;
+  return PRESETS.some((one) => one.id === size.preset) ? size.preset! : CUSTOM;
 }
 
 /** fitScale is how much of the room the frame takes: the same answer the shell
@@ -186,11 +186,13 @@ function read(raw: string | null): Chosen {
     // with one size cannot be told apart by the numbers alone. An id that is
     // no longer in the list is dropped rather than shown as a device.
     const preset = one.preset;
-    if (typeof preset === "string" && (preset === CUSTOM || PRESETS.some((known) => known.id === preset))) chosen.preset = preset;
-    // A device is remembered, though: a window reopened answers the page the
-    // way the person left it — phone self and all, not its desktop one.
+    const named = typeof preset === "string" && PRESETS.some((known) => known.id === preset);
+    if (named || preset === CUSTOM) chosen.preset = preset;
+    // A device rides with a named preset. A store from before presets were
+    // recorded has one without a name; keeping it would let the row say
+    // Responsive while the page still answers as a phone.
     const device = one.device;
-    if (device && typeof device === "object") {
+    if (named && device && typeof device === "object") {
       chosen.device = {
         mobile: device.mobile === true,
         dpr: Number.isFinite(Number(device.dpr)) ? Math.max(0, Number(device.dpr)) : 0,

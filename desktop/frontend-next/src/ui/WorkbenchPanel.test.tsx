@@ -296,7 +296,9 @@ describe("WorkbenchPanel", () => {
       }
       await act(async () => finish({ id: "b1", target: "t1", title: "", url: "about:blank", active: false }));
       expect(container.querySelector(".workbench-body")?.hasAttribute("data-files")).toBe(!reopen);
-      expect(screen.getByRole("button", { name: "新建标签" }).getAttribute("aria-expanded")).toBe("false");
+      // With no tab and no explorer the start page is what the column shows,
+      // so the + says it is open; the explorer still owns the column otherwise.
+      expect(screen.getByRole("button", { name: "新建标签" }).getAttribute("aria-expanded")).toBe(reopen ? "true" : "false");
       expect(port.browserOpen).toHaveBeenCalledTimes(1);
     } finally { views.mockRestore(); }
   });
@@ -356,6 +358,27 @@ describe("WorkbenchPanel", () => {
     await user.click(screen.getByRole("button", { name: "浏览器" }));
     expect(screen.getByRole("tab", { name: "浏览器" })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "开始" })).toBeNull();
+  });
+
+  // The start page is the empty state, not only the + toggle: the strip has to
+  // name it too, or the tab row and the canvas disagree about what is open.
+  it("draws the start tab when the launcher is the empty state", () => {
+    const props = { port: new MockPort(), manual: false, shown: false, scheme: "dark" as const, changes: [], onCloseManual: vi.fn(), onExternal: vi.fn() };
+    const { container } = render(<WorkbenchPanel {...props} tabs={[]} />);
+    expect(screen.getByRole("tab", { name: "新标签" }).getAttribute("aria-selected")).toBe("true");
+    expect(container.querySelector<HTMLElement>('[data-action="workbench.new"]')?.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  // Opening the explorer with nothing selected is a deliberate blank: the
+  // launcher gives way to the tree, and there is no page to draw beside it.
+  it("leaves the canvas blank when the explorer opens with no tab", async () => {
+    const user = userEvent.setup();
+    const props = { port: new MockPort(), manual: false, shown: false, scheme: "dark" as const, changes: [], onCloseManual: vi.fn(), onExternal: vi.fn() };
+    const { container } = render(<WorkbenchPanel {...props} tabs={[]} />);
+    await user.click(container.querySelector<HTMLElement>('[data-action="workbench.files"]')!);
+    expect(screen.queryByRole("group", { name: "开始" })).toBeNull();
+    expect(container.querySelector(".workbench-body")?.hasAttribute("data-files")).toBe(true);
+    expect(container.querySelector(".workbench-content")?.hasAttribute("hidden")).toBe(true);
   });
 
   it("opens the file explorer from the launcher, which carries the session's change count", async () => {

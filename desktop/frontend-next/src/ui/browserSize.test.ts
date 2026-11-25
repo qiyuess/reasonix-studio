@@ -51,9 +51,15 @@ describe("clampSide", () => {
 });
 
 describe("presetOf", () => {
-  it("names the device a size matches", () => {
-    expect(presetOf({ width: 375, height: 667 })).toBe("iphone-se");
-    expect(presetOf({ width: 768, height: 1024 })).toBe("ipad-mini");
+  it("names the device a frame was chosen from", () => {
+    expect(presetOf({ width: 375, height: 667, preset: "iphone-se" })).toBe("iphone-se");
+    expect(presetOf({ width: 768, height: 1024, preset: "ipad-mini" })).toBe("ipad-mini");
+  });
+
+  // A size is not a device: a store with no recorded preset may happen to match
+  // one of the numbers, but the page was given no device, so the row says so.
+  it("calls a size with no recorded preset custom", () => {
+    expect(presetOf({ width: 375, height: 667 })).toBe(CUSTOM);
   });
 
   it("keeps a device's name when it is rotated", () => {
@@ -109,16 +115,25 @@ describe("loadSize", () => {
     expect(loadSize()).toEqual({ width: 500, height: 900, mode: "100" });
   });
 
-  // The device outlives the window with the size it was chosen at: a page
+  // The device outlives the window with the preset it was chosen from: a page
   // opened later answers as the device the person left it standing on.
-  it("remembers the device a frame was chosen from", () => {
+  it("remembers the device a named preset was chosen from", () => {
+    const device = { mobile: true, dpr: 0, ua: "Mozilla/5.0 (Linux; Android 14) Chrome/1 Mobile" };
+    saveSize({ width: 412, height: 915, mode: "fit", device, preset: "pixel-7" });
+    expect(loadSize()).toEqual({ width: 412, height: 915, mode: "fit", device, preset: "pixel-7" });
+  });
+
+  // A store from before presets were recorded has a device with no name. The
+  // row would say Responsive while the page still answered as a phone, so the
+  // device is dropped and the two agree.
+  it("drops a device when the saved size no longer names its preset", () => {
     const device = { mobile: true, dpr: 0, ua: "Mozilla/5.0 (Linux; Android 14) Chrome/1 Mobile" };
     saveSize({ width: 393, height: 852, mode: "fit", device });
-    expect(loadSize().device).toEqual(device);
+    expect(loadSize()).toEqual({ width: 393, height: 852, mode: "fit" });
   });
 
   it("drops a device that is not one rather than answering as a stranger", () => {
-    localStorage.setItem("rx-browser-size", JSON.stringify({ width: 500, height: 900, mode: "fit", device: { mobile: "yes" } }));
+    localStorage.setItem("rx-browser-size", JSON.stringify({ width: 412, height: 915, mode: "fit", preset: "pixel-7", device: { mobile: "yes" } }));
     expect(loadSize().device?.mobile).toBe(false);
   });
 

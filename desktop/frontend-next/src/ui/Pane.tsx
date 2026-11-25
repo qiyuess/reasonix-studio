@@ -631,7 +631,9 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
         <Gutter edge="r" span={DOCK} width={dockW} max={dockMax} label={t("app.resize_the_browser")} open={docked}
           onWidth={onDockW} onOpen={(on) => onManualBrowser?.(on)} />
       )}
-      <div className="scroll" data-pane="browser" hidden={tab === "analysis" || locked} inert={!workbench}>
+      {/* Only the analysis view hides the workbench: a fresh window has not
+          entered a conversation yet, but opening the workbench still draws it. */}
+      <div className="scroll" data-pane="browser" hidden={tab === "analysis"} inert={!workbench}>
           <JobsLiveContext.Provider value={jobsLive}>
           <TerminalHostContext.Provider value={rt.host ?? ""}>
           <WorkbenchPanel
@@ -643,6 +645,7 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
             fullMode={docked ? { full: browserSize.size === "full", onToggle: browserSize.toggleFull } : undefined}
             manual={manualBrowser}
             shown={visible && workbench && !locked}
+            open={visible && workbench}
             onActiveFile={onActiveFile}
             scheme={theme === "light" ? "light" : "dark"}
             changes={tree?.changes ?? []} onTreeChanged={refreshTree} revealChanges={revealChanges} revealFiles={revealFiles} toggleFiles={toggleFiles} terminalRequest={terminalPulse}

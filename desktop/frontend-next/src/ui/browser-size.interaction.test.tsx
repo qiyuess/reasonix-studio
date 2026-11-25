@@ -4,6 +4,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "./testkit";
 import { BrowserPanel } from "./BrowserPanel";
+import { BrowserSizeBar } from "./BrowserSizeBar";
+import { CUSTOM, presetOf, type Chosen } from "./browserSize";
 
 afterEach(() => {
   cleanup();
@@ -78,6 +80,43 @@ describe("the size a page is framed at", () => {
     await user.clear(width);
     await user.type(width, "500{Enter}");
     expect(screen.getByRole("button", { name: /自适应/ })).toBeTruthy();
+  });
+
+  // Chrome's Edit opens the device editor without committing a change. Here the
+  // fields are that editor, so focusing them must not drop the device first.
+  it("opens the fields on Edit without changing the device", async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole("button", { name: /Samsung Galaxy A51\/71/ }));
+    await user.click(screen.getByRole("menuitem", { name: /iPhone 12 Pro/ }));
+    await user.click(screen.getByRole("button", { name: /iPhone 12 Pro/ }));
+    await user.click(screen.getByRole("menuitem", { name: /修改/ }));
+    expect(viewport()?.style.width).toBe("390px");
+    expect(viewport()?.style.height).toBe("844px");
+    expect(screen.getByRole("button", { name: /iPhone 12 Pro/ })).toBeTruthy();
+    const width = screen.getByRole("textbox", { name: "宽度" });
+    await user.clear(width);
+    await user.type(width, "500{Enter}");
+    expect(viewport()?.style.width).toBe("500px");
+    expect(screen.getByRole("button", { name: /自适应/ })).toBeTruthy();
+  });
+
+  // The panel's own size is not a device's rectangle. Once it is picked, the
+  // row must not name whichever device happens to share those numbers when the
+  // frame comes back.
+  it("does not name a device after the panel's own size is chosen", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const frame: Chosen = {
+      width: 390, height: 844, mode: "fit", framed: true, preset: "iphone-12-pro",
+      device: { mobile: true, dpr: 3, ua: "iPhone" },
+    };
+    render(<BrowserSizeBar size={frame} onChange={onChange} panel />);
+    await user.click(screen.getByRole("button", { name: /iPhone 12 Pro/ }));
+    await user.click(screen.getByRole("menuitem", { name: "面板大小" }));
+    const next = onChange.mock.calls[0]?.[0] as Chosen;
+    expect(next).toMatchObject({ framed: false, device: null, preset: CUSTOM });
+    expect(presetOf({ ...next, framed: true })).toBe(CUSTOM);
   });
 
   // A field on its way to a number is not a size yet: clamping "5" to the floor
