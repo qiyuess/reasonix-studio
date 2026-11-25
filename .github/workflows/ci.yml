@@ -1228,6 +1228,12 @@ jobs:
         working-directory: mobile
         run: npm run typecheck
 
+      - name: wire parity
+        working-directory: mobile
+        env:
+          REASONIX_KERNEL: ..
+        run: node scripts/check-wire.mjs
+
       - name: test
         working-directory: mobile
         run: npm test

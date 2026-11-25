@@ -1,5 +1,5 @@
 {
-  "internal/platform/browser/**": 21.7,
+  "internal/platform/browser/**": 60.2,
   "internal/platform/computer/**": 89.8,
   "internal/session/control/approval.go": 94.3,
   "internal/session/control/approval_bridge.go": 77,
