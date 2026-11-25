@@ -1,7 +1,15 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-22T17:31:54Z",
+  "updatedAt": "2026-11-25T09:28:48Z",
   "versions": [
+    {
+      "version": "v2.72.0",
+      "tag": "studio-v2.72.0",
+      "channel": "studio",
+      "publishedAt": "2026-11-25T09:28:48Z",
+      "manifest": "https://qiyuess.github.io/reasonix-studio/studio-v2.72.0/latest.json",
+      "notes": "https://qiyuess.github.io/reasonix-studio/studio/notes/2.72.0.md"
+    },
     {
       "version": "v2.71.1",
       "tag": "studio-v2.71.1",
