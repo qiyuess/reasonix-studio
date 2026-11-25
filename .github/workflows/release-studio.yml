@@ -802,6 +802,12 @@ jobs:
         working-directory: mobile
         run: npm ci
 
+      # The manifest the in-app updater reads must already describe this tag:
+      # version, versionCode, APK name, notes and mirrors are all checked here.
+      - name: Check the phone update manifest
+        working-directory: mobile
+        run: node scripts/latest-json.mjs --check
+
       - name: Build the web bundle
         working-directory: mobile
         run: npm run build

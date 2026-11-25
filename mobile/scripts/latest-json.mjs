@@ -47,5 +47,15 @@ const manifest = {
   mirrors: mirrors.map((base) => base + apkUrl),
 };
 
-writeFileSync(resolve(root, "latest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-console.log(`latest.json: ${tag} (versionCode ${versionCode})`);
+const next = `${JSON.stringify(manifest, null, 2)}\n`;
+if (process.argv.includes("--check")) {
+  const current = readFileSync(resolve(root, "latest.json"), "utf8");
+  if (current !== next) {
+    console.error("latest.json is stale: run `npm run manifest` and commit the result");
+    process.exit(1);
+  }
+  console.log(`latest.json: current (${tag}, versionCode ${versionCode})`);
+} else {
+  writeFileSync(resolve(root, "latest.json"), next);
+  console.log(`latest.json: ${tag} (versionCode ${versionCode})`);
+}
