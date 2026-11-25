@@ -96,10 +96,9 @@ type shareListener struct {
 	// the gates answer for it beside their own origins, and a pairing link for
 	// the proxy channel points at it.
 	publicOrigin string
-	// proxyMissed says why the proxy's door is not open beside the phone's,
-	// when a proxy is named and the door could not be raised. Without it the
-	// panel saw a name applied to an open share and no proxy channel at once,
-	// which reads as a bug in whatever the person is looking at.
+	// proxyMissed says why the proxy's door is not open beside the phone's when a proxy is
+	// named and its door could not be raised. Without it the panel saw a name applied to an
+	// open share and no proxy channel at once, which reads as a bug.
 	proxyMissed string
 	stop        context.CancelFunc
 	done        chan struct{}
@@ -119,11 +118,9 @@ func (l *shareListener) pairOrigin(channel OfferChannel) (string, bool) {
 		}
 		return l.publicOrigin, true
 	}
-	// A local door opened on loopback is one no phone can dial: loopback is what
-	// a proxy on this machine reaches, never what a phone elsewhere does. Serving
-	// it as the local channel's address would hand out a link that leads nowhere,
-	// which is the failure the proxy channel already refuses rather than commits
-	// when no proxy is named. The two channels answer the same way here.
+	// A local door on loopback is one no phone can dial: loopback is what a proxy on this
+	// machine reaches. Serving it as the local channel's address would hand out a link that
+	// leads nowhere, the failure the proxy channel already refuses rather than commits.
 	if l.lan.ip == loopbackIP {
 		return "", false
 	}
@@ -177,22 +174,18 @@ type ShareStatus struct {
 	// Origin is the address a phone on this network types in. Kept as the one
 	// answer for callers that draw a single door.
 	Origin string `json:"origin,omitempty"`
-	// ProxyOrigin is the address the proxy channel answers at, which is the
-	// proxy's configured name. Empty until a proxy is named, and empty while the
-	// saved name has not reached an open door yet — AppliedPublicOrigin says the
-	// latter.
+	// ProxyOrigin is the address the proxy channel answers at, which is the proxy's
+	// configured name. Empty until a proxy is named, and empty while the saved name has not
+	// reached an open door yet — AppliedPublicOrigin says the latter.
 	ProxyOrigin  string `json:"proxyOrigin,omitempty"`
 	PublicOrigin string `json:"publicOrigin,omitempty"`
-	// ProxyDoorError is why a named proxy has no door open beside the phone's.
-	// A proxy named on an open share used to read as one applied to a door that
-	// is not there, which the panel can only show as a channel that should work
-	// and does not. Empty when the proxy's door is open, or when no proxy is
-	// named at all.
+	// ProxyDoorError is why a named proxy has no door open beside the phone's. Without it a
+	// named proxy on an open share read as one applied to a door that is not there. Empty
+	// when the proxy's door is open, or when no proxy is named.
 	ProxyDoorError string `json:"proxyDoorError,omitempty"`
-	// AppliedPublicOrigin is the name the open door's gate was built with. It
-	// differs from PublicOrigin after a change that has not been applied yet,
-	// which is what lets the panel say "next time the door opens" without
-	// showing a stale value in the field the person just typed into.
+	// AppliedPublicOrigin is the name the open door's gate was built with. It differs from
+	// PublicOrigin after a change not yet applied, which lets the panel say "next time the
+	// door opens" without showing a stale value in the field just typed into.
 	AppliedPublicOrigin string                `json:"appliedPublicOrigin,omitempty"`
 	Addresses           []ShareAddress        `json:"addresses"`
 	Devices             []DeviceView          `json:"devices"`
@@ -310,11 +303,9 @@ func (s *DeviceShare) Open(ip string) (ShareStatus, error) {
 				proxyLn = pln
 				proxy = shareDoor{ip: loopbackIP, origin: "http://" + pln.Addr().String()}
 			} else {
-				// The phone's door is up and is what the person asked for; the
-				// proxy's is the extra, so it is said and not fatal. It is also
-				// kept, because a proxy named on an open share and a proxy door
-				// that is not there is a pair the panel cannot otherwise tell
-				// apart from a share nobody configured a proxy on.
+				// The phone's door is what the person asked for; the proxy's is extra, so its failure
+				// is said and not fatal. It is kept because a proxy named on an open share with no door
+				// is otherwise indistinguishable from a share nobody configured a proxy on.
 				proxyMissed = listenErr.Error()
 				slog.Warn("serve: the phone share opened, but the proxy's door stayed shut", "addr", net.JoinHostPort(loopbackIP, actualPort), "err", listenErr)
 			}
@@ -361,32 +352,16 @@ func (s *DeviceShare) Open(ip string) (ShareStatus, error) {
 	return s.Status(), nil
 }
 
-// Reopen reopens the share where it last listened. When that address is gone —
-// another network, another adapter — it falls back to the first address this
-// machine now offers, because a share that cannot reopen where it was is still
-// better off open than silently shut. Phones paired on the old origin have to
-// scan again in that case; one that kept its address does not.
-//
-// A remembered address wins whenever a phone could still dial it, proxy or no
-// proxy: the two doors a share has are independent, and Open raises the proxy's
-// on loopback beside whichever address the phone's door takes. Reopening on
-// loopback would leave the phone's own channel dark for anyone on the same
-// network, which is why the remembered address is not displaced by a named
-// proxy — the proxy dials loopback itself once the door is up.
-//
-// Loopback is never the address this function picks for a phone's door: it is
-// the proxy's door, and isPhoneAddress enforces that. A machine with no adapter
-// to dial still has only loopback left, and there this function does open on it
-// — the share comes back up rather than staying silently shut, and Open raises
-// the proxy's door beside it. That case has no local channel to hand a code out
-// on; the panel reads which door can issue from the status rather than assuming
-// the local one.
+// Reopen reopens the share where it last listened; when that address is gone it falls
+// back to the first address the machine offers, because a share that cannot reopen is
+// better open than silently shut. Phones paired on the old origin must scan again.
+// A remembered address wins whenever a phone could still dial it, proxy or no proxy:
+// loopback is the proxy's door, never a phone's, and is chosen only when no adapter exists.
 func (s *DeviceShare) Reopen(address string) (ShareStatus, error) {
 	list := s.addresses()
-	// The remembered address when it is still offered and a phone could dial it.
-	// Loopback is never that: it is the proxy's door, and Open opens that one
-	// beside whichever address this is, so reopening there would leave the
-	// phone's own channel dark.
+	// The remembered address when it is still offered and a phone could dial it. Loopback
+	// is never that: it is the proxy's door, and Open raises it beside whichever address
+	// this is, so reopening there would leave the phone's channel dark.
 	if strings.TrimSpace(address) != "" && isPhoneAddress(list, address) {
 		if st, err := s.Open(address); err == nil {
 			return st, nil
@@ -645,13 +620,11 @@ func OffInternet(ip netip.Addr) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || tailnetPrefix.Contains(ip)
 }
 
-// PrivateAddresses is every private IPv4 address on an up interface, the ones
-// a phone is likeliest to reach first: the first entry is the default.
-//
-// Loopback is listed after every reachable address, because a phone cannot dial
-// it — but a proxy or a tunnel on this machine hands requests to it, and it is
-// the only address that survives this machine changing networks. A door a proxy
-// stands in front of opens there beside the phone's own; see Open.
+// PrivateAddresses is every private IPv4 address on an up interface, the ones a phone
+// is likeliest to reach first; the first entry is the default. Loopback comes after
+// every reachable address, because a phone cannot dial it — but a proxy or tunnel on
+// this machine hands requests to it, and it is the only address that survives a network
+// change. A proxy's door opens there beside the phone's own; see Open.
 func PrivateAddresses() []ShareAddress {
 	ifaces, err := net.Interfaces()
 	if err != nil {

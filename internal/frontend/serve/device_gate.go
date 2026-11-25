@@ -106,10 +106,9 @@ func NewDeviceGate(next http.Handler, opts DeviceGateOptions) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		door, ok := doors.match(r.Host)
 		if !ok {
-			// A phone that cannot pair or connect leaves nothing behind in the
-			// access log — this listener is not behind it — so a refusal says
-			// here which of the three rules fired. Without it the only symptom
-			// is "it does not work", and the three have nothing in common.
+			// A phone that cannot pair leaves nothing in the access log — this listener is not
+			// behind it — so a refusal says here which of the three rules fired. Otherwise the
+			// only symptom is "it does not work", and the three have nothing in common.
 			slog.Warn("serve/device: a request named a host this listener does not answer for",
 				"host", r.Host, "path", r.URL.Path, "doors", doors.names())
 			refuse(w, http.StatusForbidden, codeDeviceHost, "this listener does not answer for that host", nil)
@@ -136,15 +135,9 @@ func NewDeviceGate(next http.Handler, opts DeviceGateOptions) http.Handler {
 			}
 		}
 		if devicePublicPath(r, opts.Page) {
-			// A browser fetches a page's own files on requests of their own, and
-			// a font or a manifest never carries the credential the page around
-			// it did. That is a load working as designed, so it passes here —
-			// before the refusals below, which is what keeps the warning log
-			// about a phone that cannot get in rather than about every font it
-			// asks for.
-			//
-			// Still device reach: the shell a stranger loads must not come back
-			// holding anything the window's grants would add to it.
+			// A page's own files (fonts, manifest) carry no credential, so public paths pass here
+			// before the refusals and the warning log stays about phones that cannot get in. Still
+			// device reach: the shell a stranger loads gets no window grants.
 			next.ServeHTTP(w, r.WithContext(withDeviceReach(r.Context(), "", 0)))
 			return
 		}
@@ -197,27 +190,11 @@ func deviceDoorsOf(opts DeviceGateOptions) (deviceDoors, bool) {
 	return append(doors, public), true
 }
 
-// deviceOriginDoor reports the door a state change named. A read may arrive
-// without an origin — a top-level navigation sends none — but anything that
-// changes state has to name a door this machine answers for rather than lean on
-// the cookie. The name is compared the same way the Host was, so a browser that
-// omits the default port and one that spells it both name the door they came
-// through.
-//
-// The door named is usually the one the Host matched, with one asymmetry: a
-// proxy's name is accepted even when the Host is something else. A proxy in
-// front of this machine forwards under a name of its own choosing — a tunnel
-// that dials 127.0.0.1 hands the door that address — while the page the phone
-// loaded still knows itself by the proxy's name, so demanding the two agree
-// refuses every state change a phone makes through such a tunnel. Only the
-// proxy door gets this treatment, because only a proxy rewrites the Host;
-// naming the LAN door from behind the proxy's name is still refused, which is
-// what keeps a page served over plain HTTP elsewhere from changing state here.
-//
-// It answers with that door rather than a bare yes, because the door decides
-// whether the credential minted here is marked Secure: a phone that arrived
-// through a TLS proxy is on TLS even though the listener behind it is plain
-// HTTP.
+// deviceOriginDoor reports the door a state change named. A read may arrive without an
+// Origin, but a state change must name a door this machine answers for rather than lean
+// on the cookie; the name is compared as the Host was. A proxy's name is accepted even
+// when the Host differs, because only a proxy rewrites it; the LAN door is still refused
+// from behind that name. The door returns so a TLS proxy's credential can be marked Secure.
 func deviceOriginDoor(r *http.Request, door deviceDoor, doors deviceDoors) (deviceDoor, bool) {
 	sent := r.Header.Get("Origin")
 	if sent == "" {
@@ -244,25 +221,9 @@ func deviceOriginDoor(r *http.Request, door deviceDoor, doors deviceDoors) (devi
 			return d, true
 		}
 	}
-	// A proxy terminates the phone's TLS and forwards in the clear, so the page
-	// and the listener behind it do not agree on a scheme. Some proxies rewrite
-	// the authority an Origin names along with the Host — both become the
-	// address the proxy dials — while keeping the scheme the page was served
-	// with, so a phone on https://agent.example.com arrives as
-	// https://127.0.0.1:10086: the door the Host matched, tightened to TLS.
-	//
-	// That reading is admitted only when it cannot name a door of its own: the
-	// authority must still be the one the Host matched, the scheme may only be
-	// tightened rather than loosened, the matched door must be the plain one the
-	// proxy forwards to, and there must be a proxy to have done the tightening.
-	// A page served anywhere else names another authority, and one that reaches
-	// this listener directly has no proxy in front to vouch for it.
-	//
-	// The ports have to be the same socket, not merely the same spelling. The
-	// two authorities above were folded by different rulers — the door's by its
-	// own scheme, the origin's by https — so http://host and https://host both
-	// read back as "host" while naming 80 and 443. Tightening must not become a
-	// way to reach one service from a page served by another.
+	// A proxy terminates TLS and may rewrite the Origin's authority with the Host, keeping
+	// the page's scheme. That is admitted only when the authority is the Host's, the scheme
+	// only tightens, a proxy exists, and the ports are the same socket — nothing else.
 	doorPort, doorPortOK := deviceExplicitPort(door.authority, door.scheme)
 	originPort, originPortOK := deviceExplicitPort(authority, scheme)
 	if scheme == "https" && !door.secure && authority == door.authority && anyProxyDoor(doors) &&

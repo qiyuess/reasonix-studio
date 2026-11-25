@@ -10,15 +10,10 @@ import (
 	"reasonix/internal/state/store"
 )
 
-// loadedSession is a transcript already read from disk, together with the stamp
-// of the bytes it came from.
-//
-// Opening a session reads it once to learn which agent composition it was
-// written under, then assembles a runtime for that composition, then binds the
-// transcript to the runtime — and the middle step can take seconds on a cold
-// machine. Reading the whole log a second time afterwards doubles that wait for
-// nothing, as long as the file has not moved underneath us. The stamp is what
-// makes the second read skippable without guessing.
+// loadedSession is a transcript read from disk with the stamp of its bytes.
+// Opening reads it once to learn the agent composition, assembles a runtime for it, then
+// binds the transcript; the middle step can take seconds. A second read doubles that wait
+// for nothing unless the file moved, and the stamp makes the skip safe without guessing.
 type loadedSession struct {
 	path    string
 	stamp   sessionstore.SessionContentStamp

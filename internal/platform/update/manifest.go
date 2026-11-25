@@ -31,23 +31,11 @@ type Delta struct {
 	Chunks string `json:"chunks"` // base URL; a chunk is Chunks + "/" + delta.ObjectName(hash)
 }
 
-// StudioPublish is where the directory-shaped half of a release lives: the
-// catalog, the chunk store every release shares, per-version notes, and the
-// per-platform delta indexes. These need real nested paths, which a GitHub
-// release cannot hold — its /releases/download prefix addresses one tag and one
-// flat file name, and a chunk store alone is tens of thousands of objects
-// against a 1000-asset cap per release.
-//
-// Artifacts themselves are not built from a constant: the manifest writer reads
-// GITHUB_REPOSITORY, so an asset URL is "github.com/<repo>/releases/download/
-// <tag>/<file>" for whichever repository publishes it. That flat shape is why
-// nothing here hangs off it.
-//
-// This repository's Pages site serves those nested paths, published by the
-// release workflow itself so a version's catalog object and its notes land in
-// the same run that publishes its artifacts. It named upstream's mirror before,
-// which answered nothing here: a client asking it for a catalog got a host that
-// does not resolve, so no installed build could ever discover an update.
+// StudioPublish is where the directory-shaped half of a release lives: the catalog,
+// the chunk store every release shares, per-version notes and per-platform delta indexes.
+// These need nested paths, which a GitHub release cannot hold. Artifacts are not built
+// from a constant: the manifest writer reads GITHUB_REPOSITORY. This repository's Pages
+// site serves the nested paths, published by the same workflow that uploads the artifacts.
 const StudioPublish = "https://qiyuess.github.io/reasonix-studio"
 
 // StudioChunks is the one chunk store every Studio release shares.
@@ -63,10 +51,9 @@ type Asset struct {
 	Sig    string `json:"sig"`    // URL of the detached minisign (.minisig) signature
 	Size   int64  `json:"size"`   // artifact size in bytes (download-progress denominator)
 	SHA256 string `json:"sha256"` // lowercase hex digest, for a second integrity check after verify
-	// InstallLayout identifies the on-disk layout the artifact expects after
-	// install. Empty means the pre-v1.20 flat layout (ignored by old clients).
-	// New clients require "versioned-v1" for self-update and reject unknown
-	// values without changing the active install.
+	// InstallLayout identifies the on-disk layout the artifact expects after install. Empty
+	// means the pre-v1.20 flat layout (ignored by old clients); new clients require
+	// "versioned-v1" and reject unknown values without changing the active install.
 	InstallLayout string `json:"install_layout,omitempty"`
 	// Fallback and FallbackSig publish the same bytes at a second address,
 	// tried once the first gives up. Clients that predate them read only URL.

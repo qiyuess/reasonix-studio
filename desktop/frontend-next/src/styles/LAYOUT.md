@@ -34,9 +34,9 @@ and selected states, while long titles truncate within the remaining width.
 ## Reset and the window
 
 - Scrollbars are styled once, on `*`. Declaring them per container means the one
-  that was missed (the settings sheet was) drops to the system default. Both the
-  standard properties and the `::-webkit-*` pair are written: new WebView2 reads
-  the first and ignores the second, older shells only read the second. A
+  that was missed (the settings sheet was) drops to the system default.
+- Both the standard properties and the `::-webkit-*` pair are written: new WebView2
+  reads the first and ignores the second, older shells only read the second. A
   container that wants no scrollbar hides it itself.
 - The transcript card resets both standard properties to `auto`: while either
   is set Chromium ignores `::-webkit-*`, and the system scrollbar's buttons and
@@ -53,15 +53,16 @@ and selected states, while long titles truncate within the remaining width.
 
 ## Chinese typography
 
-- Small-caps labels are Latin typography. The mono stack has no Han glyphs,
-  tracking pulls a word apart, `uppercase` means nothing, and 10px is under the
-  readable floor. The English rules stay as they are; `:lang(zh)` catches the
-  Chinese case, because one class carrying two scripts is two typographies.
+- Small-caps labels are Latin typography. The mono stack has no Han glyphs, tracking
+  pulls a word apart, `uppercase` means nothing, and 10px is under the readable
+  floor. The English rules stay as they are; `:lang(zh)` catches the Chinese case,
+  because one class carrying two scripts is two typographies.
 - Section headings are split out for the same reason. Small caps do not exist in
-  Chinese, and the two remaining signals — smaller, lighter — both say
-  "secondary". The Chinese tier keeps the size and darkens the ink, leaving
-  hierarchy to weight alone. `.side .lbl` is listed there for specificity: the
-  right column's same-named rule comes later in the file.
+  Chinese, and the two remaining signals — smaller, lighter — both say "secondary".
+  The Chinese tier keeps the size and darkens the ink, leaving hierarchy to weight
+  alone.
+- `.side .lbl` is listed there for specificity: the right column's same-named rule
+  comes later in the file.
 
 ## Select alignment
 
@@ -84,17 +85,17 @@ the picker and keyboard navigation.
 - The rail, the side column and the tab strip had no ground of their own — they
   borrowed `body`'s — so making `.app` transparent let the picture run under
   their text. A surface owns its ground.
-- Those three cover the window, so nothing of the picture is left. With one
-  loaded, each surface steps back to frosted instead: the empty page shows the
-  picture, content takes its own ground, and the picture keeps the columns and
-  the margins. A thick scrim and a wide blur are two ways of losing the picture,
-  so both are kept small — the text stands on its own shadow, which costs a few
-  pixels around each glyph rather than the whole column.
+- Those three cover the window, so nothing of the picture is left. With one loaded,
+  each surface steps back to frosted instead: the empty page shows the picture,
+  content takes its own ground, and the picture keeps the columns and the margins.
+- A thick scrim and a wide blur are two ways of losing the picture, so both are kept
+  small — the text stands on its own shadow, which costs a few pixels around each
+  glyph rather than the whole column.
 - A transcript row is not a card but an unframed line, so the picture would run
-  under the prose. `.flow:not([data-empty])` takes its own ground the moment
-  there is content. The run header and the composer are the middle column's two
-  opaque ends; both follow `.flow`, or the picture survives only in the band the
-  prose sits on.
+  under the prose. `.flow:not([data-empty])` takes its own ground the moment there
+  is content.
+- The run header and the composer are the middle column's two opaque ends; both
+  follow `.flow`, or the picture survives only in the band the prose sits on.
 - `.hero` is the one text left standing on the picture, so it gets a ground that
   fades out from its centre. A box would delete the emptiness itself, which is
   what the empty state is for.
@@ -122,11 +123,11 @@ the picker and keyboard navigation.
   are the only controls here that are square.
 - The wordmark is masked rather than an `<img>`: the file ships one hard-coded
   blue that reads as a status colour here and goes muddy on a dark ground.
-- `.crumb` needs `flex: 1` with `min-width: 0` together, or a long target pushes
-  the whole bar wide instead of ellipsing. Clipping is separate: `min-width: 0`
-  lets the breadcrumb narrow, but children default to `overflow: visible`, so a
-  long name still paints outside the box and crosses the bar over the controls
-  on the right.
+- `.crumb` needs `flex: 1` with `min-width: 0` together, or a long target pushes the
+  whole bar wide instead of ellipsing.
+- Clipping is separate: `min-width: 0` lets the breadcrumb narrow, but children
+  default to `overflow: visible`, so a long name still paints outside the box and
+  crosses the bar over the controls on the right.
 - The separator between crumbs is a written character, not the 1px hairline
   `.sep`. Sharing that name puts the glyph in a 1px-wide box with a background,
   and the strokes spill out of it.
@@ -167,11 +168,11 @@ the picker and keyboard navigation.
   `useDismiss` — pressing away, or Escape — is the one dismissal.
 - An offset that must stay hoverable, as under a reading that opens on hover, is
   spanned by a pseudo-element on the anchor the size of the offset.
-- A picker is as long as the user's config: `[[providers]]` has no ceiling, so
-  one gateway account can list a hundred models. The filter field is sticky
-  because the rows are the scrolling part — a field that scrolls away takes the
-  query out of sight while it is still filtering — and it stays typable when the
-  menu locks selection.
+- A picker is as long as the user's config: `[[providers]]` has no ceiling, so one
+  gateway account can list a hundred models.
+- The filter field is sticky because the rows are the scrolling part — a field that
+  scrolls away takes the query out of sight while it is still filtering — and it
+  stays typable when the menu locks selection.
 - One transition in and out rather than keyframes for entry and nothing for
   exit; `display` rides `allow-discrete`.
 - A Picker's menu renders into the body, so `left`/`top` are measured and written
@@ -196,11 +197,11 @@ the picker and keyboard navigation.
   `scrollIntoView` still counts that row as visible, so the first step down does
   not scroll.
 - A directory can be walked into and a file cannot: that difference is worth a
-  colour. The matched letters are marked so fuzzy matching does not look
-  arbitrary. On the selected row `data-on` is the caret, not a stored value, and
-  it has to be readable in peripheral vision; its marker is the same bar the rail
-  draws on a workspace with a pane open in it. The description steps up one tier
-  with the row, which also brings it back over the AA line.
+  colour. The matched letters are marked so fuzzy matching does not look arbitrary.
+- On the selected row `data-on` is the caret, not a stored value, and it has to be
+  readable in peripheral vision; its marker is the same bar the rail draws on a
+  workspace with a pane open in it. The description steps up one tier with the row,
+  which also brings it back over the AA line.
 - Hover means "you could take this"; `data-on` is what Enter takes. A pointer
   parked over the list made the two indistinguishable, so while `data-kb` is set
   hover yields. Held arrows outrun a .13s fade and light three rows at once, so
@@ -240,14 +241,15 @@ the picker and keyboard navigation.
   the composer and not in settings. A pill is its label's width or it is nothing:
   shrinking one squeezed the shelf's own controls, and Chinese wraps.
 - The pill's value is what it says, not a second plate stuck onto it — weight and
-  colour separate it from the name. A press travels to the bottom and springs
-  back, or the row feels like glass on a trackpad. While its menu is open the
-  button stays pressed, or opening a menu leaves its source looking unclicked.
-- `.mode.tog` off is the state every turn starts in, so it is drawn as text
-  rather than as another chip on the shelf. Turning it on strokes the outline
-  along its own path, with `pathLength` normalised so the four segments draw
-  independently. The wash arrives from the left, the same direction as "think
-  first", on its own layer so it does not fight `background` with hover.
+  colour separate it from the name. A press travels to the bottom and springs back,
+  or the row feels like glass on a trackpad.
+- While its menu is open the button stays pressed, or opening a menu leaves its
+  source looking unclicked.
+- `.mode.tog` off is the state every turn starts in, so it is drawn as text rather
+  than as another chip on the shelf. Turning it on strokes the outline along its own
+  path, with `pathLength` normalised so the four segments draw independently.
+- The wash arrives from the left, the same direction as "think first", on its own
+  layer so it does not fight `background` with hover.
 - `.mode.danger` breathes: gates fully open is a standing state, not an action.
 - One hairline separates "who does this" (the model) from "how this turn runs"
   (the three to its right).
@@ -259,26 +261,26 @@ the picker and keyboard navigation.
 ## Run state
 
 - The `R` mark is the one flourish in the whole design. Three strokes drawn in
-  order, a beat, then erased and rewritten: reasoning proceeds a step at a time,
-  so its indicator draws a stroke at a time rather than spinning. Halted, it
-  freezes where it stopped — reasoning stopped half way is exactly what that
-  means. Done is persisted state, not proof that completion happened on this
+  order, a beat, then erased and rewritten: reasoning proceeds a step at a time, so
+  its indicator draws a stroke at a time rather than spinning.
+- Halted, it freezes where it stopped — reasoning stopped half way is exactly what
+  that means. Done is persisted state, not proof that completion happened on this
   mount.
-- The rail's session rows answer to the same distinction. A run's state is a
-  2px, 14px-tall tick at the row's left edge, square-cut and set 3px in: drawn
-  rather than an inset shadow, because a shadow in a rounded row can only
-  follow that radius and a short mark cannot. It is one mark in three colours —
-  accent, warn, ok — so the row says which state it is in without the row
-  itself becoming the signal.
+- The rail's session rows answer to the same distinction. A run's state is a 2px,
+  14px-tall tick at the row's left edge, square-cut and set 3px in: drawn rather
+  than an inset shadow, because a shadow in a rounded row can only follow that
+  radius and a short mark cannot.
+- It is one mark in three colours — accent, warn, ok — so the row says which state
+  it is in without the row itself becoming the signal.
 - The tick is the only state mark in the rail, running included. The row's
   status dot is not drawn there: it sat on top of the tick and pushed the title
   one step right. `perf/session-row-marker.mjs` holds it.
-- Finishing is the one rail state that is an event rather than a state, so it
-  alone is animated, and only for the run this window watched cross into
-  `done`. A session that was already done when the rail mounted, or that comes
-  back into scope, draws its tick and nothing else. `data-just-done` carries
-  that event and `data-run="done"` carries the state; keeping them apart is
-  what stops history from replaying as news.
+- Finishing is the one rail state that is an event rather than a state, so it alone
+  is animated, and only for the run this window watched cross into `done`. A session
+  that was already done when the rail mounted, or that comes back into scope, draws
+  its tick and nothing else.
+- `data-just-done` carries that event and `data-run="done"` carries the state;
+  keeping them apart is what stops history from replaying as news.
 - Unread is a fact the kernel owns, separate from run state: a green 8px dot replaces the session's date until it is marked viewed, with a semibold title and a localized spoken "未读" on the dot. Local and remote rows use the same date slot; a missing timestamp does not hide an unread completion.
 - In dark an unread row also takes a 4% tint, below hover and selection. In light it would sit one step from the selected row, so light has none.
 - A folded project row sums the unread sessions under it into an outlined count among its action buttons, unlike the filled feedback badge, and drops it when the project opens. A pane tab carries a 6px dot; the tab strip is currently hidden by the Studio sheet. Nothing here animates.
@@ -311,20 +313,21 @@ the picker and keyboard navigation.
 
 ## Columns and the seam
 
-- The sidebar footer carries the settings control and the quick-nav menu beside
-  it (usage, files, tools, extensions, memory, remote) only when the global icon
-  navigation is not visible. It follows the window's existing navigation
-  visibility state, including collapsed-only mode and narrow-window folds, so
-  both columns never offer the same footer actions together.
+- The sidebar footer carries the settings control and the quick-nav menu beside it
+  (usage, files, tools, extensions, memory, remote) only when the global icon
+  navigation is not visible.
+- It follows the window's existing navigation visibility state, including
+  collapsed-only mode and narrow-window folds, so both columns never offer the same
+  footer actions together.
 - The footer carries no account control and no avatar: with the sign-in surface
   gone there is nobody for an initial to name, and its alignment rule and the
   `perf/account-alignment.mjs` guard that held it went with it.
 - Inside the workbench the open file is the canvas and the file tree is a fixed
-  column beside it. At full width the two sit side by side, the canvas first and
-  the tree on the right; docked, they take turns in the one column, so a file
-  picked from the list steps the list aside and closing that file brings it
-  back. Below 760px the same one-column rule holds with the tree folded by
-  default.
+  column beside it.
+- At full width the two sit side by side, the canvas first and the tree on the
+  right; docked, they take turns in the one column, so a file picked from the list
+  steps the list aside and closing that file brings it back. Below 760px the same
+  one-column rule holds with the tree folded by default.
 - The docked workbench uses the divider's remembered width. Pointer dragging and
   keyboard resizing share that width; there is no intermediate width preset.
 - Full-workbench view preserves the divider width and keeps the conversation and
@@ -356,29 +359,30 @@ the picker and keyboard navigation.
   and the browser's toolbar all start at `--pane-gutter`. The switcher took the
   reading column's inset, right under a conversation and wrong under a
   full-bleed canvas — it floated 278px in from the strip below it.
-- The window bar has one seam. Docked, the icon group before the strip ends and
-  the strip begins at the same x the panes below split on, so the hairline runs
-  the window's whole height. Both edges are read off one `--dock-col`, and the
-  icon group's margin subtracts `--winctl-w`: what the shell's own window
-  controls already take off the bar's right end — three `--wc-w` targets and the
-  row's gap, 88px on frameless Windows, the bare 12px padding where the shell
-  draws none. Charging them twice, or not at all, is what parked the icons a
-  whole control group short of the seam and left the strip's tail underneath
-  the close button.
+- The window bar has one seam. Docked, the icon group before the strip ends and the
+  strip begins at the same x the panes below split on, so the hairline runs the
+  window's whole height.
+- Both edges are read off one `--dock-col`, and the icon group's margin subtracts
+  `--winctl-w`: what the shell's own window controls already take off the bar's
+  right end — three `--wc-w` targets and the row's gap, 88px on frameless Windows,
+  the bare 12px padding where the shell draws none.
+- Charging them twice, or not at all, is what parked the icons a whole control group
+  short of the seam and left the strip's tail underneath the close button.
 - A percentage inside the bar means two lengths: a margin resolves against its
-  *content* box, an absolutely positioned child against its *padding* box. Two
-  rules that must agree — the icons' margin and the strip's width — read
+  *content* box, an absolutely positioned child against its *padding* box.
+- Two rules that must agree — the icons' margin and the strip's width — read
   `--dock-col` from both sides, so `--chrome-pad-sum` is added onto the one that
   reads the content box. Without it the two edges drift apart by the bar's own
   insets.
-- A list opened from the window bar is portalled to the body and positioned
-  fixed. The bar *is* the title bar, so anything painted inside it is title bar
-  too: a menu there takes drag-the-window presses instead of clicks on its rows
-  and is clipped to one bar's height. `pinToViewport` writes its coordinates.
-- A row nobody bounded is why the file tree had no scrollbar. `overflow: auto`
-  was already on the list; the workbench body's implicit row is `auto`, sized to
-  its content, so the column grew past the panel and was clipped instead.
-  `grid-template-rows: minmax(0, 1fr)` is the half that makes the overflow real.
+- A list opened from the window bar is portalled to the body and positioned fixed.
+  The bar *is* the title bar, so anything painted inside it is title bar too: a menu
+  there takes drag-the-window presses instead of clicks on its rows and is clipped
+  to one bar's height.
+- `pinToViewport` writes its coordinates.
+- A row nobody bounded is why the file tree had no scrollbar. `overflow: auto` was
+  already on the list; the workbench body's implicit row is `auto`, sized to its
+  content, so the column grew past the panel and was clipped instead.
+- `grid-template-rows: minmax(0, 1fr)` is the half that makes the overflow real.
 - The docked workbench is a column, not a card: it runs to the window bar with
   no border, radius or shadow of its own, its tab strip is portalled onto the
   window bar, and one hairline on the column is what separates it from the
@@ -421,11 +425,11 @@ the picker and keyboard navigation.
   and labels ellipsize.
 - Inside a window of 860px or less the padding is 16px, so the cutoff falls at
   a 252px rail.
-- The rail lists every mounted workspace, each folding over its own sessions.
-  The studio layer had hidden all but the focused one and relabelled its
-  children 「最近」, so a count of six sat above a list of one. The switcher above
-  still names where a *new* session lands; the tree is how an existing one is
-  reached.
+- The rail lists every mounted workspace, each folding over its own sessions. The
+  studio layer had hidden all but the focused one and relabelled its children
+  「最近」, so a count of six sat above a list of one.
+- The switcher above still names where a *new* session lands; the tree is how an
+  existing one is reached.
 - Only 「这台机器」 is hidden, by `[data-here]` rather than by `.machrow`: the
   section label above already carries that name, its count and its add button,
   while a remote host's row is the only thing naming that machine.
@@ -445,18 +449,19 @@ the picker and keyboard navigation.
   hit area wide enough not to aim at. It shows on rest and .14s late — passing
   the pointer over a line should not light it. Neutral, because `accent` means
   "needs you" and a draggable boundary is not that.
-- `.gutter-l` is at -6, not -5: the panel's 1px border sits outside this box, so
-  the seam's centre is half a pixel further out. While dragging, the handle
-  tracks the pointer and `transform` must not tween; releasing drops `data-on`
-  and hands the transform back. Reaching a limit by keyboard nudges the line, so
-  a focused separator has to be visible to show it.
+- `.gutter-l` is at -6, not -5: the panel's 1px border sits outside this box, so the
+  seam's centre is half a pixel further out. While dragging, the handle tracks the
+  pointer and `transform` must not tween; releasing drops `data-on` and hands the
+  transform back.
+- Reaching a limit by keyboard nudges the line, so a focused separator has to be
+  visible to show it.
 - The grip is one switch, one shape, three weights, and it lives on the divider
   where the hand already is. Three dots at a weight that survives a glance: the
-  previous resting state was a single chevron at 45%, invisible. Against the
-  window edge it moves in two pixels or the frame clips a corner off it. Shut,
-  there is no seam left to drag and only one thing left to say — and it is the
-  only way back, so it stops being a hairline and becomes a tab. The side
-  column's horizontal tier lays the same handle on its side.
+  previous resting state was a single chevron at 45%, invisible. Against the window
+  edge it moves in two pixels or the frame clips a corner off it.
+- Shut, there is no seam left to drag and only one thing left to say — and it is the
+  only way back, so it stops being a hairline and becomes a tab. The side column's
+  horizontal tier lays the same handle on its side.
 
 ## The flow
 
@@ -465,12 +470,12 @@ the picker and keyboard navigation.
 - `scroll-behavior: smooth` is not used. Resetting `scrollTop` every frame during
   a stream restarts the smooth animation continuously, which pins the main thread
   and defers every `setTimeout`. Scrolling is written directly from JS.
-- `.ovf` is the overflow bubble a truncated line gets. The native `title`'s
-  delay, position, size and scrolling all belong to the browser, and a long
-  preview becomes a floating block that cannot be kept inside its bounds; this
-  one has a ceiling, scrolls itself, and its text can be selected. Its position
-  is measured by `place.ts` and written inline. `[data-cut]` takes the help
-  cursor: a mark only where there is something to read.
+- `.ovf` is the overflow bubble a truncated line gets. The native `title`'s delay,
+  position, size and scrolling all belong to the browser, and a long preview becomes
+  a floating block that cannot be kept inside its bounds; this one has a ceiling,
+  scrolls itself, and its text can be selected.
+- Its position is measured by `place.ts` and written inline. `[data-cut]` takes the
+  help cursor: a mark only where there is something to read.
 - `.scrolljump` is a zero-height sticky host at the end of the transcript
   scroller, so its two pills ride the scroller's bottom edge and take no height
   from the flow; each end's pill is absent within 48px of that end.
@@ -478,16 +483,19 @@ the picker and keyboard navigation.
   timeline, not a scroll listener; without one it stays at opacity 0, which is
   today's hard edge. The `@supports` guard is load-bearing — a zero-duration
   animation would otherwise pin it visible.
-- The reading column's grips draw nothing at rest and appear under the pointer, on keyboard focus and while
-  dragging. A line standing in an empty conversation reads as a rendering fault; the 7px hit area and the
-  `col-resize` cursor are what say the edge moves, so the grip stays reachable without being drawn.
-- The reading column is centred rather than right-aligned. Before the column had
-  a ceiling the two were the same thing; once it narrowed they parted, and at
-  1920 a right-aligned column leaves four hundred pixels on the left while the
-  composer stays left. `margin-inline: auto` splits the reserved space to both
-  sides, so two rail widths are reserved, not one: half of one lands on the rail
-  side and the prose reaches under a strip that takes every pointer event, where
-  a click is a jump rather than a selection.
+- The reading column's grips draw nothing at rest and appear under the pointer, on
+  keyboard focus and while dragging.
+- A line standing in an empty conversation reads as a rendering fault; the 7px hit
+  area and the `col-resize` cursor are what say the edge moves, so the grip stays
+  reachable without being drawn.
+- The reading column is centred rather than right-aligned. Before the column had a
+  ceiling the two were the same thing; once it narrowed they parted, and at 1920 a
+  right-aligned column leaves four hundred pixels on the left while the composer
+  stays left.
+- `margin-inline: auto` splits the reserved space to both sides, so two rail widths
+  are reserved, not one: half of one lands on the rail side and the prose reaches
+  under a strip that takes every pointer event, where a click is a jump rather than
+  a selection.
 - The reading measure is one column shared by the transcript and the composer.
   `.flow` is laid at `--doc`; the composer, its aux shelf and its notes at
   `--column`. A card's edges are the composer's.
@@ -517,19 +525,20 @@ the picker and keyboard navigation.
   populated flow selector must retain enough specificity to override its
   percentage width, not just the empty conversation's rule.
 - Docking the agent's browser puts the pane on a grid, and the browser's column
-  spans the body's row and the composer's. Inside the conversation column `100%`
-  is that column, so the composer's own centring keeps it off the divider, and
-  the panel reaches the pane's bottom rather than the composer's top edge.
+  spans the body's row and the composer's.
+- Inside the conversation column `100%` is that column, so the composer's own
+  centring keeps it off the divider, and the panel reaches the pane's bottom rather
+  than the composer's top edge.
 
 ## Virtualisation
 
-- Layout cost grows linearly with the number of cards, and the several hundred
-  off screen are read by nobody. Settled cards mount in blocks and an unseen
-  block leaves the DOM entirely, holding its place with the height last measured.
-  Inside a block a second layer of `content-visibility` skips layout and paint
-  for the part of it that is off screen. The live assistant card is excluded:
-  it changes height every frame. A structural pseudo-class cannot pick it
-  without invalidating its siblings.
+- Layout cost grows linearly with the number of cards, and the several hundred off
+  screen are read by nobody. Settled cards mount in blocks and an unseen block
+  leaves the DOM entirely, holding its place with the height last measured.
+- Inside a block a second layer of `content-visibility` skips layout and paint for
+  the part of it that is off screen. The live assistant card is excluded: it changes
+  height every frame. A structural pseudo-class cannot pick it without invalidating
+  its siblings.
 - Pending user input does not settle the live assistant card. Find that card
   before the queued rows so streamed deltas stay outside the cached blocks.
 - `auto` remembers a card once it has been laid out; the fallback height is what
@@ -545,25 +554,26 @@ the picker and keyboard navigation.
 
 ## The locator rail
 
-- `--srail-w` is declared on `.pane` because three rules read it: how wide the
-  rail is, how far the flow clears it, how far the composer clears it. Written
-  separately they were 54 and 18, and in the 36px between them the rail was
+- `--srail-w` is declared on `.pane` because three rules read it: how wide the rail
+  is, how far the flow clears it, how far the composer clears it.
+- Written separately they were 54 and 18, and in the 36px between them the rail was
   taking pointer events while the content believed it was still clickable — the
   right-aligned controls, the queued line's cancel among them, were unreachable.
 - The host has zero height so it cannot take part in layout, which also means a
   percentage height there is zero: the rail's height is written in at measure
   time by the code already reading the scroller's geometry.
-- The rail replaces the scrollbar, so it is always present and usually very
-  faint, and it inherits the scrollbar's feel: it can be dragged. The viewport
-  box is the far edge; a mark's hit area is to its left and the two do not
-  overlap. Overlapping, the mark's 54px box covered the whole viewport box and a
-  press never reached it.
+- The rail replaces the scrollbar, so it is always present and usually very faint,
+  and it inherits the scrollbar's feel: it can be dragged. The viewport box is the
+  far edge; a mark's hit area is to its left and the two do not overlap.
+- Overlapping, the mark's 54px box covered the whole viewport box and a press never
+  reached it.
 - A mark's hit area is far wider and taller than its line: the target is 2px and
   nobody should have to aim at it. At a 9px step adjacent boxes overlap and the
-  later one covers the earlier; `--lit` decides who is on top, so the one under
-  the pointer always is. `--lit` is how near this mark is to the focus — 1 is the
-  focus itself, 0 is far enough — and both length and opacity are derived from
-  it, so at rest every tick is the same length and equally faint.
+  later one covers the earlier; `--lit` decides who is on top, so the one under the
+  pointer always is.
+- `--lit` is how near this mark is to the focus — 1 is the focus itself, 0 is far
+  enough — and both length and opacity are derived from it, so at rest every tick is
+  the same length and equally faint.
 - The transcript draws no native scrollbar: the viewport box and a scrollbar
   thumb say the same thing, and the one that can be marked is the one kept.
 - A jump marks the call's identity only. Flashing a long output would draw the
@@ -591,10 +601,10 @@ the picker and keyboard navigation.
 - The row appears on message hover, keyboard focus, or an open rewind menu.
   Devices without hover keep the controls visible.
 - `[data-k="host"]` is what the host did itself. A transcript has three authors —
-  you, the model, the host — and `data-k` only knows tool names, so the host's
-  cards landed on the default grey beside an uncategorised tool. A dashed line is
-  the one dimension of this gutter still free: colour is category, length is
-  duration, motion is state.
+  you, the model, the host — and `data-k` only knows tool names, so the host's cards
+  landed on the default grey beside an uncategorised tool.
+- A dashed line is the one dimension of this gutter still free: colour is category,
+  length is duration, motion is state.
 
 ## Four weights
 
@@ -603,19 +613,19 @@ need a decision. All four shared one card weight, and a screenful could only be
 told apart by the colour of a symbol.
 
 - The answer is the turn's product, not another timeline entry. `--muted` is for
-  process and the answer uses `--text`; its symbol steps back to a mark rather
-  than a ringed button on a ground. Filled, and in the reading ink: a 1.5-stroke
-  ring at `--ghost` is where "not a button" had gone all the way to "not there".
-  Every other mark fills its 28px cell, so a mark that does not leaves the rail
-  reading as if it ran behind them.
+  process and the answer uses `--text`; its symbol steps back to a mark rather than
+  a ringed button on a ground.
+- Filled, and in the reading ink: a 1.5-stroke ring at `--ghost` is where "not a
+  button" had gone all the way to "not there". Every other mark fills its 28px cell,
+  so a mark that does not leaves the rail reading as if it ran behind them.
 - The answer and machine output differed only in colour and line height, so a
   column of them weighed the same. One step of the type scale separates "this is
   the answer" from "this is process"; machine output stays at `--read`, so only
   one side moved.
 - The steps in between are scanned, not read: one step, one line, with long
-  arguments elided rather than wrapped. Wrapping makes cards of one kind differ
-  in height across a screen, and the hierarchy then has to be worked out card by
-  card. The anchor, the answer and the decisions may still wrap: those are read.
+  arguments elided rather than wrapped. Wrapping makes cards of one kind differ in
+  height across a screen, and the hierarchy then has to be worked out card by card.
+- The anchor, the answer and the decisions may still wrap: those are read.
 - A tool's headline names the call, which is the only way to know which one it
   is. Name and tag answer one question (what tool, in which shell); the argument
   answers another (what this call did). All three were 8px apart, which reads as
@@ -630,8 +640,8 @@ told apart by the colour of a symbol.
   panel opens from its top edge.
 - Motion describes a state transition, never how long an element has been alive.
   Mounting is not a cause: virtualisation brings a block back and remounts every
-  card in it, and replaying the entrance says an hour-old fact just happened. An
-  entrance is therefore a one-shot debt, owed by the projection and spent by the
+  card in it, and replaying the entrance says an hour-old fact just happened.
+- An entrance is therefore a one-shot debt, owed by the projection and spent by the
   first paint; `.enterbox` generates no box and only carries the mark.
 - A sub-agent's own steps appear while it runs, which *is* a fact arriving — it
   just happens inside a card rather than beside one.
@@ -643,11 +653,11 @@ told apart by the colour of a symbol.
 - While running, the symbol is grey and takes its category colour on settling, so
   the colour is itself the completion signal. The symbol used to also carry an
   endless pulse, which with the light travelling down the line put two looping
-  signals on one card saying the same thing. The travelling one is kept: it says
-  something a pulse cannot — that this step is advancing rather than stuck. It
-  uses the structure already there and adds no element, and its direction means
-  something: down is "on to the next". It stops on settling, so history is
-  always still.
+  signals on one card saying the same thing.
+- The travelling one is kept: it says something a pulse cannot — that this step is
+  advancing rather than stuck. It uses the structure already there and adds no
+  element, and its direction means something: down is "on to the next". It stops on
+  settling, so history is always still.
 
 ## Trajectory
 
@@ -683,19 +693,22 @@ told apart by the colour of a symbol.
 - The legend is about line style, not colour: solid means the upstream answer
   actually entered the downstream context, dashed means only an ordering was
   recorded. Those are two different edges in the kernel, and one line style would
-  say they are the same thing. Colour follows the style so a reader who cannot
-  separate them still reads the graph.
+  say they are the same thing.
+- Colour follows the style so a reader who cannot separate them still reads the
+  graph.
 - The graph is routinely wider than the panel: it scrolls itself rather than
   widening the window or dragging the header along.
 - A node's meta is one line: the status word never wraps, and the portrait and
   model after it are what get squeezed. "Waiting on" is the one question this
   view can answer that a list cannot, so it displaces the usual meta.
 - Status is both a colour and the word on the card — colour never carries the
-  meaning alone. Queued is not pending: it wants to run and the concurrency
-  ceiling is holding it, so its pip is alive at a slower breath, its border stays
-  dashed (it has not run), and the word takes the accent — the only place on the
-  screen where the ceiling is visible. Skipped and pending are both "did not
-  run": a dashed border separates them at a glance from a card that did.
+  meaning alone.
+- Queued is not pending: it wants to run and the concurrency ceiling is holding it,
+  so its pip is alive at a slower breath, its border stays dashed (it has not run),
+  and the word takes the accent — the only place on the screen where the ceiling is
+  visible.
+- Skipped and pending are both "did not run": a dashed border separates them at a
+  glance from a card that did.
 - An interruption stands beside the graph rather than in it. The graph's
   vocabulary has no term for work nobody is running, so forcing it into a node
   state would invent one.
@@ -708,11 +721,11 @@ told apart by the colour of a symbol.
   sideways when one appears.
 - `待确认` is the only row on this rail a reader can act on now, so it does not
   share the grammar of the counts beside it.
-- The wallet is the account's number and the rows above are this trip's — one
-  card, one rule between two kinds of quantity. The reading is itself the refresh
-  control: an extra icon competes for attention in the same row. Its label,
-  disabled badge and fetch time are three things, and without spacing they read
-  as one word.
+- The wallet is the account's number and the rows above are this trip's — one card,
+  one rule between two kinds of quantity. The reading is itself the refresh control:
+  an extra icon competes for attention in the same row.
+- Its label, disabled badge and fetch time are three things, and without spacing
+  they read as one word.
 - A spark needs room or it has no shape; it is part of the reading in that row,
   not decoration, so it takes the elastic middle while the number stays
   right-aligned. Colour belongs to the mark, not to one of its two callers, so
@@ -724,8 +737,9 @@ told apart by the colour of a symbol.
   rather than a pill: a pill beside the readings reads as another reading.
 - Hit rate is made of the two input segments only; output tokens are not in that
   bar, so they get no swatch. The two rows are separate accounts: the upper is
-  priced per hit and miss, the lower has one price. The rate is live only while
-  characters are actually arriving — while a tool runs it should read `—`.
+  priced per hit and miss, the lower has one price.
+- The rate is live only while characters are actually arriving — while a tool runs
+  it should read `—`.
 - The plan cursor runs down the list rather than each row colouring itself: where
   you are now is one glance.
 - The strike is drawn rather than simply present, which is the difference between
@@ -746,13 +760,12 @@ told apart by the colour of a symbol.
   that, and a wrapper under the same name hands its layout to the chart. A
   `viewBox` with no width or height falls back to 300×150, a chart several times
   the height of the panel it sits in.
-- A file row is a button when there is a diff behind it, and it drops everything
-  a button brings of its own. git's own letter is coloured by what it means: a
-  word says the same thing four times as wide in a column that has none to
-  spare. The directory may be clipped and the filename may not — ellipsising
-  `.p` as one unit took the filename first. A row flashes when the middle column
-  has just landed a change, or two places move at once and the reader does not
-  know which to watch.
+- A file row is a button when there is a diff behind it, and it drops everything a
+  button brings of its own. git's own letter is coloured by what it means: a word
+  says the same thing four times as wide in a column that has none to spare.
+- The directory may be clipped and the filename may not — ellipsising `.p` as one
+  unit took the filename first. A row flashes when the middle column has just landed
+  a change, or two places move at once and the reader does not know which to watch.
 
 ## Reduced motion
 
@@ -768,11 +781,11 @@ told apart by the colour of a symbol.
 
 ## Folding the scene
 
-- The order in which things yield is in `viewport.ts`; the rules here only say
-  what is given up. The thresholds are not media queries, because a media query
-  answers about the real viewport and zoom does not change it: at 1.3 the
-  interface is a third larger while the layout still believes it has the whole
-  screen.
+- The order in which things yield is in `viewport.ts`; the rules here only say what
+  is given up.
+- The thresholds are not media queries, because a media query answers about the real
+  viewport and zoom does not change it: at 1.3 the interface is a third larger while
+  the layout still believes it has the whole screen.
 - Yielding collapses a column, never removes it: removing it takes the grip on
   the divider with it, and the only entrance left is a shortcut nobody can see.
   - The right column is the point of this design, so at a narrow width it drops
@@ -796,10 +809,9 @@ told apart by the colour of a symbol.
 - When both side columns have yielded, the transcript rail yields too; its ticks
   and viewport remain separately reachable.
 - A short window divides its height proportionally, and what is left over is the
-  transcript. What yields first is what is nearest the composer — the right
-  column is already lying under the flow at that tier and is one of those
-  shares. The transcript's share is a promise and the auxiliary budget is the
-  variable.
+  transcript. What yields first is what is nearest the composer — the right column
+  is already lying under the flow at that tier and is one of those shares.
+- The transcript's share is a promise and the auxiliary budget is the variable.
 - Scene folding is about the whole app; the composer should stack only when its
   own column is actually narrow, which is a container query rather than a scene
   tier.
@@ -931,28 +943,31 @@ to absorb horizontal overflow.
 - `.kv .v` breaks `anywhere` rather than `break-all`: a value that offers its own
   break points (a path carries a `<wbr>` after each separator) keeps them.
 - On an external service row the name is the name, in the interface face, and the
-  rest is machine fact in mono. Unreachable is the one state needing action and
-  is said with a left bar, so an all-green block carries no visual weight at all.
-  The name is the identity and must hold its width: squeezed to zero it wraps one
+  rest is machine fact in mono. Unreachable is the one state needing action and is
+  said with a left bar, so an all-green block carries no visual weight at all.
+- The name is the identity and must hold its width: squeezed to zero it wraps one
   character at a time over its neighbour, so `fold` and `meta` shrink instead.
 - The service's own sentence sits where a skill row's description sits and is set
   the same way: different source, same reading. The badge beside it says "not
-  connected now, this is the last record" — without it the row vouches for a
-  service that is switched off. A tool row is three parts: the name (machine
-  fact), its own description, and whether it will change your things.
+  connected now, this is the last record" — without it the row vouches for a service
+  that is switched off.
+- A tool row is three parts: the name (machine fact), its own description, and
+  whether it will change your things.
 - Actions sit at the end of the row with a gap before the status metadata:
   reading a state and acting on it are two things.
 - Reload is the only action on this page with a duration — the process stops and
   restarts and the catalogue is walked again. It uses the interface's existing
-  breath and nudge for "working" and "done" rather than introducing a spinner,
-  and keeps the established colour semantics. A refusal has to be felt, but every
-  displacement in this interface is about 2px; larger is a different language.
-  `.rnote` carries what the button cannot: what it is doing, or why it did not.
-- A switch has two states, so it is its own entire label — no "enabled" beside
-  it. The pill is 30×17 because that is how big it should look, not how big it
-  has to be to hit; the target grows underneath. On is the normal state and
-  should carry no weight on the page: the fill is neutral and only the position
-  says the state, with the accent left for things that actually need you.
+  breath and nudge for "working" and "done" rather than introducing a spinner, and
+  keeps the established colour semantics.
+- A refusal has to be felt, but every displacement in this interface is about 2px;
+  larger is a different language. `.rnote` carries what the button cannot: what it
+  is doing, or why it did not.
+- A switch has two states, so it is its own entire label — no "enabled" beside it.
+  The pill is 30×17 because that is how big it should look, not how big it has to be
+  to hit; the target grows underneath.
+- On is the normal state and should carry no weight on the page: the fill is neutral
+  and only the position says the state, with the accent left for things that
+  actually need you.
 - Remove is the one irreversible action in a row, so it does not look like the
   other buttons and appears only on hover.
 
@@ -1000,31 +1015,32 @@ to absorb horizontal overflow.
   decided by the DOM, not by coordinates the shell supplies — a zoomed interface
   puts those coordinates out of step with CSS pixels.
 - The plan is grouped by risk: the group that will run something carries its own
-  warning line and the rest are only files. The level is the kernel's judgement;
-  the rule here only makes it visible at a glance. The kernel's reasons are
-  written for a model reading JSON, so they sit behind one click — but they have
-  to be there, or a new reason this page does not recognise disappears silently.
+  warning line and the rest are only files. The level is the kernel's judgement; the
+  rule here only makes it visible at a glance.
+- The kernel's reasons are written for a model reading JSON, so they sit behind one
+  click — but they have to be there, or a new reason this page does not recognise
+  disappears silently.
 - What a package brings falls in two kinds: what can be called (skills, commands)
   and what runs by itself (resident processes, hooks, external services). The
   second must not read like the first.
 - The scope bar says which directory this page is answering for. Several projects
-  are open in one shell and the panel follows the frontmost, so the heading has
-  to name the directory or switching tabs replaces the list under an unchanged
-  title. Worktrees of one repository share one answer, and saying how many exist
-  stops "switched branch, settings changed" from being the conclusion. Looking at
-  another project puts an accent border on the whole bar, because the page does
-  not represent the current session at that moment.
+  are open in one shell and the panel follows the frontmost, so the heading has to
+  name the directory or switching tabs replaces the list under an unchanged title.
+- Worktrees of one repository share one answer, and saying how many exist stops
+  "switched branch, settings changed" from being the conclusion. Looking at another
+  project puts an accent border on the whole bar, because the page does not
+  represent the current session at that moment.
 - An exception marker exists because a switch answers for this project by
   default — which is both the wanted default and an invisible one. A row with an
   exception says so itself and offers the way back.
 
 ## Roles and models
 
-- The assignment band puts the main model above and four positions on a rail
-  under it. No cards: cards draw the four as four equal things, while the real
-  relation is "all of these follow the one above unless you pull one out". State
-  lives on the rail's nodes — hollow follows, filled is assigned, a ring alone is
-  borrowed. The rail drops straight from the anchor and stops on the last node,
+- The assignment band puts the main model above and four positions on a rail under
+  it. No cards: cards draw the four as four equal things, while the real relation is
+  "all of these follow the one above unless you pull one out".
+- State lives on the rail's nodes — hollow follows, filled is assigned, a ring alone
+  is borrowed. The rail drops straight from the anchor and stops on the last node,
   since it joins "this model" to "this work" and neither end should hang.
 - `.grp` carries a transform entrance, which makes it a stacking context, so a
   later group covers an earlier group's overlay, and `.mgrp`'s overflow clips the
@@ -1035,9 +1051,9 @@ to absorb horizontal overflow.
   `.fan` so it follows the longest role name.
 - A node sits on the rail and needs an opaque ground to cover it. Filling is the
   moment the branch actually connects and is worth a transition; delegation uses
-  `deleg`, which is what that colour means in the token table. Borrowed means it
-  really is working but its switch is not on this row, so it gets the ring
-  without the fill.
+  `deleg`, which is what that colour means in the token table.
+- Borrowed means it really is working but its switch is not on this row, so it gets
+  the ring without the fill.
 - The role menu is conditionally rendered (see `Roles.tsx`), so only the entry is
   declared; `@starting-style` gives the value it enters from. It is 288px tall
   with a scrolling list, so a row near the bottom opens past the visible area and
@@ -1051,13 +1067,13 @@ to absorb horizontal overflow.
 - The selection mark shares `.prow`'s semantics, so it looks the same, only
   round; the ring contracts from full to empty so selection has a visible
   landing.
-- The access method is two doors onto one account. It hangs under the connection
-  row rather than in a model row: the protocol is a property of the source, and
-  changing model should not change it. Its segmented control sizes to content
-  rather than filling the row — the base `.seg`'s `flex: 1` stretches two Chinese
-  labels of different lengths to two widths and wraps the longer one. What one
-  door has that the other does not is written on the door: finding out after
-  switching is too late.
+- The access method is two doors onto one account. It hangs under the connection row
+  rather than in a model row: the protocol is a property of the source, and changing
+  model should not change it.
+- Its segmented control sizes to content rather than filling the row — the base
+  `.seg`'s `flex: 1` stretches two Chinese labels of different lengths to two widths
+  and wraps the longer one. What one door has that the other does not is written on
+  the door: finding out after switching is too late.
 - The model catalogue and callability are two things, kept side by side by the
   heading and the evidence row. A probed capability is a fact, not a switch.
 - The list is the scrolling part: without a cap, a gateway's few hundred rows
@@ -1065,12 +1081,11 @@ to absorb horizontal overflow.
   looking like one gets it ticked like one.
 - The route menu hangs off the button's right edge so it is not clipped against
   the panel's.
-- Adding a source is two fields, with the rest growing once the probe answers.
-  The fields reuse the network panel's, so two forms look like one person made
-  them. The extra settings an endpoint requires are the three things a probe
-  cannot answer, and each carries a line saying why: getting them wrong does not
-  produce an error, it produces a fold at the wrong moment or a request the relay
-  rejects.
+- Adding a source is two fields, with the rest growing once the probe answers. The
+  fields reuse the network panel's, so two forms look like one person made them.
+- The extra settings an endpoint requires are the three things a probe cannot
+  answer, and each carries a line saying why: getting them wrong does not produce an
+  error, it produces a fold at the wrong moment or a request the relay rejects.
 - Dozens of models is normal, so the picker caps and scrolls rather than pushing
   the button off screen.
 
@@ -1096,12 +1111,12 @@ to absorb horizontal overflow.
   many allow. What a rule will block is shown before it is saved — the syntax can
   be learned, but not guessed. How a tool class is matched is said once on the
   group head; repeated fifteen times in the rows it is noise.
-- A segmented control following a short label sizes to content: filled, it reads
-  as a peer of the tier above it. A version number is an annotation, not part of
-  the name — the "7" in PowerShell 7 is one size down and one tier lighter, or
-  four names of different lengths scan as four different kinds of thing. The
-  selected tier's path and caveat are said on one line, so it has to hold a long
-  path.
+- A segmented control following a short label sizes to content: filled, it reads as
+  a peer of the tier above it.
+- A version number is an annotation, not part of the name — the "7" in PowerShell 7
+  is one size down and one tier lighter, or four names of different lengths scan as
+  four different kinds of thing. The selected tier's path and caveat are said on one
+  line, so it has to hold a long path.
 
 ## Sandbox and network panels
 
@@ -1149,11 +1164,11 @@ to absorb horizontal overflow.
   capability tags and after the description.
 - `.seg` is a recessed slot with the chosen cell raised. An underline filling the
   row drew a two-way choice as a navigation bar; sized to content it reads as a
-  control. Chinese labels in the mono stack fall to a fallback face and stop
-  lining up with the interface text beside them. The chosen cell already has a
-  raised chip and a shadow saying so; a hue would say a second thing, and the
-  cells below it that really are coloured by semantics (allow-everything takes
-  `err`) have to outrank the default.
+  control. Chinese labels in the mono stack fall to a fallback face and stop lining
+  up with the interface text beside them.
+- The chosen cell already has a raised chip and a shadow saying so; a hue would say
+  a second thing, and the cells below it that really are coloured by semantics
+  (allow-everything takes `err`) have to outrank the default.
 - Two kinds of "does not click" must not look alike: a save in flight is this
   instant, a host with no OS sandbox is permanent.
 
@@ -1231,16 +1246,17 @@ A sub-agent row, by the list's own width:
 - A listing the assistant wrote is not a tool result and no longer renders in the
   box every tool result renders in. Its frame is what the corner is measured
   against, because the listing scrolls sideways and anything positioned inside it
-  slides away with the code. `tab-size: 4`, not the terminal's 8: a listing is
-  set for reading, and tab-indented Go reaches the right edge two levels in.
-  Machine output keeps 8, where it is what the emitter aligned to.
+  slides away with the code.
+- `tab-size: 4`, not the terminal's 8: a listing is set for reading, and
+  tab-indented Go reaches the right edge two levels in. Machine output keeps 8,
+  where it is what the emitter aligned to.
 - The language label sits in the top padding rather than over the first line, and
   hands the corner to the copy control while the pointer is on the block: both
-  answer "what is this", one after the other. The prose's own copy control is
-  permanent, because an entry point nobody can find is one nobody added; a
-  pointer is not assumed, so on touch it stays printed. The block's border is not
-  decoration: it is the one thing in the prose that answers a pointer, and its
-  edge is how it says so beforehand.
+  answer "what is this", one after the other.
+- The prose's own copy control is permanent, because an entry point nobody can find
+  is one nobody added; a pointer is not assumed, so on touch it stays printed. The
+  block's border is not decoration: it is the one thing in the prose that answers a
+  pointer, and its edge is how it says so beforehand.
 - KaTeX inherits the surface, and a long display equation scrolls in its own box
   rather than widening the transcript. A wide table does the same: the transcript
   never scrolls sideways.
@@ -1256,33 +1272,35 @@ A sub-agent row, by the list's own width:
   sign-in surface is gone, so nothing left names who you are.
 - The device code is the one thing a user must copy by eye, so it gets the room a
   one-shot secret needs.
-- A version label rides one beat behind the number it explains: the version is
-  the answer, the words are the footnote. Rows take the settings list's shape —
-  hairline separated, mono for the machine literal, prose for meaning. Where you
-  are reads at full weight and what you left behind recedes; position in the list
-  is carried by type, not by a badge. The action stays out of the way until the
-  row is under the pointer: the list is for reading first.
+- A version label rides one beat behind the number it explains: the version is the
+  answer, the words are the footnote. Rows take the settings list's shape — hairline
+  separated, mono for the machine literal, prose for meaning.
+- Where you are reads at full weight and what you left behind recedes; position in
+  the list is carried by type, not by a badge. The action stays out of the way until
+  the row is under the pointer: the list is for reading first.
 - `.hl .fail` is `.tag`'s shape — a small mono pill — in the colour that means
   broken, so a failed command reads as failed without a word.
-- An extension's surface reuses `.find` / `.opt` / `.btn`, so a plugin card reads
-  as part of the transcript rather than as a foreign panel. A composed view is a
-  tree of primitives drawn with the appearance already in use: tone says what a
-  node means and the palette stays ours — an extension can say "this one failed",
-  not "failure is green". Markdown it hands over is drawn as plain text: the
-  transcript's renderer assumes trusted content and a view is not.
-- A standing panel sits in the side rail, so it is denser than the same content
-  in the transcript. The slot rail is a narrow band against the composer's top
-  edge that neither scrolls nor takes the composer's height: a plugin may stand
-  there and may not fill it. Its move handle is the one control the host adds per
-  view and is normally invisible — the usual action is reading it, not moving it.
-  A takeover keeps the host's frame, name and status and replaces only the body,
-  so the attribution line has to be there.
+- An extension's surface reuses `.find` / `.opt` / `.btn`, so a plugin card reads as
+  part of the transcript rather than as a foreign panel.
+- A composed view is a tree of primitives drawn with the appearance already in use:
+  tone says what a node means and the palette stays ours — an extension can say
+  "this one failed", not "failure is green".
+- Markdown it hands over is drawn as plain text: the transcript's renderer assumes
+  trusted content and a view is not.
+- A standing panel sits in the side rail, so it is denser than the same content in
+  the transcript. The slot rail is a narrow band against the composer's top edge
+  that neither scrolls nor takes the composer's height: a plugin may stand there and
+  may not fill it.
+- Its move handle is the one control the host adds per view and is normally
+  invisible — the usual action is reading it, not moving it. A takeover keeps the
+  host's frame, name and status and replaces only the body, so the attribution line
+  has to be there.
 - A palette is chosen by looking at it, so each card is that palette drawing the
-  window it is about to paint. The selection dot reads over a photo the way a
-  border alone does not. Name over source, each on one line: side by side both
-  wrapped, and a grid of two-line labels reads as noise. Line height is stated
-  rather than inherited from `normal`, which a CJK name and a Latin one resolve
-  to different heights.
+  window it is about to paint. The selection dot reads over a photo the way a border
+  alone does not. Name over source, each on one line: side by side both wrapped, and
+  a grid of two-line labels reads as noise.
+- Line height is stated rather than inherited from `normal`, which a CJK name and a
+  Latin one resolve to different heights.
 
 ## The opening sequence
 
@@ -1306,11 +1324,12 @@ A sub-agent row, by the list's own width:
   so it settles at the same proportion at any window height. A user who has seen
   the opening but still owes a key gets the gathered state directly.
 - Onboarding's service chips only fill the address; they do not state what is
-  supported. Model choice uses the app's own Picker, overridden here to the
-  scene's palette so its button aligns with the card's fields, while the menu
-  keeps the app theme — an overlay should rise out of the scene. Only the trigger
-  is overridden: menu items are buttons too, and an unscoped selector paints them
-  white-on-transparent, which lands as white on white in a light menu.
+  supported. Model choice uses the app's own Picker, overridden here to the scene's
+  palette so its button aligns with the card's fields, while the menu keeps the app
+  theme — an overlay should rise out of the scene.
+- Only the trigger is overridden: menu items are buttons too, and an unscoped
+  selector paints them white-on-transparent, which lands as white on white in a
+  light menu.
 
 ## Panes
 
@@ -1336,30 +1355,31 @@ A sub-agent row, by the list's own width:
 - A tab is a control, not prose: selectable text means the right button always
   opens the system menu and never ours. The rename field stays selectable.
 - The rename field edits in place — double-click a tab, or choose it from the
-  context menu. Closing something still running asks first and says which runs
-  stop. The confirmation floats under the tab it is about: replacing the whole
-  strip reads as the interface changing face, and does not say which tab is being
-  confirmed. It enters with a displacement and a fade only; the context menu
-  beside it has no exit animation, and a confirmation should not be heavier.
+  context menu. Closing something still running asks first and says which runs stop.
+- The confirmation floats under the tab it is about: replacing the whole strip reads
+  as the interface changing face, and does not say which tab is being confirmed. It
+  enters with a displacement and a fade only; the context menu beside it has no exit
+  animation, and a confirmation should not be heavier.
 
 ## The workspace tree
 
 - Three levels read as three only when each starts further in than its parent;
   machine and project both began at the rail's edge. A project is this column's
   unit of work and they had 0px between them — one block of adjacent rows.
-- A project takes two rows: its name, then what it is. The name then gets the
-  full width — in a 236px column, with name, tag, count and delete on one line,
-  the name is what gets clipped, and it is the one thing not readable anywhere
-  else. The `+` spans both rows because it belongs to the whole node. The
-  actions align to the name rather than to the midpoint of two rows: the elbow,
-  the dot and the name's centre are on one line, and a chip centred across two
-  rows sits 8px lower.
+- A project takes two rows: its name, then what it is. The name then gets the full
+  width — in a 236px column, with name, tag, count and delete on one line, the name
+  is what gets clipped, and it is the one thing not readable anywhere else. The `+`
+  spans both rows because it belongs to the whole node.
+- The actions align to the name rather than to the midpoint of two rows: the elbow,
+  the dot and the name's centre are on one line, and a chip centred across two rows
+  sits 8px lower.
 - The open project is the node, not a session row: both rows sit on one raised
-  ground. That ground used to be gold. Amber says one thing in this palette —
-  a decision is waiting — and a permanently present row wearing it stops the
-  waiting approval card from being the loudest thing on screen, which is its
-  entire reason for existing. On the raised ground `--ghost` loses its margin,
-  which was calibrated against `--page`.
+  ground. That ground used to be gold.
+- Amber says one thing in this palette — a decision is waiting — and a permanently
+  present row wearing it stops the waiting approval card from being the loudest
+  thing on screen, which is its entire reason for existing.
+- On the raised ground `--ghost` loses its margin, which was calibrated against
+  `--page`.
 - The dot was this state's only visible mark back when `data-open` changed a text
   colour and nothing else.
 - With the body's 1.6 line height, a 10px annotation occupies 15.2px — half again
@@ -1371,17 +1391,18 @@ A sub-agent row, by the list's own width:
 - Children form their own block so they can carry the hierarchy guide line.
   Indentation alone does not say level: 18px between two tiers scans as "slightly
   out of line".
-- A selected session uses an 8% text-ink wash and hover uses 4%, with regular
-  title weight in both states. The neutral fill carries selection without a
-  coloured edge or a second short bar. Runtime marks describe execution state,
-  pin icons describe pinned sessions, and the keyboard focus outline remains
-  independent of selection. `treerows.css` owns the selected-row recipe for
-  both local and SSH sessions.
+- A selected session uses an 8% text-ink wash and hover uses 4%, with regular title
+  weight in both states. The neutral fill carries selection without a coloured edge
+  or a second short bar.
+- Runtime marks describe execution state, pin icons describe pinned sessions, and
+  the keyboard focus outline remains independent of selection. `treerows.css` owns
+  the selected-row recipe for both local and SSH sessions.
 - The rename and delete controls leave the layout but stay on the row: the width
   they held belonged to the title, and a control nobody can see is the other
   failure. They reserve their width whatever they look like, so hiding them until
-  hover bought nothing back. Rename and delete are a pair in one box on one grid:
-  an 11px glyph beside a 15px one reads as "delete matters more than rename".
+  hover bought nothing back.
+- Rename and delete are a pair in one box on one grid: an 11px glyph beside a 15px
+  one reads as "delete matters more than rename".
 - Conflict copies fold into the conversation they came from. The count is
   permanent, unlike rename and delete: it is the only hint that something
   happened here, and hidden it says nothing.
@@ -1401,42 +1422,44 @@ A sub-agent row, by the list's own width:
 
 ## Remote machines
 
-- A host key question is modal because the link is stuck on it: nothing happens
-  on the far machine until someone answers. The fingerprint is deliberately not
-  easy to click past — that is its entire purpose. The folder picker sits under
-  the ask: browsing an unconnected machine is what raises the host-key question.
-  The veil is `--page`, not `--bg`: there has never been a `--bg`, so the whole
-  declaration was invalid and the card floated over an untinted window.
+- A host key question is modal because the link is stuck on it: nothing happens on
+  the far machine until someone answers. The fingerprint is deliberately not easy to
+  click past — that is its entire purpose.
+- The folder picker sits under the ask: browsing an unconnected machine is what
+  raises the host-key question. The veil is `--page`, not `--bg`: there has never
+  been a `--bg`, so the whole declaration was invalid and the card floated over an
+  untinted window.
 - A fingerprint wraps rather than truncating: nobody can check one against
   anything with its middle eaten by an ellipsis.
-- The folder picker runs over the file protocol, so it opens on a machine. The
-  path field is the breadcrumb and the way in by hand at once: a folder too deep
-  to walk to is typed. While the far side answers the list dims rather than
-  emptying — clearing the rows takes away the only account of where the reader is.
-- A probe's result hangs under the machine it asked, separated by a vertical
-  rule: it is not part of the row, it is the answer to a question. The rule's
-  colour is the verdict, so no badge is needed. Each disabled route gets its own
-  paragraph: they are sentences to read, not readings, and packed into one line
-  nobody reads them. Status takes the middle and pushes both actions right: a
-  status is a sentence, not a third button.
+- The folder picker runs over the file protocol, so it opens on a machine. The path
+  field is the breadcrumb and the way in by hand at once: a folder too deep to walk
+  to is typed.
+- While the far side answers the list dims rather than emptying — clearing the rows
+  takes away the only account of where the reader is.
+- A probe's result hangs under the machine it asked, separated by a vertical rule:
+  it is not part of the row, it is the answer to a question. The rule's colour is
+  the verdict, so no badge is needed.
+- Each disabled route gets its own paragraph: they are sentences to read, not
+  readings, and packed into one line nobody reads them. Status takes the middle and
+  pushes both actions right: a status is a sentence, not a third button.
 - A machine that already connects has its address next door; copying beats
   retyping. The project list is the one field here that is a list, so it takes
   the whole width instead of a 13ch label column.
 - Repeated notices fold into one row with a count rather than stacking three
   identical ones.
-- Machines separate by space, not by a line: a line here says "local above,
-  remote below", and in this list they are one kind of thing. 8px in a 264px
-  column does not read as a boundary, only as "these two rows are slightly
-  further apart" — between groups has to be clearly larger than within, which is
-  the same rule the right column follows. The local group and the first remote
-  take the same number.
-- A machine row is the same node shape: name on one line, which machine it is on
-  the next. With the target squeezed beside the name, a length like
-  `ada@build.internal` clipped the hostname. Weight and colour used to point
-  opposite ways — the machine name was the column's heaviest (700) in `--muted`
-  while a project name was lighter in `--text`. People look for projects and
-  sessions here, not machines, so the weight came down rather than the colour
-  going up.
+- Machines separate by space, not by a line: a line here says "local above, remote
+  below", and in this list they are one kind of thing.
+- 8px in a 264px column does not read as a boundary, only as "these two rows are
+  slightly further apart" — between groups has to be clearly larger than within,
+  which is the same rule the right column follows. The local group and the first
+  remote take the same number.
+- A machine row is the same node shape: name on one line, which machine it is on the
+  next. With the target squeezed beside the name, a length like `ada@build.internal`
+  clipped the hostname.
+- Weight and colour used to point opposite ways — the machine name was the column's
+  heaviest (700) in `--muted` while a project name was lighter in `--text`. People
+  look for projects and sessions here, not machines, so the weight came down rather
+  than the colour going up.
 - A host has six states, not two: between connected and not there are
   connecting, reconnecting, and connected-with-a-forward-that-did-not-attach —
   the last of which looks most like normal. This machine is not connected, it is
@@ -1444,17 +1467,17 @@ A sub-agent row, by the list's own width:
 - First connection installs a binary on the far side and takes tens of seconds. A
   spinner cannot separate "downloading" from "stuck", so the kernel reports step
   by step and this shows it step by step.
-- Once connected, that machine reports its own folders and conversations,
-  indented one level deeper than local: they belong to the host above, not to
-  another local project. `.wsrow` already brings the node's whole layout; the
-  rule here only moves it under its host. Same ceiling and same exit as the local
-  column.
-- A workspace row is itself the connect button: on a machine with no pane open
-  there is nothing else to press, and splitting it in two makes someone say
-  "connect" and then "open" for one action. `direction: rtl` cannot be used to
-  move the ellipsis to the left — it also reverses the path's segments, so
-  `/srv/training` displays as `srv/training/`. Clipping from the right is
-  preferred.
+- Once connected, that machine reports its own folders and conversations, indented
+  one level deeper than local: they belong to the host above, not to another local
+  project. `.wsrow` already brings the node's whole layout; the rule here only moves
+  it under its host.
+- Same ceiling and same exit as the local column.
+- A workspace row is itself the connect button: on a machine with no pane open there
+  is nothing else to press, and splitting it in two makes someone say "connect" and
+  then "open" for one action.
+- `direction: rtl` cannot be used to move the ellipsis to the left — it also
+  reverses the path's segments, so `/srv/training` displays as `srv/training/`.
+  Clipping from the right is preferred.
 
 ## Appearance controls
 
@@ -1491,16 +1514,18 @@ A sub-agent row, by the list's own width:
   revealed on hover reads as "there is nothing here".
 - The column read as a list because it was typeset as one — total, fold point,
   capacity and five category names all at 13px, with nothing saying where to look
-  first. Hierarchy is not made by shrinking five things, since Han glyphs start
-  to blur at 11px, but by letting the one that matters leave the group. Each
-  ceiling carries its own share, set apart from the figure it is a share of: read
-  together they would be one number.
-- The window size is the one thing that can fill a missing ceiling, so its field
-  is permanent rather than behind hover or a fold. The maintenance point is
-  editable where it is read: filed into a settings table, only someone who
-  already knows it exists would find it, and this footnote is written for the
-  people who do not. Its fine print takes its own line and one size down, so it
-  reads as a condition rather than as the explanation.
+  first.
+- Hierarchy is not made by shrinking five things, since Han glyphs start to blur at
+  11px, but by letting the one that matters leave the group. Each ceiling carries
+  its own share, set apart from the figure it is a share of: read together they
+  would be one number.
+- The window size is the one thing that can fill a missing ceiling, so its field is
+  permanent rather than behind hover or a fold.
+- The maintenance point is editable where it is read: filed into a settings table,
+  only someone who already knows it exists would find it, and this footnote is
+  written for the people who do not.
+- Its fine print takes its own line and one size down, so it reads as a condition
+  rather than as the explanation.
 - Segments are separated by 2px of ground rather than 1px: that gap is the mark
   saying "these are two segments", and at 1px it is nearly invisible in dark.
 - Two tiers lead to the maintenance point: the kernel narrows at 75% and lands
@@ -1508,16 +1533,18 @@ A sub-agent row, by the list's own width:
   maintenance rather than a fault, so it takes `accent` — coloured as a warning,
   an ordinary fold looks like a problem.
 - Model capacity is a secondary diagnostic: it answers "is this model simply too
-  small", not a countdown, so it is half the height and one tier grey — a
-  footnote, not a second progress bar. The maintenance point is notched onto the
-  span of window it occupies: 160k against 1M is a division nobody performs while
-  reading a panel. The notch overhangs the bar, or it is unrecognisable in a 3px
-  track, and it is square and in the base ink — `accent` is one step from the
-  "model reply" category colour.
+  small", not a countdown, so it is half the height and one tier grey — a footnote,
+  not a second progress bar.
+- The maintenance point is notched onto the span of window it occupies: 160k against
+  1M is a division nobody performs while reading a panel.
+- The notch overhangs the bar, or it is unrecognisable in a 3px track, and it is
+  square and in the base ink — `accent` is one step from the "model reply" category
+  colour.
 - In the adjustable state that same notch grows into a handle. Putting a separate
-  control beside it makes the reader match "the line I am reading" to "the thing
-  I drag", and they were one thing. No transition while dragging: the position
-  has to follow the pointer, and easing leaves the handle behind it.
+  control beside it makes the reader match "the line I am reading" to "the thing I
+  drag", and they were one thing.
+- No transition while dragging: the position has to follow the pointer, and easing
+  leaves the handle behind it.
 - A native `range` supplies the keyboard, the touch target and the spoken value;
   what is seen is the bar already being read, so what is grabbed is what was just
   read. Its own track and thumb are fully transparent.
@@ -1528,12 +1555,13 @@ A sub-agent row, by the list's own width:
 
 ## Cost and storage
 
-- Cost reports the total first and then its composition. In a column of small
-  rows the total and its parts looked the same, and a glance could not find the
-  total. The leading block's figure is a size larger — it is the one that will be
-  seen without being looked for. That row was once called `.mrow`, sharing a name
-  with the connection panel's clickable model rows: two components under one name
-  means the later rule only overrides the properties it lists.
+- Cost reports the total first and then its composition. In a column of small rows
+  the total and its parts looked the same, and a glance could not find the total.
+  The leading block's figure is a size larger — it is the one that will be seen
+  without being looked for.
+- That row was once called `.mrow`, sharing a name with the connection panel's
+  clickable model rows: two components under one name means the later rule only
+  overrides the properties it lists.
 - A second currency is one tier shorter: it is the same money said another way,
   not another expense. The inline figures follow the draft's row — weak name,
   strong value, laid across rather than stacked into a table.
@@ -1775,10 +1803,10 @@ A sub-agent row, by the list's own width:
 
 ## Display math
 
-- A display formula scrolls sideways when it is wider than the column, which
-  makes its vertical overflow hidden as well. KaTeX draws raised exponents, tall
-  delimiters and big-operator limits past the line box, so the block carries
-  `.6em` of padding above and below and only `.2em` of margin: the clip edge
-  sits outside everything a formula draws, and the gap between blocks is
-  unchanged to the eye. Padding on one side only leaves the other flush with
-  the clip.
+- A display formula scrolls sideways when it is wider than the column, which makes
+  its vertical overflow hidden as well.
+- KaTeX draws raised exponents, tall delimiters and big-operator limits past the
+  line box, so the block carries `.6em` of padding above and below and only `.2em`
+  of margin: the clip edge sits outside everything a formula draws, and the gap
+  between blocks is unchanged to the eye.
+- Padding on one side only leaves the other flush with the clip.

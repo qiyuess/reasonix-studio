@@ -3,9 +3,10 @@ import type { SurfaceActionRequest, SurfaceActionRecord } from "./surface";
 import type { JobOutput, PlanAction } from "./session";
 import { approvalKind } from "./mock_approval";
 import { HttpError } from "./port";
-import type { AccountState, AgentPort, Completion, CompletionItem, DeviceGrant, StudioLogs, VersionHub, VersionNotes, ApprovalMode, ApprovalVerdict, Checkpoint, RewindPlan, RewindResult, RewindUndo, RewindScope, HistoryMessage, HostTodo, BrowserTab, ModelEntry, Preset, ProviderSetup, RoleAssignments, RoleOverride, SessionEntry, SessionStatus, WalletReading, MemoryCatalog, MemoryEdit, UsageReport, UploadReport, MemoryEntry, WorkspaceInfo, Attachment, DroppedRef, Queue, QueueItem, Queued, ChipCall, NotifyPrefs, TrayPrefs, UsageQuery } from "./port";
+import type { AccountState, AgentPort, Completion, CompletionItem, DeviceGrant, ApprovalMode, ApprovalVerdict, Checkpoint, RewindPlan, RewindResult, RewindUndo, RewindScope, HistoryMessage, HostTodo, BrowserTab, ModelEntry, Preset, ProviderSetup, RoleAssignments, RoleOverride, SessionEntry, SessionStatus, WalletReading, MemoryCatalog, MemoryEdit, UsageReport, UploadReport, MemoryEntry, WorkspaceInfo, Attachment, DroppedRef, Queue, QueueItem, Queued, ChipCall, NotifyPrefs, TrayPrefs, UsageQuery } from "./port";
 import type { ExecutionGraphRead, TrajectoryRead, WireEvent } from "./wire";
-import { MockWorkspace, mockWorkspaces, mockWorktreeSources, MockPreparations } from "./mock_workspace";
+import { mockWorkspaces, mockWorktreeSources, MockPreparations } from "./mock_workspace";
+import { MockUpdates } from "./mock_updates";
 import { SCRIPT, mockMsgIndex, mockTurnStart } from "./fixture";
 import { MockExecutionHold, mockExecutionGraph } from "./mock_graph";
 import { mockStorage, mockStoragePlan } from "./mock_storage";
@@ -18,7 +19,7 @@ import { mockUploadUsage, mockUsage } from "./mock_usage";
 // no project the tree remembers.
 export const AUTO_WORKSPACE = "~/workspaces/auto";
 
-export class MockPort extends MockWorkspace implements AgentPort {
+export class MockPort extends MockUpdates implements AgentPort {
   private listeners = new Set<(ev: WireEvent) => void>();
   private log: WireEvent[] = [];
   // What the user has sent, so checkpoints() can mirror one per turn.
@@ -180,37 +181,6 @@ export class MockPort extends MockWorkspace implements AgentPort {
   }
   async confirmMemory(name: string) {
     this.mem = this.mem.map((m) => (m.name === name ? { ...m, new: false, state: "clear", uses: (m.uses ?? 0) + 1 } : m));
-  }
-
-  async versions(_refresh?: boolean): Promise<VersionHub> {
-    return { current: "dev", pinned: "", stalePin: false, latest: "", newer: false, versions: [] };
-  }
-
-  private welcomed = true;
-  async welcomeSeen(): Promise<boolean> { return this.welcomed; }
-  async markWelcomed(): Promise<void> { this.welcomed = true; }
-
-  async pinVersion(): Promise<void> {}
-  async versionNotes(version: string): Promise<VersionNotes> {
-    return { version, markdown: "", cached: false };
-  }
-  async studioLogs(): Promise<StudioLogs> {
-    return {
-      dir: "C:\\Users\\demo\\AppData\\Roaming\\Reasonix Studio\\io.reasonix.studio.1a2b3c\\logs",
-      crashDir: "C:\\Users\\demo\\AppData\\Roaming\\Reasonix Studio\\io.reasonix.studio.1a2b3c\\logs\\crash",
-      crashes: [{ name: "host-20261010T230806Z-2.31.0-4412.log", at: "2026-10-10T23:08:06Z", bytes: 8421 }],
-      truncated: false,
-    };
-  }
-  async acknowledgeLaunchHealth(): Promise<void> {} // booted from no update
-  async goToVersion(): Promise<void> {
-    throw new Error("演示模式不会真的安装版本");
-  }
-  async cancelVersion(): Promise<void> { throw new Error("演示模式不会真的安装版本"); }
-  async restartToVersion(): Promise<void> { throw new Error("演示模式不会真的安装版本"); }
-
-  onUpdateProgress(): () => void {
-    return () => {};
   }
 
   async account(): Promise<AccountState> {

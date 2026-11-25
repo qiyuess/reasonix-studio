@@ -18,16 +18,11 @@ func TestStudioCatalogNamesTheStudioLine(t *testing.T) {
 	}
 }
 
-// A GitHub release is a flat namespace: /releases/download/<tag>/<file>. The
-// catalog, the chunk store and a release's notes are all nested paths, so
-// building any of them from a release prefix silently rewrites the first nested
-// segment as a tag — "/releases/download/studio/versions.json" asks for tag
-// "studio", and "notes/2.31.0.md" can never be one asset name at all.
-//
-// The assertions above derive their expectation from the same constant they
-// check, so a constant pointed at the flat prefix would move both sides and
-// stay green. This one reads the shape instead of the value: a nested path must
-// not be addressed through a release prefix at all, whichever host serves it.
+// A GitHub release is a flat namespace: /releases/download/<tag>/<file>. The catalog,
+// chunk store and notes are nested paths, so building any of them from a release prefix
+// rewrites the first segment as a tag — "/releases/download/studio/versions.json" asks
+// for tag "studio". The assertions above derive their expectation from the same constant
+// they check, so this one reads the shape instead: a nested path must not use that prefix.
 func TestNestedPathsDoNotGoThroughAReleasePrefix(t *testing.T) {
 	const flatPrefix = "/releases/download/"
 	nested := map[string]string{

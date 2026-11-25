@@ -7,12 +7,15 @@ palettes — 清白蓝 (`official-clear-blue`), Patina (`official-patina`) and �
 ## The illustrated packs that were removed
 
 An earlier revision shipped eight packs with generated backgrounds: Rose Dawn,
-Fortune Forge, Crimson Horizon, Sage Breeze, Spark Notebook, Violet Starlight,
-Cyan Stage and Noir Gold. Each was **original artwork produced procedurally**
-from the scripts in `scripts/official-theme-art/` (numpy + Pillow, fixed seeds,
-fully reproducible) — no pixels, layouts, text or logos were copied from the
-MIT-licensed [Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin)
-concept gallery that inspired the visual direction.
+Fortune Forge, Crimson Horizon, Sage Breeze, Spark Notebook, Violet Starlight, Cyan
+Stage and Noir Gold.
+
+Each was **original artwork produced procedurally** from the scripts in
+`scripts/official-theme-art/` (numpy + Pillow, fixed seeds, fully reproducible).
+
+No pixels, layouts, text or logos were copied from the MIT-licensed
+[Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) concept gallery
+that inspired the visual direction.
 
 Those packs were removed from `internal/ext/theme/builtin/`. The generator
 scripts and this record stay so the provenance of anything recovered from an

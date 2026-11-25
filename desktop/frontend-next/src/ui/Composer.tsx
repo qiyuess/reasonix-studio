@@ -139,7 +139,6 @@ export function Composer({ port, status, running, queued = false, quote, restore
   // Set only when a completion moved the caret: the browser puts it at the end
   // of a programmatic value, which is wrong for anything accepted mid-line.
   const pending = useRef<number | [number, number] | null>(null);
-
   // A drop lands where the caret is, and the handler that receives it was built
   // once — so the position it reads has to be a ref, not the render's copy.
   const caretRef = useRef(0);

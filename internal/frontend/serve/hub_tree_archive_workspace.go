@@ -9,14 +9,11 @@ import (
 	"reasonix/internal/state/sessionstore"
 )
 
-// archiveWorkspaceSessions archives or restores every conversation a project
-// holds, in one request.
-//
-// Archiving is a property of conversations, not of folders: a project reads as
-// archived exactly when everything in it is. The sidebar presses this from the
-// folder's row, but the rows it holds are only a page of what is on disk — so
-// the reach of that press is decided here, from the listing, rather than by a
-// list of paths the window happened to have loaded.
+// archiveWorkspaceSessions archives or restores every conversation a project holds, in
+// one request. Archiving is a property of conversations, not folders: a project reads as
+// archived exactly when everything in it is. The sidebar presses this from the folder's
+// row, but the rows it holds are only a page of what is on disk — so the reach is decided
+// here, from the listing, rather than by the paths the window happened to load.
 func (h *Hub) archiveWorkspaceSessions(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Root     string `json:"root"`

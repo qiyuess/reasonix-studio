@@ -11,13 +11,11 @@ import (
 	"reasonix/internal/contract/config"
 )
 
-// StudioCatalog is Studio's own rollback catalog. It is a constant rather than
-// something a caller names: a catalog that could be pointed elsewhere is one
-// whose entries would offer to "update" Studio into a different product.
-//
-// It hangs off the publish host, not a release prefix: a catalog is one object
-// at a fixed nested path ("/studio/versions.json"), and a GitHub release prefix
-// would read "studio" as a tag and then fail on the rest.
+// StudioCatalog is Studio's own rollback catalog. It is a constant rather than something
+// a caller names: a catalog that could be pointed elsewhere is one whose entries would
+// offer to "update" Studio into a different product. It hangs off the publish host, not
+// a release prefix: a catalog is one object at a fixed nested path ("/studio/versions.json"),
+// and a GitHub release prefix would read "studio" as a tag and fail on the rest.
 const StudioCatalog = StudioPublish + "/studio/versions.json"
 
 // Install is what a shell knows about itself that the kernel cannot work out.

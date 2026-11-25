@@ -6,7 +6,7 @@ import { usePaneCallbacks } from "./usePaneCallbacks";
 import { watchTreeWake } from "./treewake";
 import { usePinnedSessions } from "./usePinnedSessions";
 import { useWindowNotices } from "./useWindowNotices";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { reason } from "../i18n/kernel";
 import { t } from "../i18n";
 import type { AgentPort, ProviderSetup } from "../port/port";
@@ -40,7 +40,8 @@ import { useFeedbackUnread } from "./useFeedbackUnread";
 import { Feedback, type FeedbackTab } from "./Feedback";
 import { usePaneForSheets } from "./usePaneForSheets";
 import { BrowserLogin } from "./BrowserLogin";
-import type { RemoteAsk as RemoteAskT, RemoteHost } from "../port/remote";
+import { useRemoteHosts } from "./useRemoteHosts";
+import { NO_REPORT, Settings } from "./appSetup";
 import { Boundary } from "./Boundary";
 import { SettingsUnavailable } from "./SettingsUnavailable";
 import { useMachineBooks } from "./machinebooks";
@@ -69,35 +70,6 @@ import { markSettled } from "../boot/gate";
 import type { PaneView } from "../state/paneview";
 import { usePaneSessionRefs } from "./usePaneSessionRefs";
 
-// Start fetching the settings chunk with the shell instead of waiting for the
-// first click. It remains a separate chunk (and keeps its failure boundary),
-// but opening settings no longer produces a veil while the module catches up.
-const settingsModule = import("./Settings").then(
-  (module) => ({ module, error: null as unknown }),
-  (error: unknown) => ({ module: null, error }),
-);
-const Settings = lazy(async () => {
-  const loaded = await settingsModule;
-  if (loaded.error) throw loaded.error;
-  return { default: loaded.module!.Settings };
-});
-
-const NO_REPORT: PaneReport = {
-  status: null,
-  workspace: null,
-  title: "",
-  steer: 0,
-  run: "idle",
-  live: false,
-  cost: "",
-  contextPercent: null,
-  context: null,
-  mcp: [],
-  wallet: "",
-  view: "flow",
-  rows: 0,
-};
-
 // App is the window around the panes, not a session itself: the workspace tree,
 // the chrome, the settings sheet and the theme are the window's, while every
 // conversation — its transcript, metrics and event stream — lives in the Pane
@@ -115,17 +87,7 @@ export function App({ hub }: { hub: HubPort }) {
   const [entered, setEntered] = useState(() => !!savedActivePane());
   const treeWindow = useTreeWindow();
   const { tree, treeRead, answered, readTree, reloadTree, retryTree } = useTreeRead(hub, treeWindow);
-  // Null until asked, and null again where this kernel refuses remote panes —
-  // which is what keeps the section out of a browser rather than drawing a
-  // heading over a feature that cannot work there.
-  const [remotes, setRemotes] = useState<RemoteHost[] | null>(null);
-  // Connects in flight. A link reports "connecting" only once the dial starts,
-  // so without this the poll would look at an idle list and stand down exactly
-  // when the step list is what the user is waiting on.
-  const [opening, setOpening] = useState(0);
-  // A connect stopped for a question. One at a time by construction: the link
-  // that asked is blocked until it is answered.
-  const [ask, setAsk] = useState<RemoteAskT | null>(null);
+  const { remotes, setOpening, ask, reloadRemotes, answerRemote } = useRemoteHosts(hub);
   // 窄到放不下工作区栏时它是收起的，而不是消失的：栏一旦从 DOM 里拿掉，把手也
   // 跟着没了，剩下的入口只有一个没人知道的快捷键。
   const [rail, setRail] = useState(() => !roomGaveUp("rail"));
@@ -247,40 +209,6 @@ export function App({ hub }: { hub: HubPort }) {
     const stopWake = watchTreeWake(refresh);
     return () => { stop?.(); stopWake(); };
   }, [hub, refreshPanes]);
-
-  const reloadRemotes = useCallback(
-    () =>
-      hub
-        .remoteHosts()
-        .then(setRemotes)
-        .catch(() => setRemotes(null)),
-    [hub],
-  );
-
-  useEffect(() => {
-    void reloadRemotes();
-  }, [reloadRemotes]);
-
-  // One timer per answer, not one that runs regardless: a link mid-connect
-  // changes by the second, a settled one only when something breaks, and three
-  // idle hosts should cost nothing at all.
-  useEffect(() => {
-    if (!remotes?.length) return;
-    const working = opening > 0 || remotes.some((h) => h.status === "connecting" || h.status === "reconnecting");
-    if (!working && remotes.every((h) => h.status === "idle")) return;
-    const timer = setTimeout(() => void reloadRemotes(), working ? 400 : 5000);
-    return () => clearTimeout(timer);
-  }, [remotes, opening, reloadRemotes]);
-
-  useEffect(() => hub.onRemoteAsk(setAsk), [hub]);
-
-  const answerRemote = useCallback(
-    (id: string, ok: boolean, text: string) => {
-      setAsk(null);
-      hub.answerRemote(id, ok, text);
-    },
-    [hub],
-  );
 
   const openRemoteRaw = useOpenRemotePane({ hub, reloadPanes, reloadRemotes, sw, setActive, setOpening });
   // A conversation on another machine is entered the same way as one here: the

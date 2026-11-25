@@ -14,14 +14,11 @@ import (
 	"reasonix/internal/state/sessionstore"
 )
 
-// The number on the rail counts what the person sent to open a turn. A
-// mid-turn steer and a fold digest are user-role lines that opened none, so
-// counting role=user would say a longer conversation than anybody had.
-//
-// The steer here carries RawContent, because that is the shape a desktop steer
-// really lands in: the wrapper rides Content and RawContent keeps what the
-// person typed. Writing it without RawContent tested the one path that was
-// already right, and let the desktop path count an interruption as a turn.
+// The number on the rail counts what the person sent to open a turn. A mid-turn steer
+// and a fold digest are user-role lines that opened none, so counting role=user would
+// overstate the conversation. The steer carries RawContent because a desktop steer keeps
+// the person's words there while the wrapper rides Content; without it the test covered
+// only the path that was already right.
 func TestStatusCountsOnlyAuthoredTurns(t *testing.T) {
 	sess := sessionstore.NewSession("system")
 	sess.Add(provider.Message{Role: provider.RoleUser, Content: "first"})

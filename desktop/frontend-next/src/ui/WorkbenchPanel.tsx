@@ -16,13 +16,12 @@ import { WorkbenchStatus } from "./WorkbenchStatus";
 import { WorkbenchFileTree } from "./WorkbenchFileTree";
 import { WorkbenchChangesPage } from "./WorkbenchChangesPage";
 import { UnifiedDiff } from "./UnifiedDiff";
-import { leave, useEnteringTabs, useOpenSlide, useSwitchFade, useTabStrip } from "./workbench_motion";
-import { WorkbenchTabPicker } from "./WorkbenchTabPicker";
+import { useEnteringTabs, useOpenSlide, useSwitchFade, useTabStrip } from "./workbench_motion";
+import { WorkbenchHead } from "./WorkbenchHead";
 import { WorkbenchCloseAsk } from "./WorkbenchCloseAsk";
 import { WorkbenchState } from "./WorkbenchState";
 import { AgentBrowserPanel, UNREAD_TABS } from "./BrowserPanel";
 import { ManualBrowsers } from "./ManualBrowsers";
-import { WorkbenchTabIcon } from "./WorkbenchTabIcon";
 import { WorkbenchTerminals } from "./WorkbenchTerminals";
 import { useTerminalTabs } from "./useTerminalTabs";
 import { useOnBump } from "./useOnBump";
@@ -47,9 +46,7 @@ import type { HubPort } from "../port/hub";
 import { useHtmlPreview } from "./useHtmlPreview";
 import { setShowsHiddenFiles, showsHiddenFiles } from "../state/prefs";
 import { useDockHead } from "../state/dockhead";
-import { BrowserFullToggle } from "./BrowserFullToggle";
 import { documentView, sourceView } from "./document/registry";
-import { TooltipButton } from "./TooltipButton";
 import { documentState, type DocumentViewState } from "./document/viewState";
 const DocumentPreview = lazy(() => import("./document/DocumentPreview"));
 
@@ -532,130 +529,31 @@ export function WorkbenchPanel({
   // The slot is absent in tests and undocked shells, so the strip falls back
   // to its own header in place — same markup, two homes.
   const head = (
-    <header className="workbench-tabs">
-      {/* Every open tab in one list, to jump from, at the very head of the row —
-          before the file tree. The tree opens a new tab; this one reaches the
-          tabs already open, including the ones a narrow strip has scrolled out
-          of sight, which is what the row could not do on its own. Drawn whether
-          or not anything is hidden: a strip that fits today does not once two
-          files are opened beside it. */}
-      <WorkbenchTabPicker
-        tabs={surfaces.map((surface) => ({ key: keyOf(surface), label: labelFor(surface) }))}
-        active={launcher ? "" : activeKey}
-        onPick={(k) => { pick(k); strip.current?.querySelector(`[data-key="${CSS.escape(k)}"]`)?.scrollIntoView({ inline: "nearest" }); }}
-      />
-      <TooltipButton
-        className="workbench-files"
-        data-action="workbench.files"
-        aria-pressed={showFiles && !launcher}
-        aria-label={t("common.files")}
-        title={showFiles && !launcher ? t("workbench.hide_file_tree") : t("workbench.show_file_tree")}
-        onClick={toggleExplorer}
-      >
-        <StudioIcon name="folder" />
-        {changes.length > 0 && <small className="workbench-files-count">{changes.length}</small>}
-      </TooltipButton>
-        <div
-          className="workbench-tablist"
-          role="tablist"
-          ref={strip}
-          onWheel={(e) => {
-            if (e.deltaY && strip.current) strip.current.scrollLeft += e.deltaY;
-          }}
-        >
-        {surfaces.map((surface) => (
-          <div
-            className="workbench-tab"
-            key={keyOf(surface)}
-            role="tab"
-            aria-selected={!launcher && surface === active}
-            data-live={surface.kind === "browser" && surface.tab.active ? "" : undefined}
-            data-dirty={surface.kind === "file" && unsaved.includes(surface.path) ? "" : undefined}
-            data-key={keyOf(surface)} data-enter={entering.has(keyOf(surface)) ? "" : undefined}
-            data-action-contextmenu="workbench.browser-menu" data-target={keyOf(surface)}
-            onContextMenu={(e) => offerTabMenu(e, surface)}
-          >
-            {renaming === keyOf(surface) ? (
-              <span className="workbench-tab-pick">
-                <StudioIcon name="globe" />
-                <input
-                  className="workbench-tab-in"
-                  aria-label={t("workbench.rename_tab")}
-                  autoFocus
-                  defaultValue={labelFor(surface)}
-                  ref={(el) => el?.select()}
-                  data-action-blur="workbench.rename-tab" data-action-keydown="workbench.rename-tab" data-target={keyOf(surface)}
-                  onBlur={(e) => nameTab(surface, e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
-                    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.currentTarget.value = labelFor(surface); setRenaming(""); }
-                  }}
-                />
-              </span>
-            ) : (
-            <button
-              className="workbench-tab-pick"
-              data-action-click="workbench.tab"
-              data-action-keydown="workbench.browser-menu"
-              data-target={keyOf(surface)}
-              title={
-                surface.kind === "browser"
-                  ? `${surface.tab.active ? `${t("workbench.the_model_is_working_on")}
-` : ""}${surface.tab.url}`
-                  : labelFor(surface)
-              }
-              aria-haspopup="menu"
-              aria-expanded={tabMenu !== null && keyOf(tabMenu.surface) === keyOf(surface)}
-              onClick={() => pick(keyOf(surface))}
-              onDoubleClick={surface.kind === "browser" ? () => setRenaming(keyOf(surface)) : undefined}
-              data-action-dblclick="workbench.rename-tab"
-              onKeyDown={(e) => {
-                if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) offerTabMenu(e, surface);
-                else if (e.key === "F2" && surface.kind === "browser") { e.preventDefault(); setRenaming(keyOf(surface)); }
-              }}
-            >
-              <WorkbenchTabIcon surface={surface} />
-              <span>{labelFor(surface)}</span>
-              {surface.kind === "terminal" && surface.busy && <i className="workbench-tab-busy" aria-hidden />}
-              {surface.kind === "changes" && changes.length > 0 && <small className="workbench-tab-count">{changes.length}</small>}
-            </button>
-            )}
-            <button
-              className="workbench-tab-close"
-              data-action="workbench.close"
-              data-target={keyOf(surface)}
-              aria-label={t("common.disable_name", { name: labelFor(surface) })}
-              title={t("common.close")}
-              disabled={closing}
-              onClick={(e) => {
-                const tab = e.currentTarget.closest(".workbench-tab");
-                if (surface.kind === "file" && unsaved.includes(surface.path)) setAsking({ path: surface.path, anchor: e.currentTarget });
-                else leave(tab, () => void close([surface]));
-              }}
-            >
-              <StudioIcon name="close" />
-            </button>
-          </div>
-        ))}
-        {launcher && (
-          <div className="workbench-tab" role="tab" aria-selected="true" data-new="">
-            <span className="workbench-tab-pick"><StudioIcon name="plus" /><span>{t("workbench.new_tab_label")}</span></span>
-          </div>
-        )}
-        </div>
-        <TooltipButton
-          className="workbench-new"
-          data-action="workbench.new"
-          ref={newTab}
-          aria-label={t("workbench.new_tab")}
-          title={t("workbench.new_tab")}
-          aria-expanded={launcher}
-          onClick={toggleLauncher}
-        >
-          <StudioIcon name="plus" />
-        </TooltipButton>
-        {fullMode && <BrowserFullToggle {...fullMode} />}
-      </header>
+    <WorkbenchHead
+      surfaces={surfaces}
+      labelFor={labelFor}
+      active={active}
+      activeKey={activeKey}
+      launcher={launcher}
+      showFiles={showFiles}
+      closing={closing}
+      renaming={renaming}
+      unsaved={unsaved}
+      entering={entering}
+      changes={changes}
+      tabMenuKey={tabMenu ? keyOf(tabMenu.surface) : null}
+      strip={strip}
+      newTab={newTab}
+      pick={pick}
+      toggleLauncher={toggleLauncher}
+      toggleExplorer={toggleExplorer}
+      offerTabMenu={offerTabMenu}
+      setRenaming={setRenaming}
+      nameTab={nameTab}
+      onClose={close}
+      setAsking={setAsking}
+      fullMode={fullMode}
+    />
   );
   // The strip crossing between the two homes unmounts and remounts its DOM, so
   // the pressed full-width control loses focus to the body. This panel outlives

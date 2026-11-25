@@ -24,10 +24,9 @@ func TurnWorkMs(msgs []provider.Message) []int64 {
 			class := ClassifyTurn(m, 0)
 			switch {
 			case class.Steer, class.LocalOnly:
-				// Neither opens a run: a steer is an interruption and a
-				// local-only line is the frontend's own bookkeeping. Closing
-				// the run here would cut the turn at a receipt and then add the
-				// pieces together, reporting more work than was done.
+				// Neither opens a run: a steer is an interruption and a local-only line is frontend
+				// bookkeeping. Closing the run here would cut the turn at a receipt and add the pieces
+				// together, reporting more work than was done.
 			case class.StartsTurn:
 				closeTurn()
 			default:

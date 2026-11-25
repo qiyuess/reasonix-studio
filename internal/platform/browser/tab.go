@@ -186,14 +186,11 @@ func (t *tab) location() (url, title string) {
 	return t.url, t.title
 }
 
-// refreshTitle reads the title from the page itself. A page sets it while its
-// document is parsed and may set it again later, so the cached value is only
-// as good as the last read: the tab strip names a tab by its title and falls
-// back to the address when there is none, which for a page nobody has handed
-// to the agent means every tab would be named by its URL.
-//
-// It reports whether the title changed, so a caller already about to notify
-// can fold the two into one.
+// refreshTitle reads the title from the page itself. A page sets it while parsing and
+// may set it again later, so the cached value is only as good as the last read: the tab
+// strip names a tab by its title and falls back to the address when there is none, which
+// for a page the agent never handed to itself would name every tab by its URL. It reports
+// whether the title changed, so a caller already about to notify can fold the two in.
 func (t *tab) refreshTitle() bool {
 	t.mu.Lock()
 	before := t.navigated
@@ -241,31 +238,7 @@ func (t *tab) onEvent(ev event) {
 	}
 	switch ev.Method {
 	case "Page.frameNavigated":
-		var p struct {
-			Frame struct {
-				ID          string `json:"id"`
-				ParentID    string `json:"parentId"`
-				URL         string `json:"url"`
-				URLFragment string `json:"urlFragment"`
-			} `json:"frame"`
-		}
-		if json.Unmarshal(ev.Params, &p) != nil || p.Frame.ParentID != "" {
-			return
-		}
-		t.mu.Lock()
-		delete(t.runtime.contexts, t.mainFrame)
-		t.mainFrame, t.url = p.Frame.ID, p.Frame.URL+p.Frame.URLFragment
-		// The document that had a title is gone, so the old one must not name
-		// the tab until the new document sets its own: the strip would carry
-		// the page we left over the page we are on. Until then it shows the
-		// address, which is what the new tab is on.
-		t.title = ""
-		t.navigated++
-		t.pointer = pointerState{}
-		t.signalLocked()
-		t.mu.Unlock()
-		t.s.refs.retireTab(t.id)
-		t.s.tabsChanged()
+		t.onFrameNavigated(ev)
 	case "Page.navigatedWithinDocument":
 		var p struct {
 			FrameID string `json:"frameId"`
@@ -281,28 +254,7 @@ func (t *tab) onEvent(ev event) {
 		}
 		t.mu.Unlock()
 	case "Page.frameTitleUpdated":
-		// A page names itself, and renames itself: a script sets the title after
-		// load, and a route change sets it again with no load at all. The tab
-		// strip shows this rather than the address, so it is taken as it comes.
-		var p struct {
-			FrameID string `json:"frameId"`
-			Title   string `json:"title"`
-		}
-		if json.Unmarshal(ev.Params, &p) != nil {
-			return
-		}
-		t.mu.Lock()
-		// A subframe's name is not the tab's. The host relays the view's own
-		// event, which carries no frame id, so "" is the page itself.
-		main := p.FrameID == "" || p.FrameID == t.mainFrame
-		retitled := main && t.title != p.Title
-		if main {
-			t.title = p.Title
-		}
-		t.mu.Unlock()
-		if retitled {
-			t.s.tabsChanged()
-		}
+		t.onFrameTitleUpdated(ev)
 	case "Page.lifecycleEvent":
 		var p struct {
 			FrameID  string `json:"frameId"`
@@ -321,12 +273,9 @@ func (t *tab) onEvent(ev event) {
 		t.mu.Unlock()
 		if main {
 			t.s.tabsChanged()
-			// A page names itself as it loads, so the title is read once the
-			// load event says the document is done — the cached one is empty
-			// for a page the agent never handed to itself, and a tab named by
-			// its address is what a person sees instead of the page's name.
-			// Read off the queue: this handler would otherwise wait on the
-			// round trip and hold back every event behind it.
+			// A page names itself as it loads, so the title is read once the load event says the
+			// document is done. Off the queue: the handler would otherwise wait on the round trip and
+			// hold back every event behind it.
 			go func() {
 				if t.refreshTitle() {
 					t.s.tabsChanged()
@@ -369,6 +318,58 @@ func (t *tab) onEvent(ev event) {
 		t.log("exception", "error", text)
 	default:
 		t.onNetwork(ev)
+	}
+}
+
+func (t *tab) onFrameNavigated(ev event) {
+	var p struct {
+		Frame struct {
+			ID          string `json:"id"`
+			ParentID    string `json:"parentId"`
+			URL         string `json:"url"`
+			URLFragment string `json:"urlFragment"`
+		} `json:"frame"`
+	}
+	if json.Unmarshal(ev.Params, &p) != nil || p.Frame.ParentID != "" {
+		return
+	}
+	t.mu.Lock()
+	delete(t.runtime.contexts, t.mainFrame)
+	t.mainFrame, t.url = p.Frame.ID, p.Frame.URL+p.Frame.URLFragment
+	// The document that had a title is gone, so the old one must not name the tab until the
+	// new document sets its own; until then the address names the page, which is what the new
+	// tab is on.
+	t.title = ""
+	t.navigated++
+	t.pointer = pointerState{}
+	t.signalLocked()
+	t.mu.Unlock()
+	t.s.refs.retireTab(t.id)
+	t.s.tabsChanged()
+}
+
+func (t *tab) onFrameTitleUpdated(ev event) {
+	// A page names itself, and renames itself: a script sets the title after
+	// load, and a route change sets it again with no load at all. The tab
+	// strip shows this rather than the address, so it is taken as it comes.
+	var p struct {
+		FrameID string `json:"frameId"`
+		Title   string `json:"title"`
+	}
+	if json.Unmarshal(ev.Params, &p) != nil {
+		return
+	}
+	t.mu.Lock()
+	// A subframe's name is not the tab's. The host relays the view's own
+	// event, which carries no frame id, so "" is the page itself.
+	main := p.FrameID == "" || p.FrameID == t.mainFrame
+	retitled := main && t.title != p.Title
+	if main {
+		t.title = p.Title
+	}
+	t.mu.Unlock()
+	if retitled {
+		t.s.tabsChanged()
 	}
 }
 

@@ -37,11 +37,9 @@ var ErrPairingInvalid = errors.New("pairing code is not valid")
 type DeviceRegistry struct {
 	mu  sync.Mutex
 	now func() time.Time
-	// pending is every code currently worth something, oldest first. A window
-	// can hold more than one at a time — the code drawn as a QR symbol and the
-	// link its copy button puts on the clipboard are the same one-shot
-	// credential only if the window reuses it, and reusing it is what made
-	// copying a link cancel the picture beside it. Each is spent on its own.
+	// pending is every code worth something, oldest first. A window may hold more than one
+	// — the QR symbol and the link copied beside it are separate one-shot credentials — and
+	// each is spent on its own.
 	pending []pairingOffer
 	devices map[string]*pairedDevice
 	// rev counts every change to the paired set. A snapshot taken before a
@@ -59,10 +57,9 @@ type DeviceRegistry struct {
 type pairingOffer struct {
 	digest  [sha256.Size]byte
 	expires time.Time
-	// screen marks the code the window draws as a symbol. There is at most one:
-	// a window shows one picture at a time, and a new one replaces the last.
-	// Codes without it are the ones a window hands out beside the picture — a
-	// link on the clipboard — and they live and die on their own.
+	// screen marks the code drawn as a symbol. There is at most one, because a window shows
+	// one picture at a time; codes without it are handed out beside the picture and live and
+	// die on their own.
 	screen bool
 }
 
@@ -72,10 +69,9 @@ type pairedDevice struct {
 	digest [sha256.Size]byte
 	paired time.Time
 	seen   time.Time
-	// door is the door this device last reached the share through: the address a
-	// phone on this network dials, or the proxy's name. Recorded when it pairs
-	// and refreshed on every authenticated request, so a phone that changes how
-	// it reaches this machine says so rather than showing what it once was.
+	// door is the door this device last reached the share through: the LAN address or the
+	// proxy's name. Recorded at pairing and refreshed on every authenticated request, so a
+	// phone that changes how it reaches the machine says so.
 	door OfferChannel
 	// streams are the event streams this device holds open. Each can be cut,
 	// because a credential checked when a stream opened says nothing about
@@ -135,9 +131,8 @@ func (d *DeviceRegistry) mint(screen bool) (code string, expires time.Time) {
 	}
 	expires = now.Add(pairingTTL)
 	d.pending = append(d.pending, pairingOffer{digest: sha256.Sum256([]byte(code)), expires: expires, screen: screen})
-	// Oldest go first once there are more than a window could ever be showing:
-	// a process left running mints one per card opening, and none of them
-	// outlives pairingTTL anyway. The symbol just minted is the newest, so the
+	// Oldest go first past what a window could show: a long-running process mints one per
+	// card opening, and none outlives pairingTTL. The symbol just minted is newest, so the
 	// cap never takes it.
 	if over := len(d.pending) - maxPendingCodes; over > 0 {
 		d.pending = append([]pairingOffer(nil), d.pending[over:]...)
@@ -207,12 +202,11 @@ func (d *DeviceRegistry) holdsLocked(sum [sha256.Size]byte) bool {
 	return false
 }
 
-// Redeem spends one code for a device credential. A code pairs once: whoever
-// presents it first is the device, and that code is gone. The codes offered
-// beside it are untouched — a QR symbol and a copied link carry two different
-// codes, and spending one leaves the other worth scanning.
-// The door the request arrived through is kept with the device, so a window can
-// say how that phone reaches this machine instead of guessing.
+// Redeem spends one code for a device credential. A code pairs once: whoever presents
+// it first is the device, and that code is gone. Codes offered beside it are untouched —
+// a QR symbol and a copied link carry different codes, and spending one leaves the other
+// worth scanning. The door the request arrived through is kept with the device, so a
+// window can say how that phone reaches this machine instead of guessing.
 func (d *DeviceRegistry) Redeem(code, name string, door OfferChannel) (credential string, view DeviceView, err error) {
 	sum := sha256.Sum256([]byte(code))
 	d.mu.Lock()
@@ -357,10 +351,9 @@ func (p *pairedDevice) cut() {
 }
 
 func (p *pairedDevice) view() DeviceView {
-	// A device saved before the door was recorded reads as the local one: those
-	// phones paired over Wi-Fi, which was the only door a share had then. It
-	// corrects itself on that phone's next request, which records the door it
-	// actually came through.
+	// A device saved before the door was recorded reads as the local one: those phones
+	// paired over Wi-Fi, the only door a share had then. It corrects itself on that phone's
+	// next request, which records the door it actually came through.
 	door := p.door
 	if door == "" {
 		door = OfferLAN

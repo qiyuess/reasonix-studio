@@ -85,12 +85,11 @@ func TestASetPublicOriginSurvivesASave(t *testing.T) {
 	}
 }
 
-// Naming a reverse proxy is naming who may reach this machine, so a cloned repo
-// may not choose it: an untrusted checkout that named its own proxy would open a
-// door the person never asked for. The whole [serve] table is the user's —
-// holdUserGlobals restores it over the project merge, the same way share_port and
-// remember_paired_devices stay the user's — so a project's value is dropped
-// before the narrowing pass ever sees it, and no per-key refusal is reported.
+// Naming a reverse proxy is naming who may reach this machine, so a cloned repo may
+// not choose it: an untrusted checkout that named its own proxy would open a door the
+// person never asked for. The whole [serve] table is the user's — holdUserGlobals
+// restores it over the project merge, like share_port and remember_paired_devices — so
+// a project's value is dropped before the narrowing pass sees it, with no per-key refusal.
 func TestAProjectFileCannotNameTheReverseProxy(t *testing.T) {
 	for _, tc := range []struct {
 		name, user, project, want string

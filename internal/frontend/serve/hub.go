@@ -351,45 +351,16 @@ func (h *Hub) openBound(ctx context.Context, req OpenRequest, inherited *agentco
 		savedModel = strings.TrimSpace(settings.Model)
 		req.Model, preset = savedModel, settings.AgentPreset
 	} else if strings.TrimSpace(req.Model) == "" && req.SessionPath != "" {
-		// A reopened session runs on the model it was left on. Reading that here
-		// is what keeps a long session from being assembled twice: assembling the
-		// default model first and then switching (as resumeInto's adoption does)
-		// builds a whole runtime, and takes a whole-transcript snapshot, only to
-		// throw the first one away. A model the catalog no longer resolves yields
-		// the empty value, so the default applies exactly as before.
+		// A reopened session runs on the model it was left on. Reading that here keeps a long
+		// session from being assembled twice: the default model would build a whole runtime and
+		// snapshot only to be replaced. An unresolvable model yields empty, so the default applies.
 		if cfg, cfgErr := config.LoadForRootReadOnly(root); cfgErr == nil {
 			req.Model = boot.ModelForResume("", req.SessionPath, cfg)
 		}
 	}
 	bc := NewBroadcaster()
 	paneSink := h.decorateSink(bc)
-	build := func(model string, fallback bool) (*boot.BuildResult, error) {
-		opts := boot.Options{
-			AgentComposition:         req.AgentComposition,
-			Composition:              binding,
-			ComputerDriver:           h.opts.ComputerDriver,
-			Model:                    strings.TrimSpace(model),
-			AgentPreset:              preset,
-			WorkspaceRoot:            root,
-			SessionDir:               SessionDirFor(root),
-			Sink:                     paneSink,
-			NativeSurfaces:           h.opts.NativeSurfaces,
-			Stderr:                   os.Stderr,
-			DiagnosticSink:           h.skillNotices.once(paneSink),
-			StatsSource:              h.surface(),
-			FeedbackSurface:          feedbackSurface(h.surface()),
-			AccountsURL:              accountsBaseURL(),
-			BalanceStore:             h.wallets,
-			OpenOnFallbackModel:      fallback,
-			ProviderResolver:         h.opts.ProviderResolver,
-			CleanupPendingReconciler: BackgroundCleanupReconciler,
-			NewConversation:          strings.TrimSpace(req.SessionPath) == "",
-		}
-		if inherited != nil {
-			return boot.BuildRuntime(ctx, opts)
-		}
-		return buildCompositionOrHistory(ctx, opts)
-	}
+	build := h.openBuilder(ctx, req, binding, preset, root, paneSink, inherited)
 	built, err := build(req.Model, settings == nil)
 	branchModelFallback := false
 	if err != nil && settings != nil && errors.Is(err, provider.ErrUnknownModel) {
@@ -453,6 +424,36 @@ func (h *Hub) openBound(ctx context.Context, req OpenRequest, inherited *agentco
 		return nil, err
 	}
 	return rt, nil
+}
+
+func (h *Hub) openBuilder(ctx context.Context, req OpenRequest, binding *agentcomposition.Binding, preset, root string, sink event.Sink, inherited *agentcomposition.Binding) func(string, bool) (*boot.BuildResult, error) {
+	return func(model string, fallback bool) (*boot.BuildResult, error) {
+		opts := boot.Options{
+			AgentComposition:         req.AgentComposition,
+			Composition:              binding,
+			ComputerDriver:           h.opts.ComputerDriver,
+			Model:                    strings.TrimSpace(model),
+			AgentPreset:              preset,
+			WorkspaceRoot:            root,
+			SessionDir:               SessionDirFor(root),
+			Sink:                     sink,
+			NativeSurfaces:           h.opts.NativeSurfaces,
+			Stderr:                   os.Stderr,
+			DiagnosticSink:           h.skillNotices.once(sink),
+			StatsSource:              h.surface(),
+			FeedbackSurface:          feedbackSurface(h.surface()),
+			AccountsURL:              accountsBaseURL(),
+			BalanceStore:             h.wallets,
+			OpenOnFallbackModel:      fallback,
+			ProviderResolver:         h.opts.ProviderResolver,
+			CleanupPendingReconciler: BackgroundCleanupReconciler,
+			NewConversation:          strings.TrimSpace(req.SessionPath) == "",
+		}
+		if inherited != nil {
+			return boot.BuildRuntime(ctx, opts)
+		}
+		return buildCompositionOrHistory(ctx, opts)
+	}
 }
 
 // Get returns a runtime by ID, or nil.

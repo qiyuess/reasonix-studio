@@ -31,10 +31,9 @@ func main() {
 	if len(os.Args) == 5 {
 		deltaDir = os.Args[4]
 	}
-	// HAS_R2 gated the mirror upload this workflow used to run. Nothing uploads
-	// there any more — the catalog, notes and signatures live on the Pages site,
-	// and the artifacts on the release — so a manifest names the release for
-	// what a person downloads and the site for the signature beside it.
+	// HAS_R2 gated the mirror upload this workflow used to run. Nothing uploads there any
+	// more — the catalog, notes and signatures live on the Pages site, artifacts on the
+	// release — so a manifest names the release for downloads and the site for signatures.
 	mirrored := os.Getenv("HAS_R2") == "true"
 	if err := run(os.Args[1], os.Args[2], os.Args[3], deltaDir, mirrored); err != nil {
 		fmt.Fprintln(os.Stderr, err)

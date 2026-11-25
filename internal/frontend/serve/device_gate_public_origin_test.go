@@ -161,12 +161,10 @@ func TestNoProxyNameMeansOnlyTheListenersOwnDoor(t *testing.T) {
 	}
 }
 
-// A tunnel in front of this machine forwards under the address it dials, not
-// under the name the phone typed: the Host arrives as 127.0.0.1:10086 while the
-// page the phone loaded still knows itself by the proxy's name. Demanding the two
-// name the same door refused every state change a phone made through such a
-// tunnel — pairing included — so the proxy's name is admitted beside whichever
-// door the Host matched.
+// A tunnel forwards under the address it dials, not the name the phone typed: the Host
+// arrives as 127.0.0.1:10086 while the page knows itself by the proxy's name. Demanding
+// the two name the same door refused every state change through such a tunnel, pairing
+// included, so the proxy's name is admitted beside whichever door the Host matched.
 func TestTheProxyNameIsAdmittedWhenTheHostWasRewritten(t *testing.T) {
 	gate, cookie, reached := publicGate(t, "https://agent.example.com")
 	// The listener's own door, reached through a tunnel that rewrote the Host.
@@ -199,12 +197,10 @@ func TestTheProxyNameIsAdmittedWhenTheHostWasRewritten(t *testing.T) {
 	}
 }
 
-// Some proxies rewrite the authority an Origin names as well as the Host: both
-// become the address the proxy dials, while the scheme the page was served with
-// is kept. A phone on https://agent.example.com then arrives addressed to the
-// LAN door and naming https://192.168.1.5:9000 — the door the Host matched,
-// tightened to TLS. Refusing that refused every state change a phone made
-// through such a proxy, pairing included.
+// Some proxies rewrite the Origin's authority as well as the Host: both become the
+// dialled address while the page's scheme is kept. A phone on https://agent.example.com
+// then names https://192.168.1.5:9000 — the Host's door tightened to TLS. Refusing that
+// refused every state change through such a proxy, pairing included.
 func TestTheProxyNameIsAdmittedWhenTheOriginWasRewrittenToo(t *testing.T) {
 	gate, cookie, reached := publicGate(t, "https://agent.example.com")
 	code, reason := callGate(gate, "192.168.1.5:9000", "https://192.168.1.5:9000", "/sessions", cookie)
@@ -301,12 +297,10 @@ func TestADevicesDoorFollowsTheRequestItComesInOn(t *testing.T) {
 	}
 }
 
-// A door on one scheme's own port and a page served on the other scheme's own
-// port are two different sockets, however alike the two authorities read once
-// each is folded by its own scheme: http://host folds to "host" meaning 80, and
-// https://host folds to "host" meaning 443. Tightening exists so a proxy can
-// hand over the socket it dialled, so it must not also hand over the port next
-// door — a page served on 443 has no business changing state on 80.
+// A door on one scheme's port and a page on the other's are different sockets, however
+// alike the folded authorities read: http://host means 80, https://host means 443.
+// Tightening lets a proxy hand over the socket it dialled, so it must not also hand over
+// the next port — a page on 443 has no business changing state on 80.
 func TestTighteningCannotReachTheOtherSchemesOwnPort(t *testing.T) {
 	reg := NewDeviceRegistry()
 	code, _ := reg.Offer()
