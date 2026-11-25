@@ -73,7 +73,7 @@
 
 > 从早期 debug 测试包切换到正式版需要先卸载一次（两者签名不同）。卸载会清空配对信息和连接记录，重装后重新扫码即可。
 
-**CI 测试包** — 每次 push / PR 都会构建 debug APK：[CI 工作流](https://github.com/qiyuess/reasonix-studio/actions/workflows/ci.yml) → 选最近一次成功运行 → 在 Artifacts 下载 `reasonix-for-android-debug`。测试包用 debug 签名，适合试用和开发。
+**CI 测试包** — 根仓库的 CI 在每次 push / PR 跑 lint、类型检查、测试、内核契约校验和 Android 单测，不再上传 APK。要在真机上试用，可以按下面的「开发」本地构建 debug 包，或从 Releases 安装签名版。
 
 **命令行** — `adb install -r app-debug.apk`
 
@@ -116,7 +116,9 @@ cd android && ./gradlew assembleDebug
 
 **项目结构** — `src/app/` 应用外壳与连接状态机 · `src/chat/` 对话折叠与输入区 · `src/net/` 内核 / 代理 / 中继客户端 · `src/native/` Capacitor 插件桥 · `src/wire/` 内核契约类型 · `src/ui/` 设计 token 与样式 · `android/` Capacitor 壳与原生插件 · `fixtures/wire/` 前后端共用的契约样本 · `docs/` 交接文档与渲染图。
 
-**发布** — `ci.yml` 在每次 push / PR 跑 lint、类型检查、测试与 debug APK（artifact，非发布）；`release.yml` 只在 `vX.Y.Z` tag 时运行，校验 tag、发布说明与版本号后构建签名包。流程见 [RELEASING.md](RELEASING.md)。
+**发布** — 根仓库的 `ci.yml` 在每次 push / PR 跑 lint、类型检查、测试、内核契约校验和 Android 单测；`release-studio.yml` 只在 `vX.Y.Z` tag 时运行，校验 tag、发布说明与版本号后构建并签名 APK。流程见 [RELEASING.md](RELEASING.md)。
+
+原生冒烟测试需要模拟器或真机（`cd android && ./gradlew :app:connectedDebugAndroidTest`）；它不进入根仓库 CI，改 Android 原生代码时请本地跑一次。
 
 更多文档：[交接与决策](docs/HANDOFF.md)、[自建与排障](docs/SELF_HOST.md)、[已知限制](docs/KNOWN_LIMITATIONS.md)、[发版流程](RELEASING.md)。
 

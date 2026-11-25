@@ -6,8 +6,8 @@
 
 ## 日常
 
-- 每个 push / PR 只跑 CI：Web 类型检查、全量测试、构建，Android 单测和 debug APK。
-- CI 的 APK 是**测试产物**，14 天后过期，不是 Release。
+- 每个 push / PR 只跑 CI：Web 类型检查、全量测试、构建、内核契约校验和 Android 单测。
+- CI 不产出 APK；需要安装包时本地 `assembleDebug`，或从 Release 下载签名版。
 - 修 bug、加小功能：只提交，不升版本、不打 tag、不发 Release。
 - 多个改动攒到一次发版；发版由人明确决定。
 

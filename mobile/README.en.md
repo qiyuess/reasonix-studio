@@ -75,7 +75,7 @@ Under Settings → Preferences → Notifications you can switch, separately: the
 
 > Moving from an early debug test build to a stable build needs one uninstall first, because the two are signed differently. Uninstalling clears pairing data and saved connections; scan the QR code again after reinstalling.
 
-**CI test builds** — Every push and pull request builds a debug APK: open the [CI workflow](https://github.com/qiyuess/reasonix-studio/actions/workflows/ci.yml), pick the most recent successful run, and download `reasonix-for-android-debug` from Artifacts. These carry the debug signature and are meant for trying things out and development.
+**CI test builds** — The root CI runs lint, type checking, tests, the kernel wire check and Android unit tests on every push and pull request; it no longer uploads an APK. To try a build on a device, build a debug package locally as described under Development, or install a signed build from Releases.
 
 **Command line** — `adb install -r app-debug.apk`
 
@@ -110,7 +110,9 @@ The artifact lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 **Layout** — `src/app/` app shell and link state machine · `src/chat/` transcript folding and composer · `src/net/` kernel, proxy and relay clients · `src/native/` Capacitor plugin bridge · `src/wire/` kernel contract types · `src/ui/` design tokens and styles · `android/` Capacitor shell and native plugins · `fixtures/wire/` contract samples shared by Vitest and JUnit · `docs/` handoff notes and rendered screenshots.
 
-**Releases** — `ci.yml` runs lint, type checking, tests and a debug APK on every push and pull request (an artifact, not a release); `release.yml` runs only on a `vX.Y.Z` tag, validates the tag, release notes and version numbers, then builds and signs the package. See [RELEASING.md](RELEASING.md).
+**Releases** — The root `ci.yml` runs lint, type checking, tests, the kernel wire check and Android unit tests on every push and pull request; `release-studio.yml` runs only on a `vX.Y.Z` tag, validates the tag, release notes and version numbers, then builds and signs the APK. See [RELEASING.md](RELEASING.md).
+
+The native smoke test needs an emulator or device (`cd android && ./gradlew :app:connectedDebugAndroidTest`). It is not part of root CI; run it locally when changing Android native code.
 
 More documentation: [handoff and decisions](docs/HANDOFF.md), [self-hosting and troubleshooting](docs/SELF_HOST.md), [known limitations](docs/KNOWN_LIMITATIONS.md), [release process](RELEASING.md).
 
