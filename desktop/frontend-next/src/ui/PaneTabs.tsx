@@ -1,5 +1,5 @@
 import { StudioIcon } from "./StudioIcon";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../i18n";
 import type { RuntimeView } from "../port/hub";
 import { arrowTabs } from "./tablist";
@@ -28,6 +28,21 @@ interface Props {
 
 export function PaneTabs({ tabs, active, showRoot, onFocus, onClose, onRename }: Props) {
   const bar = useRef<HTMLDivElement>(null);
+  // The workbench column starts at the pane's top, but this strip is a sibling
+  // above the panes. Its measured height is what lets the docked browser rise
+  // back to that top instead of showing an empty band under the window bar.
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const sync = () => document.documentElement.style.setProperty("--panetabs-h", `${el.offsetHeight}px`);
+    sync();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync);
+    observer?.observe(el);
+    return () => {
+      observer?.disconnect();
+      document.documentElement.style.removeProperty("--panetabs-h");
+    };
+  }, []);
   const mark = useMarker(bar, '.ptab[aria-selected="true"]', "x", [active, tabs.length]);
   // id + 屏幕坐标：页签条是横向滚动容器，overflow 会把 absolute 定位的菜单
   // 裁掉（点了像没反应），所以菜单挂在 fixed 上，位置由触发点决定。
